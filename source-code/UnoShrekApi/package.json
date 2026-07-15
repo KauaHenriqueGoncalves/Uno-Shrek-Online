@@ -1,0 +1,21 @@
+{
+  "name": "uno-shrek-api",
+  "version": "0.0.1",
+  "description": "Api game Shrek",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "authors": "Kauã\nRodrigo\nDavi\nPedro",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "express": "^5.2.1",
+    "mongoose": "^9.7.4",
+    "morgan": "^1.11.0",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3"
+  }
+}
