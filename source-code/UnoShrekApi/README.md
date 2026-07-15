@@ -11,6 +11,7 @@ UnoShrekApi/
 ├── config/           Configurações gerais da aplicação (ex: conexão com banco de dados)
 ├── controller/       Camada responsável por receber as requisições HTTP e retornar respostas
 ├── repository/       Camada responsável pelo acesso direto ao banco de dados
+├── dtos/             Camada responsável pelo tratamento de entrada/saida de dados, utilizando o Zod
 ├── schema/           Definição dos schemas/modelos utilizados no MongoDB
 ├── service/          Camada de regras de negócio, entre o controller e o repository
 ├── .env              Variáveis de ambiente utilizadas localmente (não versionado)
@@ -30,6 +31,7 @@ UnoShrekApi/
 - Morgan
 - Pino
 - Pino-Pretty
+- Zod
 
 ## Pré-requisitos
 
