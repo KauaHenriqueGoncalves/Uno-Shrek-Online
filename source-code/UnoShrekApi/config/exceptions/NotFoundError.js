@@ -1,4 +1,4 @@
-import { AppError } from "./AppError";
+import { AppError } from "./AppError.js";
 
 export class NotFoundError extends AppError {
   constructor(message = "Item Not Found") {

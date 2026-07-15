@@ -29,6 +29,7 @@ export default class App {
 
   middlewares() {
     try {
+      this.express.use(express.json());
       this.express.use(morgan("dev"));
       this.log.info("Morgan is working to loggind middleware.");
     } catch (error) {
