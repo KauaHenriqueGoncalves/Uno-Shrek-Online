@@ -1,5 +1,12 @@
-export default class PlayerRepository {
+import CrudRepository from "./CrudRepository.js";
+import mongoose from "mongoose";
+
+export default class PlayerRepository extends CrudRepository {
   constructor(schema) {
-    this.schema = schema;
+    super(schema);
+  }
+
+  async getByEmail(email, session = null) {
+    return await this.schema.findOne({ email }).session(session);
   }
 }

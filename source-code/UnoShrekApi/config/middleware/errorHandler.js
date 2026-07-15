@@ -15,7 +15,7 @@ export default function errorHandler(err, req, res, next) {
   }
 
   // erro not mapped
-  log.error("Unhandled error", { err });
+  log.error({ err }, "Unhandled error");
   res.status(500).json({
     status: "error",
     message: "Internal Server Error",
