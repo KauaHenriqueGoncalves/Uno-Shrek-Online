@@ -1,51 +1,87 @@
 import PlayerRepository from "./../repository/PlayerRepository.js";
+import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
-import { z } from "zod";
+import { CreatePlayerRequestDto } from "../dtos/request/CreatePlayerRequestDto.js";
+import { UpdatePlayerRequestDto } from "../dtos/request/UpdatePlayerRequestDto.js";
+import { parseOrThrow } from "./../config/utils/validate.js";
 import mongoose from "mongoose";
-import { IlegalInputError } from "../config/exceptions/IlegalInputError.js";
 
 export default class PlayerService {
   constructor(schema) {
     this.playerRepository = new PlayerRepository(schema);
+    this.log = PinoGlobal.getInstance();
   }
 
-  //
-  //  TODO: MELHORAR O TRATAMENTO DO INPUT
-  //
-
-  static playerValidation = z.object({
-    name: z.string().trim().min(3).max(50),
-    age: z.number().int().min(1).max(120),
-    email: z.email(),
-  });
+  async getAll() {
+    const players = await this.playerRepository.getAll();
+    return players;
+  }
 
   async getById(id) {
     const player = await this.playerRepository.getById(id);
     if (!player) {
+      this.log.warn({ playerId: id }, "Player not found");
       throw new NotFoundError("Player not found");
     }
     return player;
   }
 
   async create(data) {
-    this.validatePlayer(data);
-    const isExistEmail = await this.playerRepository.getByEmail(data.email);
+    const validData = parseOrThrow(CreatePlayerRequestDto, data);
+    const isExistEmail = await this.playerRepository.getByEmail(
+      validData.email,
+    );
     if (isExistEmail) {
+      this.log.warn(
+        { email: validData.email },
+        "Attempt to create player with existing email",
+      );
       throw new BusinessError("Email already exists");
     }
-    return await this.playerRepository.create(data);
+    const player = await this.playerRepository.create(validData);
+    this.log.info(
+      { playerId: player._id.toString(), email: player.email },
+      "Player created",
+    );
+    return player;
   }
 
-  async update(id, data) {}
-
-  async deleteById(id) {}
-
-  validatePlayer(data) {
-    const result = PlayerService.playerValidation.safeParse(data);
-    if (!result.success) {
-      throw new IlegalInputError("Player input is not valid");
+  async update(id, data) {
+    const validData = parseOrThrow(UpdatePlayerRequestDto, data);
+    const player = await this.playerRepository.getById(id);
+    if (!player) {
+      this.log.warn({ playerId: id }, "Attempt to update non-existing player");
+      throw new NotFoundError("Player not found");
     }
-    return result.data;
+    if (validData.email && validData.email !== player.email) {
+      const existingEmail = await this.playerRepository.getByEmail(
+        validData.email,
+      );
+      if (existingEmail) {
+        this.log.warn(
+          { playerId: id, email: validData.email },
+          "Attempt to update player with existing email",
+        );
+        throw new BusinessError("Email already exists");
+      }
+    }
+    const updatedPlayer = await this.playerRepository.update(id, validData);
+    this.log.info(
+      { playerId: id, fields: Object.keys(validData) },
+      "Player updated",
+    );
+    return updatedPlayer;
+  }
+
+  async deleteById(id) {
+    const player = await this.playerRepository.getById(id);
+    if (!player) {
+      this.log.warn({ playerId: id }, "Attempt to delete non-existing player");
+      throw new NotFoundError("Player not found");
+    }
+    const deleted = await this.playerRepository.deleteById(id);
+    this.log.info({ playerId: id }, "Player deleted");
+    return deleted;
   }
 }
