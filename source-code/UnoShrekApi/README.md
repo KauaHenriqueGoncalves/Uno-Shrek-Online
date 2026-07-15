@@ -22,6 +22,8 @@ UnoShrekApi/
 
 ## Tecnologias Utilizadas
 
+(passível de mudanças)
+
 - Node.js
 - Express
 - Mongoose
@@ -40,6 +42,8 @@ O projeto utiliza um arquivo `.env` para armazenar as variáveis de ambiente. Um
 Crie um arquivo `.env` na raiz do projeto com o seguinte conteúdo, ajustando os valores conforme o seu ambiente:
 
 ```dotenv
+(passível de mudanças)
+
 API_PORT=3000
 MONGODB_USER=admin
 MONGODB_PASSWORD=admin123
