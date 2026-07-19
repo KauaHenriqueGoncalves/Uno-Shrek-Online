@@ -8,7 +8,7 @@ export default class GameRepository extends CrudRepository {
 
     async findByStatus(status, { session = null, limit = 0 } = {}) {
         // Usamos find para retornar todos que correspondem ao critério
-        const query = this.model.find({ status });
+        const query = this.schema.find({ status });
 
         if (session) {
             query.session(session);
