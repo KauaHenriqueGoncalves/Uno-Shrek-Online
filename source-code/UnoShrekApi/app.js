@@ -1,5 +1,6 @@
 import express from "express";
 import morgan from "morgan";
+import cors from "cors";
 import PinoGlobal from "./config/logger/PinoGlobal.js";
 import HealthController from "./controller/HealthController.js";
 import MongoDb from "./config/database/MongoDb.js";
@@ -10,6 +11,7 @@ import PlayerController from "./controller/PlayerController.js";
 import GameService from "./service/GameService.js";
 import Game from "./schema/Game.js";
 import GameController from "./controller/GameController.js";
+
 
 export default class App {
   constructor() {
@@ -32,6 +34,7 @@ export default class App {
 
   middlewares() {
     try {
+      this.express.use(cors({ origin: process.env.FRONTEND_URL ?? "*"}));
       this.express.use(express.json());
       this.express.use(morgan("dev"));
       this.log.info("Morgan is working to loggind middleware.");
