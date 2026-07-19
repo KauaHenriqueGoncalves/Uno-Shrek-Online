@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const GAME_STATUS = {
+export const GAME_STATUS = {
   PENDING: "pending",
   ACTIVE: "active",
   FINISHED: "finished",
