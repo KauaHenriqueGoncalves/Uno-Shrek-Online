@@ -7,6 +7,9 @@ import errorHandler from "./config/middleware/errorHandler.js";
 import PlayerService from "./service/PlayerService.js";
 import Player from "./schema/Player.js";
 import PlayerController from "./controller/PlayerController.js";
+import ScorePlayer from "./schema/ScorePlayer.js";
+import ScorePlayerService from "./service/ScorePlayerService.js";
+import ScorePlayerController from "./controller/ScorePlayerController.js";
 
 export default class App {
   constructor() {
@@ -33,7 +36,10 @@ export default class App {
       this.express.use(morgan("dev"));
       this.log.info("Morgan is working to loggind middleware.");
     } catch (error) {
-      this.log.error({ err: error }, "It was not possible to use Morgan for logging.");
+      this.log.error(
+        { err: error },
+        "It was not possible to use Morgan for logging.",
+      );
     }
   }
 
@@ -42,23 +48,38 @@ export default class App {
       this.express.use(errorHandler);
       this.log.info("Error Middleware is working.");
     } catch (error) {
-      this.log.error({ err: error }, "It was not possible to use error handler middleware.");
+      this.log.error(
+        { err: error },
+        "It was not possible to use error handler middleware.",
+      );
     }
   }
 
   dependecies() {
     this.healthController = new HealthController();
+
     const playerService = new PlayerService(Player);
     this.playerController = new PlayerController(playerService);
+
+    const scorePlayerService = new ScorePlayerService(
+      ScorePlayer,
+      playerService,
+      null,
+    ); // TODO: retirar o null quando colocar o gameService
+    this.scorePlayerController = new ScorePlayerController(scorePlayerService);
   }
 
   controllers() {
     try {
       this.express.use("/api/health", this.healthController.routers);
       this.express.use("/api/players", this.playerController.routers);
+      this.express.use("/api/scores", this.scorePlayerController.routers);
       this.log.info("Established routes");
     } catch (error) {
-      this.log.error({ err: error }, "The routers from controller isn't working correctly.");
+      this.log.error(
+        { err: error },
+        "The routers from controller isn't working correctly.",
+      );
     }
   }
 }

@@ -8,3 +8,10 @@ export function parseOrThrow(schema, data) {
   }
   return result.data;
 }
+
+export const objectIdMongo = z
+  .string()
+  .trim()
+  .refine((val) => mongoose.Types.ObjectId.isValid(val), {
+    message: "Invalid id format",
+  });
