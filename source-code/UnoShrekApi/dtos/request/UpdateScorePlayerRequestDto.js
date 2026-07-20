@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdMongo } from "../../config/utils/validate";
+import { objectIdMongo } from "../../config/utils/validate.js";
 
 const baseFields = {
   playerId: objectIdMongo,

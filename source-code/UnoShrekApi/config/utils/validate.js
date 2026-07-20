@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { IlegalInputError } from "./../exceptions/IlegalInputError.js";
 import mongoose from "mongoose";
 
