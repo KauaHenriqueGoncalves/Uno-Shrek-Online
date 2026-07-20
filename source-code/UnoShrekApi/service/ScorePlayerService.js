@@ -34,7 +34,23 @@ export default class ScorePlayerService {
     this.log.info(
       `Creating a scorePlayer. [playerId=${validData.playerId}] [gameId=${validData.gameId}]`,
     );
-    await this.playerService.getById(validData.playerId);
+    const player = await this.playerService.getById(validData.playerId);
+    if (!player) {
+      this.log.warn(
+        { playerId: validData.playerId },
+        "PlayerId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Player not found");
+    }
+    // TODO: Tirar comentario quando subir o GameService na Main
+    // const game = await this.gameService.getById(validData.gameId);
+    // if (!game) {
+    //   this.log.warn(
+    //     { gameId: validData.gameId },
+    //     "gameId not found to create a scorePlayer",
+    //   );
+    //   throw new NotFoundError("Game not found");
+    // }
     const score = await this.scorePlayerRepository.create(validData);
     this.log.info(
       `Create ScorePlayer success. [playerId=${validData.playerId}] [gameId=${validData.gameId}]`,
@@ -53,13 +69,24 @@ export default class ScorePlayerService {
       );
       throw new NotFoundError("ScorePlayer not found");
     }
-    if (validData.playerId) {
-      await this.playerService.getById(validData.playerId);
+    const player = await this.playerService.getById(validData.playerId);
+    if (!player) {
+      this.log.warn(
+        { playerId: validData.playerId },
+        "PlayerId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Player not found");
     }
-    const updatedScore = await this.scorePlayerRepository.update(
-      id,
-      validData,
-    );
+    // TODO: Tirar comentario quando subir o GameService na Main
+    // const game = await this.gameService.getById(validData.gameId);
+    // if (!game) {
+    //   this.log.warn(
+    //     { gameId: validData.gameId },
+    //     "gameId not found to create a scorePlayer",
+    //   );
+    //   throw new NotFoundError("Game not found");
+    // }
+    const updatedScore = await this.scorePlayerRepository.update(id, validData);
     this.log.info(
       { scorePlayerId: id, fields: Object.keys(validData) },
       "ScorePlayer updated",
