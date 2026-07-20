@@ -2,8 +2,8 @@ import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
-import CreateScorePlayerRequestDto from "./../dtos/request/CreateScorePlayerRequestDto.js";
-import UpdateScorePlayerRequestDto from "./../dtos/request/UpdateScorePlayerRequesDto.js";
+import { CreateScorePlayerRequestDto } from "./../dtos/request/CreateScorePlayerRequestDto.js";
+import { UpdateScorePlayerRequestDto } from "./../dtos/request/UpdateScorePlayerRequesDto.js";
 import mongoose from "mongoose";
 import ScorePlayerRepository from "../repository/ScorePlayerRepository.js";
 

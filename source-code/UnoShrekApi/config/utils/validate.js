@@ -1,4 +1,5 @@
 import { IlegalInputError } from "./../exceptions/IlegalInputError.js";
+import { z } from "zod";
 import mongoose from "mongoose";
 
 export function parseOrThrow(schema, data) {
