@@ -1,4 +1,5 @@
 import { IlegalInputError } from "./../exceptions/IlegalInputError.js";
+import mongoose from "mongoose";
 
 export function parseOrThrow(schema, data) {
   const result = schema.safeParse(data);
