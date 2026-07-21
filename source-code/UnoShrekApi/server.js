@@ -13,14 +13,8 @@ class Server {
   async start() {
     try {
       await this.app.init();
-
-      // Create an HTTP server wrapping Express.
-      // Socket.IO will attach to this same sever, sharing port and connection.
       this.httpServer = createServer(this.app.express);
-
-      // Boot Socket.IO server and attach to the HTTP server.
       initSockets(this.httpServer);
-
       this.httpServer.listen(this.port, () => {
         this.log.info(
           `Started Application - Available in host http://localhost:${this.port}`,

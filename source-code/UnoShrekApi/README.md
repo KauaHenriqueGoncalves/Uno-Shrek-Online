@@ -17,8 +17,6 @@ O backend é construído em uma **arquitetura em três camadas** (apresentação
 - [Executando o projeto](#executando-o-projeto)
 - [Endpoints da API](#endpoints-da-api)
 - [Tratamento de erros](#tratamento-de-erros)
-- [Coleção do Postman](#coleção-do-postman)
-- [Status de implementação](#status-de-implementação)
 - [Autores](#autores)
 
 ## Sobre o projeto
@@ -34,25 +32,26 @@ O objetivo é oferecer uma API REST que sustente uma versão digital do UNO, per
 
 O projeto segue uma **arquitetura em três camadas**, mantendo cada responsabilidade isolada e modularizada:
 
-- **Apresentação (`controller/`)** — recebe as requisições HTTP, delega para a camada de serviço e devolve as respostas.
-- **Lógica de negócio (`service/`)** — validações, regras do jogo e orquestração entre as demais camadas.
-- **Acesso a dados (`repository/` e `schema/`)** — abstrai o acesso ao banco de dados através do ORM (Mongoose), com um `CrudRepository` genérico reaproveitado pelos repositórios específicos.
+- **Apresentação (`controller/`)** - recebe as requisições HTTP, delega para a camada de serviço e devolve as respostas.
+- **Lógica de negócio (`service/`)** - validações, regras do jogo e orquestração entre as demais camadas.
+- **Acesso a dados (`repository/` e `schema/`)** - abstrai o acesso ao banco de dados através do ORM (Mongoose), com um `CrudRepository` genérico reaproveitado pelos repositórios específicos.
 
 Camadas auxiliares:
 
-- **`dtos/`** — validação e formatação de entrada/saída usando **Zod** (request DTOs validam o payload recebido; response DTOs padronizam o retorno da API).
-- **`config/`** — configuração de banco de dados, logger, middlewares e exceções customizadas da aplicação.
+- **`dtos/`** - validação e formatação de entrada/saída usando **Zod** (request DTOs validam o payload recebido; response DTOs padronizam o retorno da API).
+- **`config/`** - configuração de banco de dados, logger, middlewares e exceções customizadas da aplicação.
 
 ## Tecnologias utilizadas
 
 - [Node.js](https://nodejs.org/) (uso de módulos ES e `--env-file`)
-- [Express](https://expressjs.com/) — framework HTTP
-- [Mongoose](https://mongoosejs.com/) — ORM/ODM para MongoDB
-- [MongoDB](https://www.mongodb.com/) — banco de dados de documentos
-- [Zod](https://zod.dev/) — validação de schemas (DTOs)
-- [Morgan](https://github.com/expressjs/morgan) — logging de requisições HTTP
-- [Pino](https://getpino.io/) / Pino-Pretty — logging estruturado da aplicação
-- [Docker Compose](https://docs.docker.com/compose/) — orquestração do banco de dados em ambiente local
+- [Express](https://expressjs.com/) - framework HTTP
+- [Mongoose](https://mongoosejs.com/) - ORM/ODM para MongoDB
+- [MongoDB](https://www.mongodb.com/) - banco de dados de documentos
+- [Zod](https://zod.dev/) - validação de schemas (DTOs)
+- [Morgan](https://github.com/expressjs/morgan) - logging de requisições HTTP
+- [Pino](https://getpino.io/) / Pino-Pretty - logging estruturado da aplicação
+- [Cors](https://getpino.io/)  - dependencia para configuração do cors
+- [Docker Compose](https://docs.docker.com/compose/) - orquestração do banco de dados em ambiente local
 
 ## Estrutura de pastas
 
@@ -139,81 +138,6 @@ Para verificar se a API está no ar, use o endpoint de health check:
 curl http://localhost:3000/api/health
 ```
 
-## Endpoints da API
-
-Todas as rotas abaixo têm como prefixo `http://localhost:{API_PORT}`.
-
-### Health Check
-
-| Método | Rota          | Descrição                     |
-|--------|---------------|--------------------------------|
-| GET    | `/api/health` | Verifica se a API está no ar   |
-
-### Jogadores (`/api/players`)
-
-| Método | Rota                | Descrição                        |
-|--------|---------------------|------------------------------------|
-| GET    | `/api/players`      | Lista todos os jogadores          |
-| GET    | `/api/players/:id`  | Busca um jogador pelo ID          |
-| POST   | `/api/players`      | Cria um novo jogador              |
-| PUT    | `/api/players/:id`  | Atualiza os dados de um jogador   |
-| DELETE | `/api/players/:id`  | Remove um jogador                 |
-
-**Exemplo de requisição — `POST /api/players`**
-
-```json
-{
-  "name": "João Silva",
-  "age": 25,
-  "email": "joao.silva@email.com"
-}
-```
-
-**Exemplo de resposta (201 Created)**
-
-```json
-{
-  "id": "65432abc1234def567890ab",
-  "name": "João Silva",
-  "age": 25,
-  "email": "joao.silva@email.com",
-  "createdAt": "2026-07-18T12:00:00.000Z"
-}
-```
-
-### Jogos (`/api/games`)
-
-| Método | Rota              | Descrição                    |
-|--------|-------------------|-------------------------------|
-| GET    | `/api/games/:id`  | Busca um jogo pelo ID         |
-| POST   | `/api/games`      | Cria um novo jogo             |
-| PUT    | `/api/games/:id`  | Atualiza os dados de um jogo  |
-| DELETE | `/api/games/:id`  | Remove um jogo                |
-
-> ⚠️ Endpoints planejados na especificação do projeto — implementação em andamento (ver [Status de implementação](#status-de-implementação)).
-
-### Cartas (`/api/cards`)
-
-| Método | Rota              | Descrição                                              |
-|--------|-------------------|----------------------------------------------------------|
-| GET    | `/api/cards/:id`  | Busca uma carta pelo ID                                  |
-| POST   | `/api/cards`      | Cria uma carta (o baralho é inicializado automaticamente na primeira execução) |
-| PUT    | `/api/cards/:id`  | Atualiza os dados de uma carta                            |
-| DELETE | `/api/cards/:id`  | Remove uma carta                                          |
-
-> ⚠️ Endpoints planejados na especificação do projeto — implementação em andamento (ver [Status de implementação](#status-de-implementação)).
-
-### Histórico de pontuações (`/api/scores`)
-
-| Método | Rota               | Descrição                              |
-|--------|--------------------|------------------------------------------|
-| GET    | `/api/scores/:id`  | Busca um registro de pontuação pelo ID  |
-| POST   | `/api/scores`      | Registra uma nova pontuação             |
-| PUT    | `/api/scores/:id`  | Atualiza um registro de pontuação       |
-| DELETE | `/api/scores/:id`  | Remove um registro de pontuação         |
-
-> ⚠️ Endpoints planejados na especificação do projeto — implementação em andamento (ver [Status de implementação](#status-de-implementação)).
-
 ## Tratamento de erros
 
 A API centraliza o tratamento de erros em um middleware global (`config/middleware/errorHandler.js`), que padroniza as respostas de erro:
@@ -227,25 +151,6 @@ A API centraliza o tratamento de erros em um middleware global (`config/middlewa
 ```
 
 Erros de negócio (`NotFoundError`, `BusinessError`, `IlegalInputError`, `DatabaseConnectionError`, etc.) retornam o código HTTP apropriado; erros não mapeados retornam `500 Internal Server Error`.
-
-## Coleção do Postman
-
-Uma coleção do Postman com requisições de exemplo para cada endpoint da API deve ser disponibilizada no diretório do projeto (ex.: `postman/UnoShrek.postman_collection.json`) para facilitar os testes manuais do backend.
-
-> ⚠️ A coleção ainda não está incluída neste repositório — pendente de criação (ver [Status de implementação](#status-de-implementação)).
-
-## Status de implementação
-
-| Requisito                                   | Status                  |
-|----------------------------------------------|--------------------------|
-| CRUD de Jogadores (`/api/players`)           | ✅ Implementado           |
-| CRUD de Jogos (`/api/games`)                 | 🚧 Pendente               |
-| CRUD de Cartas (`/api/cards`)                | 🚧 Pendente               |
-| CRUD de Histórico de Pontuações (`/api/scores`) | 🚧 Pendente            |
-| Arquitetura em três camadas                  | ✅ Implementado           |
-| Uso de ORM (Mongoose)                        | ✅ Implementado           |
-| Banco de dados (MongoDB)                     | ✅ Implementado           |
-| Coleção Postman                              | 🚧 Pendente               |
 
 ## Autores
 
