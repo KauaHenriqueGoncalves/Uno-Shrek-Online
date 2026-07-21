@@ -1,5 +1,6 @@
 import express from "express";
 import morgan from "morgan";
+import cors from "cors";
 import PinoGlobal from "./config/logger/PinoGlobal.js";
 import HealthController from "./controller/HealthController.js";
 import MongoDb from "./config/database/MongoDb.js";
@@ -10,6 +11,9 @@ import PlayerController from "./controller/PlayerController.js";
 import ScorePlayer from "./schema/ScorePlayer.js";
 import ScorePlayerService from "./service/ScorePlayerService.js";
 import ScorePlayerController from "./controller/ScorePlayerController.js";
+import GameService from "./service/GameService.js";
+import Game from "./schema/Game.js";
+import GameController from "./controller/GameController.js";
 
 export default class App {
   constructor() {
@@ -32,6 +36,7 @@ export default class App {
 
   middlewares() {
     try {
+      this.express.use(cors({ origin: process.env.FRONTEND_URL ?? "*"}));
       this.express.use(express.json());
       this.express.use(morgan("dev"));
       this.log.info("Morgan is working to loggind middleware.");
@@ -61,11 +66,14 @@ export default class App {
     const playerService = new PlayerService(Player);
     this.playerController = new PlayerController(playerService);
 
+    const gameService = new GameService(Game);
+    this.gameController = new GameController(gameService);
+
     const scorePlayerService = new ScorePlayerService(
       ScorePlayer,
       playerService,
-      null,
-    ); // TODO: retirar o null quando colocar o gameService
+      gameService,
+    );
     this.scorePlayerController = new ScorePlayerController(scorePlayerService);
   }
 
@@ -73,6 +81,7 @@ export default class App {
     try {
       this.express.use("/api/health", this.healthController.routers);
       this.express.use("/api/players", this.playerController.routers);
+      this.express.use("/api/games", this.gameController.routers);
       this.express.use("/api/scores", this.scorePlayerController.routers);
       this.log.info("Established routes");
     } catch (error) {
