@@ -5,16 +5,16 @@ const scorePlayerSchema = new mongoose.Schema(
     playerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Player",
-      required: [true, "id of player is required"],
+      required: [true, "Id of player is required"],
     },
     gameId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Game",
-      required: [false, "id of game is required"], // TODO: trocar pra true quando tiver a entidade game na main
+      required: [true, "Id of game is required"],
     },
     score: {
       type: Number,
-      required: [true, "score is required"],
+      required: [true, "Score is required"],
     },
   },
   {
