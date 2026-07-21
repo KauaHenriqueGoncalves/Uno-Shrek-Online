@@ -9,7 +9,7 @@ export default class ScorePlayerService {
   constructor(schema, playerService, gameService) {
     this.scorePlayerRepository = new ScorePlayerRepository(schema);
     this.playerService = playerService;
-    this.gameService = gameService; // TODO: Ainda vai subir na MAIN
+    this.gameService = gameService;
     this.log = PinoGlobal.getInstance();
   }
 
@@ -42,15 +42,14 @@ export default class ScorePlayerService {
       );
       throw new NotFoundError("Player not found");
     }
-    // TODO: Tirar comentario quando subir o GameService na Main
-    // const game = await this.gameService.getById(validData.gameId);
-    // if (!game) {
-    //   this.log.warn(
-    //     { gameId: validData.gameId },
-    //     "gameId not found to create a scorePlayer",
-    //   );
-    //   throw new NotFoundError("Game not found");
-    // }
+    const game = await this.gameService.getById(validData.gameId);
+    if (!game) {
+      this.log.warn(
+        { gameId: validData.gameId },
+        "gameId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Game not found");
+    }
     const score = await this.scorePlayerRepository.create(validData);
     this.log.info(
       `Create ScorePlayer success. [playerId=${validData.playerId}] [gameId=${validData.gameId}]`,
@@ -77,15 +76,14 @@ export default class ScorePlayerService {
       );
       throw new NotFoundError("Player not found");
     }
-    // TODO: Tirar comentario quando subir o GameService na Main
-    // const game = await this.gameService.getById(validData.gameId);
-    // if (!game) {
-    //   this.log.warn(
-    //     { gameId: validData.gameId },
-    //     "gameId not found to create a scorePlayer",
-    //   );
-    //   throw new NotFoundError("Game not found");
-    // }
+    const game = await this.gameService.getById(validData.gameId);
+    if (!game) {
+      this.log.warn(
+        { gameId: validData.gameId },
+        "gameId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Game not found");
+    }
     const updatedScore = await this.scorePlayerRepository.update(id, validData);
     this.log.info(
       { scorePlayerId: id, fields: Object.keys(validData) },

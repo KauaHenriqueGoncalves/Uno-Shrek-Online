@@ -8,12 +8,12 @@ import errorHandler from "./config/middleware/errorHandler.js";
 import PlayerService from "./service/PlayerService.js";
 import Player from "./schema/Player.js";
 import PlayerController from "./controller/PlayerController.js";
-import ScorePlayer from "./schema/ScorePlayer.js";
-import ScorePlayerService from "./service/ScorePlayerService.js";
-import ScorePlayerController from "./controller/ScorePlayerController.js";
 import GameService from "./service/GameService.js";
 import Game from "./schema/Game.js";
 import GameController from "./controller/GameController.js";
+import ScorePlayer from "./schema/ScorePlayer.js";
+import ScorePlayerService from "./service/ScorePlayerService.js";
+import ScorePlayerController from "./controller/ScorePlayerController.js";
 
 export default class App {
   constructor() {
@@ -36,7 +36,7 @@ export default class App {
 
   middlewares() {
     try {
-      this.express.use(cors({ origin: process.env.FRONTEND_URL ?? "*"}));
+      this.express.use(cors({ origin: process.env.FRONTEND_URL ?? "*" }));
       this.express.use(express.json());
       this.express.use(morgan("dev"));
       this.log.info("Morgan is working to loggind middleware.");

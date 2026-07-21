@@ -40,7 +40,7 @@ export default class PlayerController {
   }
 
   async delete(req, res) {
-    const playerDeleted = await this.service.deleteById(req.params.id);
+    await this.service.deleteById(req.params.id);
     return res.status(204).json();
   }
 }

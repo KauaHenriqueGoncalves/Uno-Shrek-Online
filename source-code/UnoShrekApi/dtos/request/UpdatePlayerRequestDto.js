@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const baseFields = {
-  name: z.string().trim().min(3).max(50),
+  username: z.string().trim().min(3).max(50),
   age: z.number().int().min(1).max(120),
   email: z.email(),
 };
