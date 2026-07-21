@@ -36,14 +36,16 @@ export default class App {
 
   middlewares() {
     try {
-      this.express.use(cors({ origin: process.env.FRONTEND_URL ?? "*" }));
       this.express.use(express.json());
       this.express.use(morgan("dev"));
-      this.log.info("Morgan is working to loggind middleware.");
+      this.express.use(
+        cors({ origin: process.env.FRONTEND_URL ?? "*", credentials: true }),
+      );
+      this.log.info("Middlewares configured.");
     } catch (error) {
       this.log.error(
         { err: error },
-        "It was not possible to use Morgan for logging.",
+        "Somethings is wrong in the middleware.",
       );
     }
   }
@@ -51,7 +53,7 @@ export default class App {
   errorMiddlewares() {
     try {
       this.express.use(errorHandler);
-      this.log.info("Error Middleware is working.");
+      this.log.info("Handler error Middleware configured.");
     } catch (error) {
       this.log.error(
         { err: error },
@@ -61,20 +63,29 @@ export default class App {
   }
 
   dependecies() {
-    this.healthController = new HealthController();
+    try {
+      this.healthController = new HealthController();
 
-    const playerService = new PlayerService(Player);
-    this.playerController = new PlayerController(playerService);
+      const playerService = new PlayerService(Player);
+      this.playerController = new PlayerController(playerService);
 
-    const gameService = new GameService(Game);
-    this.gameController = new GameController(gameService);
+      const gameService = new GameService(Game);
+      this.gameController = new GameController(gameService);
 
-    const scorePlayerService = new ScorePlayerService(
-      ScorePlayer,
-      playerService,
-      gameService,
-    );
-    this.scorePlayerController = new ScorePlayerController(scorePlayerService);
+      const scorePlayerService = new ScorePlayerService(
+        ScorePlayer,
+        playerService,
+        gameService,
+      );
+      this.scorePlayerController = new ScorePlayerController(
+        scorePlayerService,
+      );
+    } catch (error) {
+      this.log.error(
+        { err: error },
+        "Somethings is wrong in the dependencies.",
+      );
+    }
   }
 
   controllers() {
