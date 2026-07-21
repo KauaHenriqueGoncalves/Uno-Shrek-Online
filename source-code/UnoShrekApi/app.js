@@ -43,10 +43,7 @@ export default class App {
       );
       this.log.info("Middlewares configured.");
     } catch (error) {
-      this.log.error(
-        { err: error },
-        "Somethings is wrong in the middleware.",
-      );
+      this.log.error({ err: error }, "Somethings is wrong in the middleware.");
     }
   }
 

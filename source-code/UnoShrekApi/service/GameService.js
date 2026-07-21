@@ -14,11 +14,13 @@ export default class GameService {
   }
 
   async getAll() {
+    this.log.info("Getting all games");
     const games = await this.gameRepository.getAll();
     return games;
   }
 
   async getById(id) {
+    this.log.info(`Getting game by id [id=${id}]`);
     const game = await this.gameRepository.getById(id);
     if (!game) {
       this.log.warn({ gameId: id }, "Game not found");
@@ -29,6 +31,9 @@ export default class GameService {
 
   async create(data) {
     const validData = parseOrThrow(CreateGameRequestDto, data);
+    this.log.info(
+      `Creating a game. [title=${validData.title}] [maxPlayers=${validData.maxPlayers}]`,
+    );
     const game = await this.gameRepository.create(validData);
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return game;
@@ -36,18 +41,16 @@ export default class GameService {
 
   async update(id, data) {
     const validData = parseOrThrow(UpdateGameRequestDto, data);
+    this.log.info(`Updating game by id. [id=${id}]`);
     const game = await this.gameRepository.getById(id);
     if (!game) {
       this.log.warn({ gameId: id }, "Attempt to update non-existing game");
       throw new NotFoundError("Game not found");
     }
-
-    // Sugestão de Regra de Negócio: um jogo finalizado não pode mais ser alterado.
     if (game.status === GAME_STATUS.FINISHED) {
       this.log.warn({ gameId: id }, "Attempt to update a finished game");
       throw new BusinessError("Finished games cannot be updated");
     }
-
     const updatedGame = await this.gameRepository.update(id, validData);
     this.log.info(
       { gameId: id, fields: Object.keys(validData) },
@@ -57,18 +60,16 @@ export default class GameService {
   }
 
   async deleteById(id) {
+    this.log.info(`Deleting delete by id. [id=${id}]`);
     const game = await this.gameRepository.getById(id);
     if (!game) {
       this.log.warn({ gameId: id }, "Attempt to delete non-existing game");
       throw new NotFoundError("Game not found");
     }
-
-    // Mesma regra de negócio aplicada na exclusão.
     if (game.status === GAME_STATUS.FINISHED) {
       this.log.warn({ gameId: id }, "Attempt to delete a finished game");
       throw new BusinessError("Finished games cannot be deleted");
     }
-
     const deleted = await this.gameRepository.deleteById(id);
     this.log.info({ gameId: id }, "Game deleted");
     return deleted;
