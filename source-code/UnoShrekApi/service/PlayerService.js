@@ -14,11 +14,13 @@ export default class PlayerService {
   }
 
   async getAll() {
+    this.log.info("Getting all players");
     const players = await this.playerRepository.getAll();
     return players;
   }
 
   async getById(id) {
+    this.log.info(`Getting player by id [id=${id}]`);
     const player = await this.playerRepository.getById(id);
     if (!player) {
       this.log.warn({ playerId: id }, "Player not found");
@@ -29,6 +31,7 @@ export default class PlayerService {
 
   async create(data) {
     const validData = parseOrThrow(CreatePlayerRequestDto, data);
+    this.log.info(`Creating a player. [email=${validData.email}] [username=${validData.name}]`);
     const isExistEmail = await this.playerRepository.getByEmail(
       validData.email,
     );
@@ -49,6 +52,7 @@ export default class PlayerService {
 
   async update(id, data) {
     const validData = parseOrThrow(UpdatePlayerRequestDto, data);
+    this.log.info(`Updating player by id. [id=${id}]`);
     const player = await this.playerRepository.getById(id);
     if (!player) {
       this.log.warn({ playerId: id }, "Attempt to update non-existing player");
@@ -75,6 +79,7 @@ export default class PlayerService {
   }
 
   async deleteById(id) {
+    this.log.info(`Deleting player by id. [id=${id}]`);
     const player = await this.playerRepository.getById(id);
     if (!player) {
       this.log.warn({ playerId: id }, "Attempt to delete non-existing player");
