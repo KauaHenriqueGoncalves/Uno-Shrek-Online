@@ -7,7 +7,6 @@ const GameResponseSchema = z.object({
   status: z.enum(Object.values(GAME_STATUS)),
   maxPlayers: z.number(),
   createdAt: z.date(),
-  updatedAt: z.date(),
 });
 
 export function toGameResponse(game) {
@@ -17,6 +16,5 @@ export function toGameResponse(game) {
     status: game.status,
     maxPlayers: game.maxPlayers,
     createdAt: game.createdAt,
-    updatedAt: game.updatedAt,
   });
 }
