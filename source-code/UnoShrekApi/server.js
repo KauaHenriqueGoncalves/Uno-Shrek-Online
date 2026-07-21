@@ -13,9 +13,9 @@ class Server {
   async start() {
     try {
       await this.app.init();
-      this.httpServer = createServer(this.app.express);
-      initSockets(this.httpServer);
-      this.httpServer.listen(this.port, () => {
+      const httpServer = createServer(this.app.express);
+      initSockets(httpServer);
+      httpServer.listen(this.port, () => {
         this.log.info(
           `Started Application - Available in host http://localhost:${this.port}`,
         );
