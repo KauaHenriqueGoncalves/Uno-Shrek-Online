@@ -11,6 +11,9 @@ import PlayerController from "./controller/PlayerController.js";
 import GameService from "./service/GameService.js";
 import Game from "./schema/Game.js";
 import GameController from "./controller/GameController.js";
+import Card from "./schema/Card.js";
+import CardService from "./service/CardService.js";
+import CardController from "./controller/CardController.js";
 import ScorePlayer from "./schema/ScorePlayer.js";
 import ScorePlayerService from "./service/ScorePlayerService.js";
 import ScorePlayerController from "./controller/ScorePlayerController.js";
@@ -69,6 +72,9 @@ export default class App {
       const gameService = new GameService(Game);
       this.gameController = new GameController(gameService);
 
+      const cardService = new CardService(Card);
+      this.cardController = new CardController(cardService);
+
       const scorePlayerService = new ScorePlayerService(
         ScorePlayer,
         playerService,
@@ -91,6 +97,7 @@ export default class App {
       this.express.use("/api/players", this.playerController.routers);
       this.express.use("/api/games", this.gameController.routers);
       this.express.use("/api/scores", this.scorePlayerController.routers);
+      this.express.use("/api/cards", this.cardController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
