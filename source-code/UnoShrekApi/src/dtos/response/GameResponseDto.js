@@ -1,20 +1,17 @@
-import { z } from "zod";
-import { GAME_STATUS } from "../../schema/Game.js";
+export default class GameResponseDto {
+  constructor(game) {
+    this.id = game._id.toString();
+    this.title = game.title;
+    this.age = game.status;
+    this.email = game.maxPlayers;
+    this.createdAt = game.createdAt;
+  }
 
-const GameResponseSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  status: z.enum(Object.values(GAME_STATUS)),
-  maxPlayers: z.number(),
-  createdAt: z.date(),
-});
+  static fromDocument(game) {
+    return new GameResponseDto(game);
+  }
 
-export function toGameResponse(game) {
-  return GameResponseSchema.parse({
-    id: game._id.toString(),
-    title: game.title,
-    status: game.status,
-    maxPlayers: game.maxPlayers,
-    createdAt: game.createdAt,
-  });
+  static fromDocumentList(games) {
+    return games.map((game) => new GameResponseDto(game));
+  }
 }
