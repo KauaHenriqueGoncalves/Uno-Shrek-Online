@@ -69,6 +69,9 @@ export default class App {
       const gameService = new GameService(Game);
       this.gameController = new GameController(gameService);
 
+      const cardService = new CardService(Card);
+      this.cardController = new CardController(cardService);
+
       const scorePlayerService = new ScorePlayerService(
         ScorePlayer,
         playerService,
@@ -91,6 +94,7 @@ export default class App {
       this.express.use("/api/players", this.playerController.routers);
       this.express.use("/api/games", this.gameController.routers);
       this.express.use("/api/scores", this.scorePlayerController.routers);
+      this.express.use("/api/cards", this.cardController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
