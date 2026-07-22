@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GAME_STATUS } from "../../schema/Game.js";
+import { GAME_STATUS } from "../../../schema/Game.js";
 
 const baseFields = {
   title: z.string().trim().min(3).max(60),
