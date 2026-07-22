@@ -5,6 +5,7 @@
   "main": "./src/server.js",
   "scripts": {
     "start": "node --env-file=.env ./src/server.js",
+    "start::watch": "nodemon --env-file=.env ./src/server.js",
     "test": "jest"
   },
   "keywords": [],
@@ -31,6 +32,7 @@
     "@babel/preset-env": "^8.0.2",
     "babel-jest": "^30.4.1",
     "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
     "supertest": "^7.2.2"
   }
 }
