@@ -16,6 +16,11 @@ export default class CrudRepository {
     return await this.schema.findOne({ _id: id }).session(session);
   }
 
+  async getAllById(ids, session = null) {
+    const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
+    return await this.schema.find({ _id: { $in: validIds } }).session(session);
+  }
+
   async create(data, session = null) {
     const obj = new this.schema(data);
     return await obj.save({ session });
