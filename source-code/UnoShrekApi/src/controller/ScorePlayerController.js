@@ -11,6 +11,7 @@ export default class ScorePlayerController {
   registerRoutes() {
     this.routers.get("/", this.getAll.bind(this));
     this.routers.get("/:id", this.getById.bind(this));
+    this.routers.get("/:id/details", this.getByIdDetails.bind(this));
     this.routers.post("/", this.create.bind(this));
     this.routers.put("/:id", this.update.bind(this));
     this.routers.delete("/:id", this.delete.bind(this));
@@ -25,6 +26,14 @@ export default class ScorePlayerController {
   async getById(req, res) {
     const score = await this.service.getById(req.params.id);
     const response = ScorePlayerResponseDto.fromDocument(score);
+    return res.status(200).json(response);
+  }
+
+  async getByIdDetails(req, res) {
+    const { score, player, game } = await this.service.getByIdDetails(
+      req.params.id,
+    );
+    const response = ScorePlayerResponseDto.fromDetails(score, player, game);
     return res.status(200).json(response);
   }
 

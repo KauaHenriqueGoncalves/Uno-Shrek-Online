@@ -29,6 +29,32 @@ export default class ScorePlayerService {
     return score;
   }
 
+  async getByIdDetails(id) {
+    this.log.info(`Getting scorePlayer by id details [id=${id}]`);
+    const score = await this.scorePlayerRepository.getById(id);
+    if (!score) {
+      this.log.warn({ scorePlayerId: id }, "ScorePlayer not found");
+      throw new NotFoundError("ScorePlayer not found");
+    }
+    const player = await this.playerService.getById(score.playerId);
+    if (!player) {
+      this.log.warn(
+        { playerId: score.playerId },
+        "PlayerId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Player not found");
+    }
+    const game = await this.gameService.getById(score.gameId);
+    if (!game) {
+      this.log.warn(
+        { gameId: score.gameId },
+        "gameId not found to create a scorePlayer",
+      );
+      throw new NotFoundError("Game not found");
+    }
+    return { score, player, game };
+  }
+
   async create(data) {
     const validData = parseOrThrow(CreateScorePlayerRequestDto, data);
     this.log.info(
