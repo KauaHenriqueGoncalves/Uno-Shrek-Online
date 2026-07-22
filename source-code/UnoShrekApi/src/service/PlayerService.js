@@ -2,8 +2,8 @@ import PlayerRepository from "./../repository/PlayerRepository.js";
 import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
-import { CreatePlayerRequestDto } from "../dtos/request/CreatePlayerRequestDto.js";
-import { UpdatePlayerRequestDto } from "../dtos/request/UpdatePlayerRequestDto.js";
+import { CreatePlayerRequestDto } from "../dtos/request/player/CreatePlayerRequestDto.js";
+import { UpdatePlayerRequestDto } from "../dtos/request/player/UpdatePlayerRequestDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 import mongoose from "mongoose";
 

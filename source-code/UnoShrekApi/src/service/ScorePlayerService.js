@@ -1,8 +1,8 @@
 import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
-import { CreateScorePlayerRequestDto } from "./../dtos/request/CreateScorePlayerRequestDto.js";
-import { UpdateScorePlayerRequestDto } from "./../dtos/request/UpdateScorePlayerRequestDto.js";
+import { CreateScorePlayerRequestDto } from "./../dtos/request/score/CreateScorePlayerRequestDto.js";
+import { UpdateScorePlayerRequestDto } from "./../dtos/request/score/UpdateScorePlayerRequestDto.js";
 import ScorePlayerRepository from "../repository/ScorePlayerRepository.js";
 
 export default class ScorePlayerService {
