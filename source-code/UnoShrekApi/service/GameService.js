@@ -2,8 +2,8 @@ import GameRepository from "./../repository/GameRepository.js";
 import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
-import { CreateGameRequestDto } from "../dtos/request/CreateGameRequestDto.js";
-import { UpdateGameRequestDto } from "../dtos/request/UpdateGameRequestDto.js";
+import { CreateGameRequestDto } from "../dtos/request/game/CreateGameRequestDto.js";
+import { UpdateGameRequestDto } from "../dtos/request/game/UpdateGameRequestDto.js";
 import { GAME_STATUS } from "../schema/Game.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 
