@@ -1,5 +1,5 @@
 import express from "express";
-import { toScorePlayerResponse } from "./../dtos/response/ScorePlayerResponseDto.js";
+import ScorePlayerResponseDto from "../dtos/response/ScorePlayerResponseDto.js";
 
 export default class ScorePlayerController {
   constructor(service) {
@@ -18,24 +18,25 @@ export default class ScorePlayerController {
 
   async getAll(req, res) {
     const scores = await this.service.getAll();
-    const response = scores.map((s) => toScorePlayerResponse(s));
+    const response = ScorePlayerResponseDto.fromDocumentList(scores);
     return res.status(200).json(response);
   }
 
   async getById(req, res) {
     const score = await this.service.getById(req.params.id);
-    const response = toScorePlayerResponse(score);
+    const response = ScorePlayerResponseDto.fromDocument(score);
     return res.status(200).json(response);
   }
 
   async create(req, res) {
     const score = await this.service.create(req.body);
-    return res.status(201).json(toScorePlayerResponse(score));
+    const response = ScorePlayerResponseDto.fromDocument(score);
+    return res.status(201).json(response);
   }
 
   async update(req, res) {
     const updatedScore = await this.service.update(req.params.id, req.body);
-    const response = toScorePlayerResponse(updatedScore);
+    const response = ScorePlayerResponseDto.fromDocument(updatedScore);
     return res.status(200).json(response);
   }
 
