@@ -1,5 +1,6 @@
 import { parseOrThrow } from "../config/utils/validate.js";
-import { CreateCardRequestDto, UpdateCardRequestDto } from "../dtos/request/CardRequestDto.js";
+import { CreateCardRequestDto } from "../dtos/request/card/CreateCardRequestDto.js";
+import { UpdateCardRequestDto } from "../dtos/request/card/UpdateCardRequestDto.js";
 import CardResponseDto from "../dtos/response/CardResponseDto.js";
 import NotFoundError from "../config/exceptions/NotFoundError.js";
  
