@@ -1,9 +1,17 @@
-export function toPlayerResponse(player) {
-  return {
-    id: player._id.toString(),
-    username: player.username,
-    age: player.age,
-    email: player.email,
-    createdAt: player.createdAt,
-  };
+export default class PlayerResponseDto {
+  constructor(player) {
+    this.id = player._id.toString();
+    this.username = player.username;
+    this.age = player.age;
+    this.email = player.email;
+    this.createdAt = player.createdAt;
+  }
+
+  static fromDocument(player) {
+    return new PlayerResponseDto(player);
+  }
+
+  static fromDocumentList(players) {
+    return players.map((player) => new PlayerResponseDto(player));
+  }
 }

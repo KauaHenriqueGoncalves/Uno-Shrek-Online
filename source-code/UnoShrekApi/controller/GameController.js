@@ -1,5 +1,5 @@
 import express from "express";
-import { toGameResponse } from "./../dtos/response/GameResponseDto.js";
+import GameResponseDto from "./../dtos/response/GameResponseDto.js";
 
 export default class GameController {
   constructor(service) {
@@ -18,24 +18,25 @@ export default class GameController {
 
   async getAll(req, res) {
     const games = await this.service.getAll();
-    const response = games.map((g) => toGameResponse(g));
+    const response = GameResponseDto.fromDocumentList(games);
     return res.status(200).json(response);
   }
 
   async getById(req, res) {
     const game = await this.service.getById(req.params.id);
-    const response = toGameResponse(game);
+    const response = GameResponseDto.fromDocument(game);
     return res.status(200).json(response);
   }
 
   async create(req, res) {
     const game = await this.service.create(req.body);
-    return res.status(201).json(toGameResponse(game));
+    const response = GameResponseDto.fromDocument(game);
+    return res.status(201).json(response);
   }
 
   async update(req, res) {
     const updatedGame = await this.service.update(req.params.id, req.body);
-    const response = toGameResponse(updatedGame);
+    const response = GameResponseDto.fromDocument(updatedGame);
     return res.status(200).json(response);
   }
 

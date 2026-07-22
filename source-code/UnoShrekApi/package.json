@@ -1,14 +1,20 @@
 {
   "name": "uno-shrek-api",
   "version": "0.0.1",
-  "description": "Api game Shrek",
-  "main": "server.js",
+  "description": "Api Shrek Uno",
+  "main": "./src/server.js",
   "scripts": {
-    "start": "node --env-file=.env server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node --env-file=.env ./src/server.js",
+    "start::watch": "nodemon --env-file=.env ./src/server.js",
+    "test": "jest"
   },
   "keywords": [],
-  "authors": "Kauã\nRodrigo\nDavi\nPedro",
+  "authors": [
+    "Kauã Henrique Gonçalves",
+    "Rodrigo",
+    "Pedro Farias",
+    "Davi Correia"
+  ],
   "license": "ISC",
   "type": "module",
   "dependencies": {
@@ -20,5 +26,13 @@
     "pino-pretty": "^13.1.3",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
+    "babel-jest": "^30.4.1",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

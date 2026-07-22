@@ -5,8 +5,8 @@ import PinoGlobal from "./../logger/PinoGlobal.js";
 
 const log = PinoGlobal.getInstance();
 
-export function parseOrThrow(schema, data) {
-  const result = schema.safeParse(data);
+export function parseOrThrow(zod, data) {
+  const result = zod.safeParse(data);
   if (!result.success) {
     const details = result.error.flatten().fieldErrors;
     log.warn({ fields: details }, "the data is not valid");
