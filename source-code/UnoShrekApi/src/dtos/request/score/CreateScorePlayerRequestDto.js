@@ -1,10 +1,8 @@
 import { z } from "zod";
 import { objectIdMongo } from "../../../config/utils/validate.js";
 
-const baseFields = {
+export const CreateScorePlayerRequestDto = z.object({
   playerId: objectIdMongo,
-  gameId: objectIdMongo.optional(),
+  gameId: objectIdMongo,
   score: z.number().int().positive(),
-};
-
-export const CreateScorePlayerRequestDto = z.object(baseFields);
+});
