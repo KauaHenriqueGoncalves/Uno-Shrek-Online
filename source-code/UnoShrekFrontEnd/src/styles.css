@@ -1,0 +1,249 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1116;
+  --bg-soft: #151a22;
+  --panel: rgba(22, 28, 38, 0.88);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #f3f5f7;
+  --muted: #9aa6b2;
+  --accent: #f8c95c;
+  --accent-strong: #ff8f4d;
+  --success: #45d483;
+  --danger: #ff6b6b;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(248, 201, 92, 0.16), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(255, 143, 77, 0.18), transparent 24%),
+    linear-gradient(180deg, #0b0f14, #10151b 40%, #0b0f14);
+  color: var(--text);
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #1b1103;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button.secondary,
+button.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+}
+
+button.ghost {
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: rgba(10, 14, 20, 0.75);
+  color: var(--text);
+  padding: 0.85rem 0.95rem;
+  outline: none;
+}
+
+input:focus {
+  border-color: rgba(248, 201, 92, 0.5);
+  box-shadow: 0 0 0 3px rgba(248, 201, 92, 0.12);
+}
+
+.page-shell {
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.app-card {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
+
+.hero {
+  padding: 8px 4px 20px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1;
+  max-width: 14ch;
+}
+
+.subtitle {
+  margin: 16px 0 0;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.status-strip,
+.grid,
+.room-list,
+.message-list {
+  display: grid;
+  gap: 16px;
+}
+
+.status-strip {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 18px 0 24px;
+}
+
+.status-strip > div {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-border);
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.grid.split {
+  align-items: start;
+}
+
+.panel {
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--panel-border);
+}
+
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.panel label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hint,
+.empty-state {
+  color: var(--muted);
+}
+
+.hint span {
+  color: var(--accent);
+}
+
+.room-box ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.message-list {
+  margin-top: 10px;
+}
+
+.message {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(8, 12, 18, 0.65);
+  border: 1px solid var(--panel-border);
+}
+
+.message.system {
+  border-color: rgba(69, 212, 131, 0.25);
+}
+
+.message-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.message p {
+  margin: 0;
+}
+
+.room-list {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.room-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+.room-chip small {
+  color: rgba(27, 17, 3, 0.7);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-card {
+    padding: 16px;
+  }
+}
