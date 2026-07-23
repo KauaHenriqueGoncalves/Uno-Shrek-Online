@@ -1,5 +1,5 @@
 import { Router } from "express";
-import CardResponseDto from "../dtos/response/CardResponseDto.js"
+import CardResponseDto from "../dtos/response/CardResponseDto.js";
 
 export default class CardController {
   constructor(cardService) {
@@ -11,6 +11,7 @@ export default class CardController {
   registerRoutes() {
     this.routers.get("/", this.getAll.bind(this));
     this.routers.get("/:id", this.getById.bind(this));
+    this.routers.get("/:id/details", this.getByIdDetails.bind(this));
     this.routers.post("/", this.create.bind(this));
     this.routers.put("/:id", this.update.bind(this));
     this.routers.delete("/:id", this.deleteById.bind(this));
@@ -26,6 +27,12 @@ export default class CardController {
     const card = await this.cardService.getById(req.params.id);
     const response = CardResponseDto.fromDocument(card);
     res.status(200).json(response);
+  }
+
+  async getByIdDetails(req, res) {
+    const { card, game } = await this.cardService.getByIdDetails(req.params.id);
+    const response = CardResponseDto.fromDetails(card, game);
+    return res.status(200).json(response);
   }
 
   async create(req, res) {
