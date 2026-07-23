@@ -28,6 +28,17 @@ export default class CardService {
     return card;
   }
 
+  async getByIdDetails(id) {
+    this.log.info(`Getting card by id details [id=${id}]`);
+    const card = await this.cardRepository.getById(id);
+    if (!card) {
+      this.log.warn({ cardId: id }, "Card not found");
+      throw new NotFoundError(`Card not found.`);
+    }
+    const game = await this.gameService.getById(card.gameId);
+    return { card, game };
+  }
+
   async create(data) {
     const parsed = parseOrThrow(CreateCardRequestDto, data);
     this.log.info(
