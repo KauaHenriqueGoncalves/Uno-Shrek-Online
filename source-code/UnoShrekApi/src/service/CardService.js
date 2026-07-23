@@ -65,13 +65,15 @@ export default class CardService {
       this.log.warn({ cardId: id }, "Card not found");
       throw new NotFoundError("Card not found.");
     }
-    const game = await this.gameService.getById(parsed.gameId);
-    if (!game) {
-      this.log.warn(
-        { gameId: parsed.gameId },
-        "gameId not found to create a card",
-      );
-      throw new NotFoundError("Game not found");
+    if (parsed.gameId) {
+      const game = await this.gameService.getById(parsed.gameId);
+      if (!game) {
+        this.log.warn(
+          { gameId: parsed.gameId },
+          "gameId not found to update a card",
+        );
+        throw new NotFoundError("Game not found");
+      }
     }
     const update = await this.cardRepository.update(id, parsed);
     this.log.info({ cardId: id, fields: Object.keys(parsed) }, "Card updated");
