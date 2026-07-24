@@ -1,4 +1,5 @@
 import express from "express";
+import authMiddleware from "../config/middleware/authMiddleware.js";
 import PlayerResponseDto from "./../dtos/response/PlayerResponseDto.js";
 
 export default class PlayerController {
@@ -10,7 +11,7 @@ export default class PlayerController {
 
   registerRoutes() {
     this.routers.get("/", this.getAll.bind(this));
-    this.routers.get("/:id", this.getById.bind(this));
+    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
     this.routers.post("/", this.create.bind(this));
     this.routers.put("/:id", this.update.bind(this));
     this.routers.delete("/:id", this.delete.bind(this));
