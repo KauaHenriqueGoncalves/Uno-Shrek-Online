@@ -29,6 +29,16 @@ export default class PlayerService {
     return player;
   }
 
+  async getByUsername(username) {
+    this.log.info(`Getting player by username [username=${username}]`);
+    const player = await this.playerRepository.getByUsername(username);
+    if (!player) {
+      this.log.warn({ username: username }, "Player not found");
+      throw new NotFoundError("Player not found");
+    }
+    return player;
+  }
+
   async create(data) {
     const validData = parseOrThrow(CreatePlayerRequestDto, data);
     this.log.info(`Creating a player. [email=${validData.email}] [username=${validData.name}]`);
