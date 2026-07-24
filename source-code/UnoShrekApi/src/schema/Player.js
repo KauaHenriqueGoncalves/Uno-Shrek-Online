@@ -5,6 +5,7 @@ const playerSchema = new mongoose.Schema(
     username: {
       type: String,
       required: [true, "Username is required"],
+      unique: [true, "Username is unique"],
     },
     age: {
       type: Number,
@@ -13,7 +14,7 @@ const playerSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, "Email is required"],
-      unique: [true, "Username is unique"],
+      unique: [true, "Email is unique"],
     },
   },
   {
