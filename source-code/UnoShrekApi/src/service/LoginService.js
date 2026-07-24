@@ -1,13 +1,13 @@
 import { LoginRequestDto } from "../dtos/request/auth/LoginRequestDto.js";
 import { parseOrThrow } from "../config/utils/validate.js";
 import { UnauthorizedError } from "../config/exceptions/UnauthorizedError.js";
-import JwtCoder from "../config/auth/JwtCoder.js";
+import JwtCoder from "../config/jwt/JwtCoder.js";
 import PinoGlobal from "../config/logger/PinoGlobal.js";
 
 export default class LoginService {
   constructor(playerService) {
     this.playerService = playerService;
-    this.jwtCoder = new JwtCoder();
+    this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
   }
 

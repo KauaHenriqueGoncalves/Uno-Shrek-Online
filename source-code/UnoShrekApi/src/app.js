@@ -44,10 +44,13 @@ export default class App {
     try {
       this.express.use(express.json());
       this.express.use(morgan("dev"));
-      this.express.use(
-        cors({ origin: process.env.FRONTEND_URL ?? "*", credentials: true }),
-      );
       this.express.use(cookieParser());
+      this.express.use(
+        cors({
+          origin: process.env.FRONTEND_URL ?? "*",
+          credentials: true,
+        }),
+      );
       this.log.info("Middlewares configured.");
     } catch (error) {
       this.log.error({ err: error }, "Somethings is wrong in the middleware.");
