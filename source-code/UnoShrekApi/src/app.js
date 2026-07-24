@@ -1,4 +1,5 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import cors from "cors";
 import PinoGlobal from "./config/logger/PinoGlobal.js";
@@ -17,6 +18,8 @@ import CardController from "./controller/CardController.js";
 import ScorePlayer from "./schema/ScorePlayer.js";
 import ScorePlayerService from "./service/ScorePlayerService.js";
 import ScorePlayerController from "./controller/ScorePlayerController.js";
+import LoginService from "./service/LoginService.js";
+import AuthController from "./controller/AuthController.js";
 
 export default class App {
   constructor() {
@@ -41,8 +44,12 @@ export default class App {
     try {
       this.express.use(express.json());
       this.express.use(morgan("dev"));
+      this.express.use(cookieParser());
       this.express.use(
-        cors({ origin: process.env.FRONTEND_URL ?? "*", credentials: true }),
+        cors({
+          origin: process.env.FRONTEND_URL ?? "*",
+          credentials: true,
+        }),
       );
       this.log.info("Middlewares configured.");
     } catch (error) {
@@ -83,6 +90,9 @@ export default class App {
       this.scorePlayerController = new ScorePlayerController(
         scorePlayerService,
       );
+
+      const loginService = new LoginService(playerService);
+      this.authController = new AuthController(loginService);
     } catch (error) {
       this.log.error(
         { err: error },
@@ -98,6 +108,7 @@ export default class App {
       this.express.use("/api/games", this.gameController.routers);
       this.express.use("/api/scores", this.scorePlayerController.routers);
       this.express.use("/api/cards", this.cardController.routers);
+      this.express.use("/api/auth", this.authController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
