@@ -6,10 +6,12 @@ import { CreatePlayerRequestDto } from "../dtos/request/player/CreatePlayerReque
 import { UpdatePlayerRequestDto } from "../dtos/request/player/UpdatePlayerRequestDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 import mongoose from "mongoose";
+import JwtCoder from "../config/jwt/JwtCoder.js";
 
 export default class PlayerService {
   constructor(schema) {
     this.playerRepository = new PlayerRepository(schema);
+    this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
   }
 
@@ -29,9 +31,29 @@ export default class PlayerService {
     return player;
   }
 
+  async getByUsername(username) {
+    this.log.info(`Getting player by username [username=${username}]`);
+    const player = await this.playerRepository.getByUsername(username);
+    if (!player) {
+      this.log.warn({ username: username }, "Player not found");
+      throw new NotFoundError("Player not found");
+    }
+    return player;
+  }
+
+  async getByToken(token) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const id = tokenDecode.id;
+    this.log.info(`Getting by own user. [id=${id}]`);
+    const player = await this.getById(id);
+    return player;
+  }
+
   async create(data) {
     const validData = parseOrThrow(CreatePlayerRequestDto, data);
-    this.log.info(`Creating a player. [email=${validData.email}] [username=${validData.name}]`);
+    this.log.info(
+      `Creating a player. [email=${validData.email}] [username=${validData.name}]`,
+    );
     const isExistEmail = await this.playerRepository.getByEmail(
       validData.email,
     );
