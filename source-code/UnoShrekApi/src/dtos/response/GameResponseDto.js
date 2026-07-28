@@ -5,6 +5,7 @@ export default class GameResponseDto {
     this.owner = game.owner;
     this.status = game.status;
     this.maxPlayers = game.maxPlayers;
+    this.players = game.players;
     this.createdAt = game.createdAt;
   }
 
