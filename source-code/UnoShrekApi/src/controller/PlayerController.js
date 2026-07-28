@@ -1,0 +1,56 @@
+import express from "express";
+import PlayerResponseDto from "./../dtos/response/PlayerResponseDto.js";
+import authMiddleware from "../config/middleware/authMiddleware.js";
+
+export default class PlayerController {
+  constructor(service) {
+    this.routers = express.Router();
+    this.service = service;
+    this.registerRoutes();
+  }
+
+  registerRoutes() {
+    this.routers.get("/", this.getAll.bind(this));
+    this.routers.get("/me", authMiddleware, this.getByMe.bind(this));
+    this.routers.get("/:id", this.getById.bind(this));
+    this.routers.post("/", this.create.bind(this));
+    this.routers.put("/:id", this.update.bind(this));
+    this.routers.delete("/:id", this.delete.bind(this));
+  }
+
+  async getAll(req, res) {
+    const players = await this.service.getAll();
+    const response = PlayerResponseDto.fromDocumentList(players);
+    return res.status(200).json(response);
+  }
+
+  async getByMe(req, res) {
+    const token = req.cookies.accessToken;
+    const player = await this.service.getByToken(token);
+    const response = PlayerResponseDto.fromDocument(player);
+    return res.status(200).json(response);
+  }
+
+  async getById(req, res) {
+    const player = await this.service.getById(req.params.id);
+    const response = PlayerResponseDto.fromDocument(player);
+    return res.status(200).json(response);
+  }
+
+  async create(req, res) {
+    const player = await this.service.create(req.body);
+    const response = PlayerResponseDto.fromDocument(player);
+    return res.status(201).json(response);
+  }
+
+  async update(req, res) {
+    const updatePlayer = await this.service.update(req.params.id, req.body);
+    const response = PlayerResponseDto.fromDocument(updatePlayer);
+    return res.status(200).json(response);
+  }
+
+  async delete(req, res) {
+    await this.service.deleteById(req.params.id);
+    return res.status(204).json();
+  }
+}

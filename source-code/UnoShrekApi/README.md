@@ -1,5 +1,7 @@
 # UnoShrek API
 
+- [Link da documentação no Postman ](https://documenter.getpostman.com/view/46440768/2sBY4Qreda)
+
 Versão digital do jogo de cartas **UNO**, desenvolvida em **Node.js**, que permite que múltiplos jogadores participem de uma sessão de jogo e joguem entre si seguindo as regras do UNO.
 
 O backend é construído em uma **arquitetura em três camadas** (apresentação, lógica de negócio e acesso a dados), utilizando **Express** para a camada HTTP e **MongoDB/Mongoose** como ORM/ODM de persistência.
