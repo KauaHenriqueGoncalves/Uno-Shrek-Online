@@ -18,11 +18,21 @@ const gameSchema = new mongoose.Schema(
       enum: Object.values(GAME_STATUS),
       default: GAME_STATUS.PENDING,
     },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      required: [true, "Id of owner is required"],
+    },
     maxPlayers: {
       type: Number,
       required: true,
       min: [1, "The game have at least 1 player"],
       max: [4, "Exceedid max player"],
+    },
+    players: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Player",
+      default: [],
     },
   },
   {
