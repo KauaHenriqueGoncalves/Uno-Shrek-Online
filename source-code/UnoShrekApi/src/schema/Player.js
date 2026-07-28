@@ -16,6 +16,10 @@ const playerSchema = new mongoose.Schema(
       required: [true, "Email is required"],
       unique: [true, "Email is unique"],
     },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+    },
   },
   {
     timestamps: true,
