@@ -13,6 +13,7 @@ export default class GameController {
     this.routers.get("/", this.getAll.bind(this));
     this.routers.get("/:id", this.getById.bind(this));
     this.routers.post("/", authMiddleware, this.create.bind(this));
+    this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -34,6 +35,14 @@ export default class GameController {
     const game = await this.service.create(token, req.body);
     const response = { message: "Game created successfully", gameId: game._id };
     return res.status(201).json(response);
+  }
+
+  async joinInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.joinInGame(token, gameId);
+    const response = { message: "User joined the game successfully" };
+    return res.status(200).json(response);
   }
 
   async update(req, res) {

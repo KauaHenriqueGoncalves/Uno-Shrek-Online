@@ -46,6 +46,39 @@ export default class GameService {
     return game;
   }
 
+  async joinInGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const playerId = tokenDecode.id;
+    this.log.info(
+      `Player want to join in game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    if (game.status !== GAME_STATUS.PENDING) {
+      this.log.warn(
+        `Game not joinable. [gameId=${gameId}] [status=${game.status}]`,
+      );
+      throw new BusinessError("Cannot join a game that already started");
+    }
+    if (game.players.length >= game.maxPlayers) {
+      this.log.warn(
+        `Game is full. [gameId=${gameId}] [maxPlayers=${game.maxPlayers}]`,
+      );
+      throw new BusinessError("Game is full");
+    }
+    if (game.players.some((id) => id.toString() === playerId)) {
+      this.log.warn(
+        `Player already in game. [playerId=${playerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player already joined this game");
+    }
+    game.players.push(playerId);
+    const gameUpdate = await this.gameRepository.update(gameId, game);
+    this.log.info(
+      `Player added on game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    return gameUpdate;
+  }
+
   async update(id, data) {
     const validData = parseOrThrow(UpdateGameRequestDto, data);
     this.log.info(`Updating game by id. [id=${id}]`);
