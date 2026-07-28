@@ -5,8 +5,10 @@ import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { CreatePlayerRequestDto } from "../dtos/request/player/CreatePlayerRequestDto.js";
 import { UpdatePlayerRequestDto } from "../dtos/request/player/UpdatePlayerRequestDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
-import mongoose from "mongoose";
 import JwtCoder from "../config/jwt/JwtCoder.js";
+import bcrypt from "bcryptjs";
+
+const SALT_ROUNDS = 10;
 
 export default class PlayerService {
   constructor(schema) {
@@ -52,7 +54,7 @@ export default class PlayerService {
   async create(data) {
     const validData = parseOrThrow(CreatePlayerRequestDto, data);
     this.log.info(
-      `Creating a player. [email=${validData.email}] [username=${validData.name}]`,
+      `Creating a player. [email=${validData.email}] [username=${validData.username}]`,
     );
     const isExistEmail = await this.playerRepository.getByEmail(
       validData.email,
@@ -64,7 +66,21 @@ export default class PlayerService {
       );
       throw new BusinessError("Email already exists");
     }
-    const player = await this.playerRepository.create(validData);
+    const isExistUsername = await this.playerRepository.getByUsername(
+      validData.username,
+    );
+    if (isExistUsername) {
+      this.log.warn(
+        { username: validData.username },
+        "Attempt to create player with existing username",
+      );
+      throw new BusinessError("Username already exists");
+    }
+    const hashedPassword = await bcrypt.hash(validData.password, SALT_ROUNDS);
+    const player = await this.playerRepository.create({
+      ...validData,
+      password: hashedPassword,
+    });
     this.log.info(
       { playerId: player._id.toString(), email: player.email },
       "Player created",
