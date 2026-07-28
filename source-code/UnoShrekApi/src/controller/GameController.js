@@ -1,5 +1,6 @@
 import express from "express";
 import GameResponseDto from "./../dtos/response/GameResponseDto.js";
+import authMiddleware from "../config/middleware/authMiddleware.js";
 
 export default class GameController {
   constructor(service) {
@@ -11,9 +12,9 @@ export default class GameController {
   registerRoutes() {
     this.routers.get("/", this.getAll.bind(this));
     this.routers.get("/:id", this.getById.bind(this));
-    this.routers.post("/", this.create.bind(this));
-    this.routers.put("/:id", this.update.bind(this));
-    this.routers.delete("/:id", this.delete.bind(this));
+    this.routers.post("/", authMiddleware, this.create.bind(this));
+    this.routers.put("/:id", authMiddleware, this.update.bind(this));
+    this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
 
   async getAll(req, res) {
@@ -29,8 +30,9 @@ export default class GameController {
   }
 
   async create(req, res) {
-    const game = await this.service.create(req.body);
-    const response = GameResponseDto.fromDocument(game);
+    const token = req.cookies.accessToken;
+    const game = await this.service.create(token, req.body);
+    const response = { message: "Game created successfully", gameId: game._id };
     return res.status(201).json(response);
   }
 

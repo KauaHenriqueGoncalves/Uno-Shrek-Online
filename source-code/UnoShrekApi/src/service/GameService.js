@@ -6,10 +6,12 @@ import { CreateGameRequestDto } from "../dtos/request/game/CreateGameRequestDto.
 import { UpdateGameRequestDto } from "../dtos/request/game/UpdateGameRequestDto.js";
 import { GAME_STATUS } from "../schema/Game.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
+import JwtCoder from "../config/jwt/JwtCoder.js";
 
 export default class GameService {
   constructor(schema) {
     this.gameRepository = new GameRepository(schema);
+    this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
   }
 
@@ -29,12 +31,17 @@ export default class GameService {
     return game;
   }
 
-  async create(data) {
+  async create(token, data) {
     const validData = parseOrThrow(CreateGameRequestDto, data);
     this.log.info(
       `Creating a game. [title=${validData.title}] [maxPlayers=${validData.maxPlayers}]`,
     );
-    const game = await this.gameRepository.create(validData);
+    const tokenDecode = this.jwtCoder.decode(token);
+    const ownerId = tokenDecode.id;
+    this.log.info(`Owner of game. [ownerId=${ownerId}]`);
+    const dataSave = { ...validData, owner: ownerId };
+    console.log(dataSave);
+    const game = await this.gameRepository.create(dataSave);
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return game;
   }
