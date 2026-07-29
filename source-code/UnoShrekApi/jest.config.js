@@ -12,6 +12,6 @@ export default {
     "!src/config/logger/**",
     "!src/dtos/response/**",
     "!src/schema/**",
-    "!src/*.js"
-  ]
+    "!src/*.js",
+  ],
 };

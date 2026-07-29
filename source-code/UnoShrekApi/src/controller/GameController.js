@@ -1,5 +1,6 @@
 import express from "express";
 import GameResponseDto from "./../dtos/response/GameResponseDto.js";
+import authMiddleware from "../config/middleware/authMiddleware.js";
 
 export default class GameController {
   constructor(service) {
@@ -11,9 +12,14 @@ export default class GameController {
   registerRoutes() {
     this.routers.get("/", this.getAll.bind(this));
     this.routers.get("/:id", this.getById.bind(this));
-    this.routers.post("/", this.create.bind(this));
-    this.routers.put("/:id", this.update.bind(this));
-    this.routers.delete("/:id", this.delete.bind(this));
+    this.routers.post("/", authMiddleware, this.create.bind(this));
+    this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
+    this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
+    this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
+    this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
+    this.routers.put("/start", authMiddleware, this.startGame.bind(this));
+    this.routers.put("/:id", authMiddleware, this.update.bind(this));
+    this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
 
   async getAll(req, res) {
@@ -29,9 +35,50 @@ export default class GameController {
   }
 
   async create(req, res) {
-    const game = await this.service.create(req.body);
-    const response = GameResponseDto.fromDocument(game);
+    const token = req.cookies.accessToken;
+    const game = await this.service.create(token, req.body);
+    const response = { message: "Game created successfully", gameId: game._id };
     return res.status(201).json(response);
+  }
+
+  async joinInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.joinInGame(token, gameId);
+    const response = { message: "User joined the game successfully" };
+    return res.status(200).json(response);
+  }
+
+  async leaveGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.leaveGame(token, gameId);
+    const response = { message: "User leave the game successfully" };
+    return res.status(200).json(response);
+  }
+
+  async readyInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.readyInGame(token, gameId);
+    const response = { message: "Player is ready" };
+    return res.status(200).json(response);
+  }
+
+  async notReadyInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.notReadyInGame(token, gameId);
+    const response = { message: "Player is not ready" };
+    return res.status(200).json(response);
+  }
+
+  async startGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.startGame(token, gameId);
+    const response = { message: "Game started successfully" };
+    return res.status(200).json(response);
   }
 
   async update(req, res) {

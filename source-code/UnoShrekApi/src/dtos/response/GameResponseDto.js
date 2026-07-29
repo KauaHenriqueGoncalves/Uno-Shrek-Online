@@ -2,8 +2,10 @@ export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();
     this.title = game.title;
+    this.owner = game.owner;
     this.status = game.status;
     this.maxPlayers = game.maxPlayers;
+    this.players = game.players;
     this.createdAt = game.createdAt;
   }
 
