@@ -14,6 +14,10 @@ export default class GameController {
     this.routers.get("/:id", this.getById.bind(this));
     this.routers.post("/", authMiddleware, this.create.bind(this));
     this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
+    this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
+    this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
+    this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
+    this.routers.put("/start", authMiddleware, this.startGame.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -42,6 +46,38 @@ export default class GameController {
     const gameId = req.body.gameId;
     const game = await this.service.joinInGame(token, gameId);
     const response = { message: "User joined the game successfully" };
+    return res.status(200).json(response);
+  }
+
+  async leaveGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.leaveGame(token, gameId);
+    const response = { message: "User leave the game successfully" };
+    return res.status(200).json(response);
+  }
+
+  async readyInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.readyInGame(token, gameId);
+    const response = { message: "Player is ready" };
+    return res.status(200).json(response);
+  }
+
+  async notReadyInGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.notReadyInGame(token, gameId);
+    const response = { message: "Player is not ready" };
+    return res.status(200).json(response);
+  }
+
+  async startGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.startGame(token, gameId);
+    const response = { message: "Game started successfully" };
     return res.status(200).json(response);
   }
 

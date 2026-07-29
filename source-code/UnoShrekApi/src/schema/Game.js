@@ -30,8 +30,20 @@ const gameSchema = new mongoose.Schema(
       max: [4, "Exceedid max player"],
     },
     players: {
-      type: [mongoose.Schema.Types.ObjectId],
-      ref: "Player",
+      type: [
+        {
+          player: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Player",
+            required: true,
+          },
+          ready: {
+            type: Boolean,
+            default: false,
+          },
+          _id: false,
+        },
+      ],
       default: [],
     },
   },

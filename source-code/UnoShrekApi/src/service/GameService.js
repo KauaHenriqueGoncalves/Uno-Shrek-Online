@@ -65,17 +65,122 @@ export default class GameService {
       );
       throw new BusinessError("Game is full");
     }
-    if (game.players.some((id) => id.toString() === playerId)) {
+    if (game.players.some((p) => p.player.toString() === playerId)) {
       this.log.warn(
         `Player already in game. [playerId=${playerId}] [gameId=${gameId}]`,
       );
       throw new BusinessError("Player already joined this game");
     }
-    game.players.push(playerId);
+    game.players.push({ player: playerId, ready: false });
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(
       `Player added on game. [playerId=${playerId}] [gameId=${gameId}]`,
     );
+    return gameUpdate;
+  }
+
+  async leaveGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const playerId = tokenDecode.id;
+    this.log.info(
+      `Player want to leave game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    const condicionPlayer = game.players.find(
+      (p) => p.player.toString() === playerId,
+    );
+    if (!condicionPlayer) {
+      this.log.warn(
+        `Player is not present in game. [playerId=${playerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player is not present this game");
+    }
+    game.players = game.players.filter((p) => p.player.toString() !== playerId);
+    const gameUpdate = await this.gameRepository.update(gameId, game);
+    this.log.info(
+      `Player left the game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    return gameUpdate;
+  }
+
+  async readyInGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const playerId = tokenDecode.id;
+    this.log.info(
+      `Player want to be ready in game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    const condicionPlayer = game.players.find(
+      (p) => p.player.toString() === playerId,
+    );
+    if (!condicionPlayer) {
+      this.log.warn(
+        `Player is not present in game. [playerId=${playerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player is not present this game");
+    }
+    condicionPlayer.ready = true;
+    const gameUpdate = await this.gameRepository.update(gameId, game);
+    this.log.info(`Player is ready. [playerId=${playerId}] [gameId=${gameId}]`);
+    return gameUpdate;
+  }
+
+  async notReadyInGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const playerId = tokenDecode.id;
+    this.log.info(
+      `Player want to be ready in game. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    const condicionPlayer = game.players.find(
+      (p) => p.player.toString() === playerId,
+    );
+    if (!condicionPlayer) {
+      this.log.warn(
+        `Player is not present in game. [playerId=${playerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player is not present this game");
+    }
+    condicionPlayer.ready = false;
+    const gameUpdate = await this.gameRepository.update(gameId, game);
+    this.log.info(`Player is ready. [playerId=${playerId}] [gameId=${gameId}]`);
+    return gameUpdate;
+  }
+
+  async startGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const ownerId = tokenDecode.id;
+    this.log.info(
+      `owner want to start the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    if (game.owner.toString() !== ownerId) {
+      this.log.warn(
+        `To start game just owner. [ownerId=${ownerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player is not owner to start game.");
+    }
+    if (game.status !== GAME_STATUS.PENDING) {
+      this.log.warn(
+        `Game cannot be started. [gameId=${gameId}] [status=${game.status}]`,
+      );
+      throw new BusinessError("Game already started or finished.");
+    }
+    if (game.players.length < 2) {
+      this.log.warn(
+        `Not enough players to start. [gameId=${gameId}] [players=${game.players.length}]`,
+      );
+      throw new BusinessError("Not enough players to start the game.");
+    }
+    if (!game.players.every((player) => player.ready === true)) {
+      this.log.warn(
+        `To start game all players must be ready. [ownerId=${ownerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("All players must be ready.");
+    }
+    game.status = GAME_STATUS.ACTIVE;
+    const gameUpdate = await this.gameRepository.update(gameId, game);
+    this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
     return gameUpdate;
   }
 
