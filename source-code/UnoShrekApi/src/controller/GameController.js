@@ -10,14 +10,17 @@ export default class GameController {
   }
 
   registerRoutes() {
-    this.routers.get("/", this.getAll.bind(this));
-    this.routers.get("/:id", this.getById.bind(this));
+    this.routers.get("/", authMiddleware, this.getAll.bind(this));
+    this.routers.get("/:status", authMiddleware, this.getAllByStatus.bind(this));
+    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
+    this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
     this.routers.post("/", authMiddleware, this.create.bind(this));
     this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
     this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
     this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
     this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
     this.routers.put("/start", authMiddleware, this.startGame.bind(this));
+    this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -28,9 +31,22 @@ export default class GameController {
     return res.status(200).json(response);
   }
 
+  async getAllByStatus(req, res) {
+    const status = req.params.status;
+    const games = await this.service.getAllByStatus(status);
+    const response = GameResponseDto.fromDocumentList(games);
+    return res.status(200).json(response);
+  }
+
   async getById(req, res) {
     const game = await this.service.getById(req.params.id);
     const response = GameResponseDto.fromDocument(game);
+    return res.status(200).json(response);
+  }
+
+  async getStatusById(req, res) {
+    const game = await this.service.getById(req.params.id);
+    const response = GameResponseDto.fromDocumentStatus(game);
     return res.status(200).json(response);
   }
 
@@ -78,6 +94,14 @@ export default class GameController {
     const gameId = req.body.gameId;
     const game = await this.service.startGame(token, gameId);
     const response = { message: "Game started successfully" };
+    return res.status(200).json(response);
+  }
+
+  async finishedGame(req, res) {
+    const token = req.cookies.accessToken;
+    const gameId = req.body.gameId;
+    const game = await this.service.finishedGame(token, gameId);
+    const response = { message: "Game ended successfully" };
     return res.status(200).json(response);
   }
 

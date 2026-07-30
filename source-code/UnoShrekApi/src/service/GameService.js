@@ -5,6 +5,7 @@ import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { CreateGameRequestDto } from "../dtos/request/game/CreateGameRequestDto.js";
 import { UpdateGameRequestDto } from "../dtos/request/game/UpdateGameRequestDto.js";
 import { GAME_STATUS } from "../schema/Game.js";
+import { GameStatusDto } from "../dtos/request/game/GameStatusDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 import JwtCoder from "../config/jwt/JwtCoder.js";
 
@@ -18,6 +19,13 @@ export default class GameService {
   async getAll() {
     this.log.info("Getting all games");
     const games = await this.gameRepository.getAll();
+    return games;
+  }
+
+  async getAllByStatus(status) {
+    this.log.info(`Getting all games by status. [status=${status}]`);
+    const validData = parseOrThrow(GameStatusDto, { status });
+    const games = await this.gameRepository.getAllByStatus(validData.status);
     return games;
   }
 
@@ -39,8 +47,16 @@ export default class GameService {
     const tokenDecode = this.jwtCoder.decode(token);
     const ownerId = tokenDecode.id;
     this.log.info(`Owner of game. [ownerId=${ownerId}]`);
+    const activeGame = await this.gameRepository.getActiveGameByOwner(ownerId);
+    if (activeGame) {
+      this.log.warn(
+        `Owner already has an active game. [ownerId=${ownerId}] [gameId=${activeGame._id.toString()}]`,
+      );
+      throw new BusinessError(
+        "You already have an active game. Finish it before creating a new one.",
+      );
+    }
     const dataSave = { ...validData, owner: ownerId };
-    console.log(dataSave);
     const game = await this.gameRepository.create(dataSave);
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return game;
@@ -95,7 +111,25 @@ export default class GameService {
       );
       throw new BusinessError("Player is not present this game");
     }
-    game.players = game.players.filter((p) => p.player.toString() !== playerId);
+    const isOwner = game.owner.toString() === playerId;
+    const remainingPlayers = game.players.filter(
+      (p) => p.player.toString() !== playerId,
+    );
+    if (isOwner) {
+      if (remainingPlayers.length === 0) {
+        this.log.info(
+          `Owner left with no players remaining, finishing game. [gameId=${gameId}]`,
+        );
+        game.status = GAME_STATUS.FINISHED;
+      } else {
+        const nextOwner = remainingPlayers[0];
+        this.log.info(
+          `Owner left, transferring ownership. [gameId=${gameId}] [newOwnerId=${nextOwner.player.toString()}]`,
+        );
+        game.owner = nextOwner.player;
+      }
+    }
+    game.players = remainingPlayers;
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(
       `Player left the game. [playerId=${playerId}] [gameId=${gameId}]`,
@@ -182,6 +216,33 @@ export default class GameService {
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
     return gameUpdate;
+  }
+
+  async finishedGame(token, gameId) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const ownerId = tokenDecode.id;
+    this.log.info(
+      `owner want to finish the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
+    );
+    const game = await this.getById(gameId);
+    if (game.owner.toString() !== ownerId) {
+      this.log.warn(
+        `To finish game just owner. [ownerId=${ownerId}] [gameId=${gameId}]`,
+      );
+      throw new BusinessError("Player is not owner to finish game.");
+    }
+    if (game.status !== GAME_STATUS.ACTIVE) {
+      this.log.warn(
+        `Game not finisheable. [gameId=${gameId}] [status=${game.status}]`,
+      );
+      throw new BusinessError(
+        "Cannot finish a game that already is not active",
+      );
+    }
+    game.status = GAME_STATUS.FINISHED;
+    const gameUpdated = await this.gameRepository.update(gameId, game);
+    this.log.info(`Game finished. [ownerId=${ownerId}] [gameId=${gameId}]`);
+    return gameUpdated;
   }
 
   async update(id, data) {
