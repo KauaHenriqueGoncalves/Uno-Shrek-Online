@@ -23,6 +23,12 @@ export default class PlayerService {
     return players;
   }
 
+  async getAllByIds(ids) {
+    this.log.info(`Getting all players by ids [ids=${ids}]`);
+    const players = await this.playerRepository.getAllByIds(ids);
+    return players;
+  }
+
   async getById(id) {
     this.log.info(`Getting player by id [id=${id}]`);
     const player = await this.playerRepository.getById(id);

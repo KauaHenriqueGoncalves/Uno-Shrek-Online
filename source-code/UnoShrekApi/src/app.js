@@ -76,7 +76,7 @@ export default class App {
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
 
-      const gameService = new GameService(Game);
+      const gameService = new GameService(Game, playerService);
       this.gameController = new GameController(gameService);
 
       const cardService = new CardService(Card, gameService);

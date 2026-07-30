@@ -16,7 +16,7 @@ export default class CrudRepository {
     return await this.schema.findOne({ _id: id }).session(session);
   }
 
-  async getAllById(ids, session = null) {
+  async getAllByIds(ids, session = null) {
     const validIds = ids.filter((id) => mongoose.Types.ObjectId.isValid(id));
     return await this.schema.find({ _id: { $in: validIds } }).session(session);
   }
