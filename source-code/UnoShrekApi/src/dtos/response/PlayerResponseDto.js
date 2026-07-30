@@ -11,7 +11,7 @@ export default class PlayerResponseDto {
     return new PlayerResponseDto(player);
   }
 
-  static fromDocumentSimple(player) {
+  static fromDocumentViewSimple(player) {
     return {
       id: player._id,
       username: player.username,
@@ -26,7 +26,7 @@ export default class PlayerResponseDto {
     };
   }
 
-  static fromDocumentList(players) {
-    return players.map((player) => new PlayerResponseDto(player));
+  static fromDocumentViewSimpleList(players) {
+    return players.map((player) => this.fromDocumentViewSimple(player));
   }
 }

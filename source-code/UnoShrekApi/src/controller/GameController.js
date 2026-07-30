@@ -12,16 +12,13 @@ export default class GameController {
   registerRoutes() {
     this.routers.get("/", authMiddleware, this.getAll.bind(this));
     this.routers.get("/status/:status", authMiddleware, this.getAllByStatus.bind(this));
-
     this.routers.post("/", authMiddleware, this.create.bind(this));
-
     this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
     this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
     this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
     this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
     this.routers.put("/start", authMiddleware, this.startGame.bind(this));
     this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
-
     this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
     this.routers.get("/:id", authMiddleware, this.getById.bind(this));
     this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));

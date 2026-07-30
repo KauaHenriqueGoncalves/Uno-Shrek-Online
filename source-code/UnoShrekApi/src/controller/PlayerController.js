@@ -10,17 +10,17 @@ export default class PlayerController {
   }
 
   registerRoutes() {
-    this.routers.get("/", this.getAll.bind(this));
+    this.routers.get("/", authMiddleware, this.getAll.bind(this));
     this.routers.get("/me", authMiddleware, this.getByMe.bind(this));
-    this.routers.get("/:id", this.getById.bind(this));
-    this.routers.post("/", this.create.bind(this));
-    this.routers.put("/:id", this.update.bind(this));
-    this.routers.delete("/:id", this.delete.bind(this));
+    this.routers.post("/", authMiddleware, this.create.bind(this));
+    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
+    this.routers.put("/:id", authMiddleware, this.update.bind(this));
+    this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
 
   async getAll(req, res) {
     const players = await this.service.getAll();
-    const response = PlayerResponseDto.fromDocumentList(players);
+    const response = PlayerResponseDto.fromDocumentViewSimpleList(players);
     return res.status(200).json(response);
   }
 
