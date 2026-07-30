@@ -1,3 +1,5 @@
+import PlayerResponseDto from "./PlayerResponseDto.js";
+
 export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();
@@ -28,6 +30,29 @@ export default class GameResponseDto {
       id: game._id.toString(),
       title: game.title,
       status: game.status,
+    };
+  }
+
+  static fromDocumentRoom(game, players) {
+    return {
+      id: game._id.toString(),
+      title: game.title,
+      owner: game.owner,
+      status: game.status,
+      maxPlayers: game.maxPlayers,
+      players: game.players.map((gamePlayer) => {
+        const playerId = gamePlayer.player.toString();
+        const player = players.find((p) => p._id.toString() === playerId);
+        return PlayerResponseDto.fromDocumentRoom(player, gamePlayer.ready);
+      }),
+      createdAt: game.createdAt,
+    };
+  }
+
+  static fromDocumentCurrentPlayer(game, players) {
+    return {
+      id: game._id,
+      players: players.map((p) => PlayerResponseDto.fromDocumentSimple(p)),
     };
   }
 

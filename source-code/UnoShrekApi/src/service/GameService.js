@@ -10,8 +10,9 @@ import { parseOrThrow } from "./../config/utils/validate.js";
 import JwtCoder from "../config/jwt/JwtCoder.js";
 
 export default class GameService {
-  constructor(schema) {
+  constructor(schema, playerService) {
     this.gameRepository = new GameRepository(schema);
+    this.playerService = playerService;
     this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
   }
@@ -37,6 +38,22 @@ export default class GameService {
       throw new NotFoundError("Game not found");
     }
     return game;
+  }
+
+  async getByIdInfo(id) {
+    this.log.info(`Getting game info by id [id=${id}]`);
+    const game = await this.getById(id);
+    const ids = game.players.map((p) => p.player);
+    const players = await this.playerService.getAllByIds(ids);
+    return { game, players };
+  }
+
+  async getCurrentPlayersById(id) {
+    this.log.info(`Getting current players by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const ids = game.players.map((p) => p.player);
+    const players = await this.playerService.getAllByIds(ids);
+    return { game, players };
   }
 
   async create(token, data) {
