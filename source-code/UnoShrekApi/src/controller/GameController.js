@@ -11,16 +11,20 @@ export default class GameController {
 
   registerRoutes() {
     this.routers.get("/", authMiddleware, this.getAll.bind(this));
-    this.routers.get("/:status", authMiddleware, this.getAllByStatus.bind(this));
-    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
-    this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
+    this.routers.get("/status/:status", authMiddleware, this.getAllByStatus.bind(this));
+
     this.routers.post("/", authMiddleware, this.create.bind(this));
+
     this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
     this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
     this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
     this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
     this.routers.put("/start", authMiddleware, this.startGame.bind(this));
     this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
+
+    this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
+    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
+    this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -39,8 +43,14 @@ export default class GameController {
   }
 
   async getById(req, res) {
-    const game = await this.service.getById(req.params.id);
-    const response = GameResponseDto.fromDocument(game);
+    const { game, players } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentRoom(game, players);
+    return res.status(200).json(response);
+  }
+
+  async getCurrentPlayersById(req, res) {
+    const { game, players } = await this.service.getCurrentPlayersById(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentPlayer(game, players);
     return res.status(200).json(response);
   }
 
