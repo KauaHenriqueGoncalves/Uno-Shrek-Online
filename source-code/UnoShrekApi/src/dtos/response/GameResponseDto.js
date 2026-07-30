@@ -52,7 +52,7 @@ export default class GameResponseDto {
   static fromDocumentCurrentPlayer(game, players) {
     return {
       id: game._id,
-      players: players.map((p) => PlayerResponseDto.fromDocumentSimple(p)),
+      players: players.map((p) => PlayerResponseDto.fromDocumentViewSimple(p)),
     };
   }
 
