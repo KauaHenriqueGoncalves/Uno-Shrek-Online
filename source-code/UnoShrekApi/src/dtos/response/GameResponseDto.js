@@ -13,7 +13,25 @@ export default class GameResponseDto {
     return new GameResponseDto(game);
   }
 
+  static fromDocumentViewSimple(game) {
+    return {
+      id: game._id.toString(),
+      title: game.title,
+      owner: game.owner,
+      status: game.status,
+      totalPlayers: `${game.players.length}/${game.maxPlayers}`,
+    };
+  }
+
+  static fromDocumentStatus(game) {
+    return {
+      id: game._id.toString(),
+      title: game.title,
+      status: game.status,
+    };
+  }
+
   static fromDocumentList(games) {
-    return games.map((game) => new GameResponseDto(game));
+    return games.map((game) => this.fromDocumentViewSimple(game));
   }
 }
