@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import PinoGlobal from "../config/logger/PinoGlobal.js";
+import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 
 const log = PinoGlobal.getInstance();
 
@@ -11,9 +12,11 @@ export default function initSocket(httpServer, { gameService }) {
     },
   });
 
+  io.use(socketAuthMiddleware);
+
   io.on("connection", (socket) => {
-    console.log("socket conectado: " + socket.id);
-    console.log("total conectados agora:", io.engine.clientsCount);
+    //console.log(socket);
+    //console.log("total conectados agora:", io.engine.clientsCount);
 
     socket.on("mensagem", ({ mensagem }) => {
       console.log("recebido:", mensagem, "de", socket.id);
