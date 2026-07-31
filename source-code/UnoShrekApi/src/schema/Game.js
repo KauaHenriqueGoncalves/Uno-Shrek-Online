@@ -31,6 +31,7 @@ const gameSchema = new mongoose.Schema(
     },
     players: {
       type: [
+        // ATENÇAO, CASO ALTERE A LISTA DE PLAYERS, ATUALIZE O PlayerService.create!!!!
         {
           player: {
             type: mongoose.Schema.Types.ObjectId,

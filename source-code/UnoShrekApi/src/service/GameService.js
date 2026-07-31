@@ -73,7 +73,11 @@ export default class GameService {
         "You already have an active game. Finish it before creating a new one.",
       );
     }
-    const dataSave = { ...validData, owner: ownerId };
+    const dataSave = {
+      ...validData,
+      owner: ownerId,
+      players: [{ player: ownerId, ready: false }],
+    };
     const game = await this.gameRepository.create(dataSave);
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return game;
