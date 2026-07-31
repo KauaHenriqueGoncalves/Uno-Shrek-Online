@@ -23,6 +23,11 @@ const gameSchema = new mongoose.Schema(
       ref: "Player",
       required: [true, "Id of owner is required"],
     },
+    currentPlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      required: false,
+    },
     maxPlayers: {
       type: Number,
       required: true,
