@@ -88,6 +88,9 @@ export default function registerGameHandlers(socket, io, { gameService }) {
     try {
       const token = socket.token;
       const gameId = socket.currentGameId;
+      if (!gameId) {
+        throw Error("Dont have a current game");
+      }
       const game = await gameService.leaveGame(token, gameId);
       log.info(
         `Player leave game. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
