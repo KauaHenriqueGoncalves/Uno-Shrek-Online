@@ -13,8 +13,9 @@ export default function socketAuthMiddleware(socket, next) {
       return next(new UnauthorizedError());
     }
     const tokenDecoded = jwtCoder.decode(token);
+    socket.token = token;
     socket.playerId = tokenDecoded.id;
-    log.info(`Player connected web socket. [playerId=${tokenDecoded.id}] [socketId=${socket.id}]`);
+    log.info(`Player didnt have problem with conection on socket. [socketId=${socket.id}]`);
     next();
   } catch (err) {
     log.warn({ err: err.message }, "socket auth failed");

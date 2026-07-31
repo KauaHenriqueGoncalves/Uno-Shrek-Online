@@ -93,6 +93,14 @@ export default class App {
 
       const loginService = new LoginService(playerService);
       this.authController = new AuthController(loginService);
+
+      this.services = {
+        playerService,
+        gameService,
+        cardService,
+        scorePlayerService,
+        loginService,
+      };
     } catch (error) {
       this.log.error(
         { err: error },
