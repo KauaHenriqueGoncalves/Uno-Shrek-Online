@@ -6,7 +6,7 @@ const GAME_EVENTS = {
   OUTPUT: {
     LIST_UPDATED: "game::list::updated",
     JOINED: "game::joined",
-    ERROR: "error",
+    ERROR: "game::error",
   },
 };
 

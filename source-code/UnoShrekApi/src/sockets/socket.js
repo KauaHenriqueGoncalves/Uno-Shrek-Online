@@ -2,10 +2,11 @@ import { Server } from "socket.io";
 import PinoGlobal from "../config/logger/PinoGlobal.js";
 import socketAuthMiddleware from "./middleware/socketAuthMiddleware.js";
 import registerGameHandlers from "./handlers/registerGameHandlers.js";
+import registerPlayerHandlers from "./handlers/registerPlayerHandlers.js";
 
 const log = PinoGlobal.getInstance();
 
-export default function initSocket(httpServer, { gameService }) {
+export default function initSocket(httpServer, { gameService, playerService }) {
   const io = new Server(httpServer, {
     path: "",
     cors: {
@@ -23,15 +24,11 @@ export default function initSocket(httpServer, { gameService }) {
     );
     try {
       registerGameHandlers(socket, io, { gameService });
+      registerPlayerHandlers(socket, io, { playerService, gameService });
     } catch (err) {
       log.warn({ err }, "socket failed to initialize");
       throw err;
     }
-    socket.on("disconnect", () => {
-      log.info(
-        `Player disconnected web socket. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
-      );
-    });
   });
 
   log.info("Connection with socket established.");
