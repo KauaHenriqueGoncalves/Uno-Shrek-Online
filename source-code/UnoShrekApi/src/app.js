@@ -92,7 +92,7 @@ export default class App {
       );
 
       const loginService = new LoginService(playerService);
-      this.authController = new AuthController(loginService);
+      this.authController = new AuthController(loginService, playerService);
 
       this.services = {
         playerService,
