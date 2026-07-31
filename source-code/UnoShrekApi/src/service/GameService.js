@@ -234,9 +234,25 @@ export default class GameService {
       throw new BusinessError("All players must be ready.");
     }
     game.status = GAME_STATUS.ACTIVE;
+    // set current player to the first player in the list (usually owner)
+    if (game.players && game.players.length > 0) {
+      game.currentPlayer = game.players[0].player;
+    }
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
     return gameUpdate;
+  }
+
+  async getCurrentPlayerById(id) {
+    this.log.info(`Getting current player by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const playerId = game.currentPlayer ?? (game.players && game.players[0]?.player);
+    if (!playerId) {
+      this.log.warn({ gameId: id }, "No players in game to determine current player");
+      throw new NotFoundError("No players in game");
+    }
+    const player = await this.playerService.getById(playerId.toString());
+    return { game, player };
   }
 
   async finishedGame(token, gameId) {
