@@ -56,6 +56,17 @@ export default class GameResponseDto {
     };
   }
 
+  static fromDocumentScores(game, totals, players) {
+    const scores = {};
+    players.forEach((player) => {
+      scores[player.username] = totals[player._id.toString()];
+    });
+    return {
+      gameId: game._id.toString(),
+      scores,
+    };
+  }
+
   static fromDocumentList(games) {
     return games.map((game) => this.fromDocumentViewSimple(game));
   }

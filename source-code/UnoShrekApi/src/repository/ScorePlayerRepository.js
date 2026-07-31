@@ -5,4 +5,8 @@ export default class ScorePlayerRepository extends CrudRepository {
   constructor(schema) {
     super(schema);
   }
+
+  async findByGameId(gameId, session = null) {
+    return await this.schema.find({ gameId }).session(session);
+  }
 }
