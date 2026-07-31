@@ -108,13 +108,13 @@ export default function registerGameHandlers(socket, io, { gameService }) {
   //socket.on("", async ({}) => {});
 }
 
-async function broadcastRoomGameInfo(io, gameService, gameId) {
+export async function broadcastRoomGameInfo(io, gameService, gameId) {
   const { game, players } = await gameService.getByIdInfo(gameId);
   const emited = GameResponseDto.fromDocumentRoom(game, players);
   io.to(gameId).emit(GAME_EVENTS.OUTPUT.GAME_INFO, emited);
 }
 
-async function broadcastAllGamesByStatus(io, gameService, status) {
+export async function broadcastAllGamesByStatus(io, gameService, status) {
   const games = await gameService.getAllByStatus(status);
   const emited = GameResponseDto.fromDocumentList(games);
   io.emit(GAME_EVENTS.OUTPUT.LIST_UPDATED, { status, games: emited });
