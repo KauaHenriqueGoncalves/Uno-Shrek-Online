@@ -1,15 +1,22 @@
 import JwtCoder from "../../config/jwt/JwtCoder.js";
 import PinoGlobal from "../../config/logger/PinoGlobal.js";
 import { UnauthorizedError } from "../../config/exceptions/UnauthorizedError.js";
+import BlacklistedToken from "../../schema/BlacklistedToken.js";
+import BlacklistedTokenRepository from "../../repository/BlacklistedTokenRepository.js";
 
 const log = PinoGlobal.getInstance();
 const jwtCoder = JwtCoder.getInstance();
-
-export default function socketAuthMiddleware(socket, next) {
+const blacklistedRepo = new BlacklistedTokenRepository(BlacklistedToken);
+export default async function socketAuthMiddleware(socket, next) {
   try {
     const token = socket.handshake.headers.accesstoken;
     if (!token) {
       log.warn(`Player dont have token. [socketId=${socket.id}]`);
+      return next(new UnauthorizedError());
+    }
+    const isBlacklisted = await blacklistedRepo.existsByToken(token);
+    if (isBlacklisted) {
+      log.warn(`Player token is blacklisted. [socketId=${socket.id}]`);
       return next(new UnauthorizedError());
     }
     const tokenDecoded = jwtCoder.decode(token);
