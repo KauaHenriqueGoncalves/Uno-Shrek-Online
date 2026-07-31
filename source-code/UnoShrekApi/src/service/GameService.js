@@ -43,7 +43,7 @@ export default class GameService {
   async getByIdInfo(id) {
     this.log.info(`Getting game info by id [id=${id}]`);
     const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player);
+    const ids = game.players.map((p) => p.player.toString());
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
   }

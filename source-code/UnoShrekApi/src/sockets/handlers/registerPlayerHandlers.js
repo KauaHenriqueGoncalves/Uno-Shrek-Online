@@ -32,7 +32,7 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
       //   playerId: socket.playerId,
       //   game: GameResponseDto.fromDocument(game),
       // });
-      broadcastGamesByStatus(io, gameService, GAME_STATUS.PENDING);
+      //broadcastGamesByStatus(io, gameService, GAME_STATUS.PENDING);
     } catch (err) {
       log.warn({ err }, "failed to remove player from game on disconnect");
     }

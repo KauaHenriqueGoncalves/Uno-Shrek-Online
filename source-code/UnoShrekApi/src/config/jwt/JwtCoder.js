@@ -18,7 +18,7 @@ export default class JwtCoder {
 
   sign(userId) {
     return this.jwtCoder.sign({ id: userId }, this.jwtSecret, {
-      expiresIn: "24h",
+      expiresIn: "72h",
     });
   }
 
