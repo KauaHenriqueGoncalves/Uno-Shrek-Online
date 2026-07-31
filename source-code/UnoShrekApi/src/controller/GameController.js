@@ -22,6 +22,7 @@ export default class GameController {
     this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
     this.routers.get("/:id", authMiddleware, this.getById.bind(this));
     this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));
+    this.routers.get("/:id/scores", authMiddleware, this.getScoresById.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -48,6 +49,12 @@ export default class GameController {
   async getCurrentPlayersById(req, res) {
     const { game, players } = await this.service.getCurrentPlayersById(req.params.id);
     const response = GameResponseDto.fromDocumentCurrentPlayer(game, players);
+    return res.status(200).json(response);
+  }
+
+  async getScoresById(req, res) {
+    const { game, totals, players } = await this.service.getScoresById(req.params.id);
+    const response = GameResponseDto.fromDocumentScores(game, totals, players);
     return res.status(200).json(response);
   }
 

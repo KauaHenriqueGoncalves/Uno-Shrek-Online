@@ -1,4 +1,5 @@
 import GameRepository from "./../repository/GameRepository.js";
+import ScorePlayerRepository from "./../repository/ScorePlayerRepository.js";
 import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { NotFoundError } from "../config/exceptions/NotFoundError.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
@@ -10,8 +11,9 @@ import { parseOrThrow } from "./../config/utils/validate.js";
 import JwtCoder from "../config/jwt/JwtCoder.js";
 
 export default class GameService {
-  constructor(schema, playerService) {
+  constructor(schema, playerService, scorePlayerSchema) {
     this.gameRepository = new GameRepository(schema);
+    this.scorePlayerRepository = new ScorePlayerRepository(scorePlayerSchema);
     this.playerService = playerService;
     this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
@@ -54,6 +56,19 @@ export default class GameService {
     const ids = game.players.map((p) => p.player);
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
+  }
+
+  async getScoresById(id) {
+    this.log.info(`Getting scores by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const scorePlayers = await this.scorePlayerRepository.findByGameId(id);
+    const totals = {};
+    scorePlayers.forEach((scorePlayer) => {
+      const playerId = scorePlayer.playerId.toString();
+      totals[playerId] = (totals[playerId] ?? 0) + scorePlayer.score;
+    });
+    const players = await this.playerService.getAllByIds(Object.keys(totals));
+    return { game, totals, players };
   }
 
   async create(token, data) {
