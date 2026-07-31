@@ -64,8 +64,7 @@ export default class GameService {
     const scorePlayers = await this.scorePlayerRepository.findByGameId(id);
     const totals = {};
     scorePlayers.forEach((scorePlayer) => {
-      const playerId = scorePlayer.playerId.toString();
-      totals[playerId] = (totals[playerId] ?? 0) + scorePlayer.score;
+      totals[scorePlayer.playerId.toString()] = scorePlayer.score;
     });
     const players = await this.playerService.getAllByIds(Object.keys(totals));
     return { game, totals, players };
