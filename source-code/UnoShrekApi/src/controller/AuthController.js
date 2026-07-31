@@ -3,9 +3,10 @@ import PinoGlobal from "../config/logger/PinoGlobal.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
 
 export default class AuthController {
-  constructor(authService, playerService) {
+  constructor(authService, playerService, tokenService) {
     this.service = authService;
     this.playerService = playerService;
+    this.tokenService = tokenService;
     this.routers = Router();
     this.log = PinoGlobal.getInstance();
     this.registerRoutes();
@@ -30,6 +31,24 @@ export default class AuthController {
 
   async logout(req, res) {
     this.log.info("Removing token with logout");
+    const token = req.cookies.accessToken || req.body?.access_token;
+    if (!token) {
+      return res.status(400).json({ error: "access_token is required to logout" });
+    }
+    if (token && this.tokenService) {
+      try {
+        // decode using JwtCoder directly to avoid relying on service internals
+        const JwtCoder = (await import("../config/jwt/JwtCoder.js")).default;
+        const jwt = JwtCoder.getInstance();
+        const decoded = jwt.decode(token);
+        const expiresAt = new Date(decoded.exp * 1000);
+        await this.tokenService.blacklistToken(token, expiresAt);
+      } catch (err) {
+        // if token invalid, return bad request
+        this.log.warn({ err }, "Token decode failed during logout");
+        return res.status(400).json({ error: "Invalid token" });
+      }
+    }
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
