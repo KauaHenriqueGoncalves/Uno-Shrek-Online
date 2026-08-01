@@ -1,6 +1,7 @@
 import express from "express";
 import PinoGlobal from "./../config/logger/PinoGlobal.js";
 import { ApiError } from "../config/exceptions/ApiError.js";
+import asyncHandler from "../config/utils/asyncHandler.js";
 
 export default class HealthController {
   constructor() {
@@ -10,7 +11,7 @@ export default class HealthController {
   }
 
   registerRoutes() {
-    this.routers.get("/", this.status.bind(this));
+    this.routers.get("/", asyncHandler(this.status.bind(this)));
   }
 
   status(req, res) {
@@ -21,8 +22,8 @@ export default class HealthController {
       });
       this.log.info("Api working correctly.");
     } catch (error) {
-      throw new ApiError("There is something wrong! Try again later!");
       this.log.error({ err: error }, "Something is wrong.");
+      throw new ApiError("There is something wrong! Try again later!");
     }
   }
 }

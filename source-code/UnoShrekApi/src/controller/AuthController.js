@@ -1,6 +1,7 @@
 import { Router } from "express";
 import PinoGlobal from "../config/logger/PinoGlobal.js";
 import { BusinessError } from "../config/exceptions/BusinessError.js";
+import asyncHandler from "../config/utils/asyncHandler.js";
 
 export default class AuthController {
   constructor(authService, playerService, tokenService) {
@@ -13,9 +14,9 @@ export default class AuthController {
   }
 
   registerRoutes() {
-    this.routers.post("/login", this.login.bind(this));
-    this.routers.post("/register", this.register.bind(this));
-    this.routers.post("/logout", this.logout.bind(this));
+    this.routers.post("/login", asyncHandler(this.login.bind(this)));
+    this.routers.post("/register", asyncHandler(this.register.bind(this)));
+    this.routers.post("/logout", asyncHandler(this.logout.bind(this)));
   }
 
   async login(req, res) {
