@@ -26,8 +26,8 @@ export default class PlayerController {
   }
 
   async getByMe(req, res) {
-    const token = req.cookies.accessToken;
-    const player = await this.service.getByToken(token);
+    const userId = req.user && req.user.id;
+    const player = await this.service.getById(userId);
     const response = PlayerResponseDto.fromDocument(player);
     return res.status(200).json(response);
   }
