@@ -5,6 +5,7 @@ import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { CreateGameRequestDto } from "../dtos/request/game/CreateGameRequestDto.js";
 import { UpdateGameRequestDto } from "../dtos/request/game/UpdateGameRequestDto.js";
 import { GAME_STATUS } from "../schema/Game.js";
+import { createDeck, deal, shuffle } from "../game/deck.js";
 import { GameStatusDto } from "../dtos/request/game/GameStatusDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 import JwtCoder from "../config/jwt/JwtCoder.js";
@@ -234,6 +235,25 @@ export default class GameService {
       throw new BusinessError("All players must be ready.");
     }
     game.status = GAME_STATUS.ACTIVE;
+    // initialize deck, hands and discard
+    const HAND_SIZE = 7;
+    let deck = createDeck();
+    const hands = [];
+
+    for (const gp of game.players) {
+      const cards = deal(deck, HAND_SIZE);
+      hands.push({ player: gp.player, cards });
+    }
+    
+    // draw top card to discard
+    const topCard = deck.shift();
+    const discard = [];
+    if (topCard) discard.push(topCard);
+
+    game.deck = deck;
+    game.discard = discard;
+    game.hands = hands;
+
     // set current player to the first player in the list (usually owner)
     if (game.players && game.players.length > 0) {
       game.currentPlayer = game.players[0].player;
@@ -253,6 +273,13 @@ export default class GameService {
     }
     const player = await this.playerService.getById(playerId.toString());
     return { game, player };
+  }
+
+  async getTopCardById(id) {
+    this.log.info(`Getting top card by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const top = game.discard && game.discard.length > 0 ? game.discard[game.discard.length - 1] : null;
+    return { game, topCard: top };
   }
 
   async finishedGame(token, gameId) {
