@@ -18,11 +18,12 @@ export default class PlayerResponseDto {
     };
   }
 
-  static fromDocumentRoom(player, ready) {
+  static fromDocumentRoom(player, ready, score) {
     return {
       id: player._id,
       username: player.username,
       ready: ready,
+      score: score,
     };
   }
 
