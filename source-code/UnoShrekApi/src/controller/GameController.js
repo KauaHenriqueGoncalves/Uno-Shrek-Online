@@ -26,6 +26,8 @@ export default class GameController {
     this.routers.get("/:id/current-players", authMiddleware, asyncHandler(this.getCurrentPlayersById.bind(this)));
     this.routers.get("/:id/current-player", authMiddleware, asyncHandler(this.getCurrentPlayerById.bind(this)));
     this.routers.get("/:id/top-card", authMiddleware, asyncHandler(this.getTopCardById.bind(this)));
+    this.routers.put("/:id/draw", authMiddleware, asyncHandler(this.draw.bind(this)));
+    this.routers.put("/:id/play", authMiddleware, asyncHandler(this.play.bind(this)));
     this.routers.put("/:id", authMiddleware, asyncHandler(this.update.bind(this)));
     this.routers.delete("/:id", authMiddleware, asyncHandler(this.delete.bind(this)));
   }
@@ -78,56 +80,72 @@ export default class GameController {
   }
 
   async create(req, res) {
-    const token = req.cookies.accessToken;
-    const game = await this.service.create(token, req.body);
+    const userId = req.user && req.user.id;
+    const game = await this.service.create(userId, req.body);
     const response = { message: "Game created successfully", gameId: game._id };
     return res.status(201).json(response);
   }
 
   async joinInGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.joinInGame(token, gameId);
+    const game = await this.service.joinInGame(userId, gameId);
     const response = { message: "User joined the game successfully" };
     return res.status(200).json(response);
   }
 
   async leaveGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.leaveGame(token, gameId);
+    const game = await this.service.leaveGame(userId, gameId);
     const response = { message: "User leave the game successfully" };
     return res.status(200).json(response);
   }
 
   async readyInGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.readyInGame(token, gameId);
+    const game = await this.service.readyInGame(userId, gameId);
     const response = { message: "Player is ready" };
     return res.status(200).json(response);
   }
 
   async notReadyInGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.notReadyInGame(token, gameId);
+    const game = await this.service.notReadyInGame(userId, gameId);
     const response = { message: "Player is not ready" };
     return res.status(200).json(response);
   }
 
   async startGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.startGame(token, gameId);
+    const game = await this.service.startGame(userId, gameId);
     const response = { message: "Game started successfully" };
     return res.status(200).json(response);
   }
 
+  async draw(req, res) {
+    const userId = req.user && req.user.id;
+    const gameId = req.params.id;
+    const game = await this.service.draw(userId, gameId);
+    return res.status(200).json({ message: "Drew a card", gameId: game._id });
+  }
+
+  async play(req, res) {
+    const userId = req.user && req.user.id;
+    const gameId = req.params.id;
+    const playedCard = req.body.card;
+    const colorChoice = req.body.colorChoice || null;
+    const game = await this.service.play(userId, gameId, playedCard, colorChoice);
+    return res.status(200).json({ message: "Card played", gameId: game._id });
+  }
+
   async finishedGame(req, res) {
-    const token = req.cookies.accessToken;
+    const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.finishedGame(token, gameId);
+    const game = await this.service.finishedGame(userId, gameId);
     const response = { message: "Game ended successfully" };
     return res.status(200).json(response);
   }

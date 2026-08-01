@@ -72,6 +72,14 @@ const gameSchema = new mongoose.Schema(
       type: [Object],
       default: [],
     },
+    direction: {
+      type: Number,
+      default: 1,
+    },
+    activeColor: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
