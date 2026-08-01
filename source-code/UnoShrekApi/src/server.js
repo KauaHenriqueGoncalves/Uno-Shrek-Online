@@ -1,5 +1,5 @@
 import App from "./app.js";
-import PinoGlobal from "./modules/shared/logger/PinoGlobal.js";
+import PinoGlobal from "./modules/shared/logger/pino-global.logger.js";
 import { createServer } from "http";
 import initSocket from "./modules/sockets/socket.js";
 

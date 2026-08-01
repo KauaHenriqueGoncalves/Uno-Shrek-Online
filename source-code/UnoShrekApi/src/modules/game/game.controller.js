@@ -1,7 +1,7 @@
 import express from "express";
 import GameResponseDto from "./response/game.response.dto.js";
-import authMiddleware from "../shared/middleware/authMiddleware.js";
-import asyncHandler from "../shared/utils/asyncHandler.js";
+import authMiddleware from "../shared/middleware/auth.middleware.js";
+import asyncHandler from "../shared/utils/async-handler.js";
 
 export default class GameController {
   constructor(service) {

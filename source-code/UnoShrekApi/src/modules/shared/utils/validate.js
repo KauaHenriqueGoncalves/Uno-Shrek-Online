@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { IlegalInputError } from "./../exceptions/IlegalInputError.js";
+import { IlegalInputError } from "../errors/ilegal-input.error.js";
 import mongoose from "mongoose";
-import PinoGlobal from "./../logger/PinoGlobal.js";
+import PinoGlobal from "../logger/pino-global.logger.js";
 
 const log = PinoGlobal.getInstance();
 
