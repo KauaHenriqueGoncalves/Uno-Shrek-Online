@@ -118,4 +118,17 @@ export default class ScorePlayerService {
     this.log.info({ scorePlayerId: id }, "ScorePlayer deleted");
     return deleted;
   }
+
+  async getByGameId(gameId) {
+    this.log.info(`Getting scores by game id [gameId=${gameId}]`);
+    const game = await this.gameService.getById(gameId);
+    // will throw if game not found
+    const scores = await this.scorePlayerRepository.getByGameId(gameId);
+    const results = [];
+    for (const score of scores) {
+      const player = await this.playerService.getById(score.playerId);
+      results.push({ score, player, game });
+    }
+    return results;
+  }
 }

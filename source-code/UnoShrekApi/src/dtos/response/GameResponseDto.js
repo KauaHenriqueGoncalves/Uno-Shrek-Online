@@ -39,13 +39,32 @@ export default class GameResponseDto {
       title: game.title,
       owner: game.owner,
       status: game.status,
+      currentPlayer: game.currentPlayer ? game.currentPlayer.toString() : null,
       maxPlayers: game.maxPlayers,
-      players: game.players.map((gamePlayer) => {
-        const playerId = gamePlayer.player.toString();
-        const player = players.find((p) => p._id.toString() === playerId);
-        return PlayerResponseDto.fromDocumentRoom(player, gamePlayer.ready);
+      players: game.players.map((p) => {
+        const playerInfo = players.find(
+          (pl) => pl._id.toString() === p.player.toString(),
+        );
+        return {
+          player: p.player.toString(),
+          username: playerInfo ? playerInfo.username : null,
+          ready: p.ready,
+          score: p.score,
+          hand: {
+            cards: p.hand.cards,
+          },
+        };
       }),
+      deck: game.deck,
+      discard: game.discard,
       createdAt: game.createdAt,
+    };
+  }
+
+  static fromDocumentCurrentScore(game, scores) {
+    return {
+      id: game._id.toString(),
+      scores: scores,
     };
   }
 

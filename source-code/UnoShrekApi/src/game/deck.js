@@ -1,3 +1,6 @@
+
+// TODO: FAZER INTEGRAÇÃO COM O BANCO DE DADOS, REQUISITO DA ATIVIDADE
+
 export const COLORS = ["red", "blue", "green", "yellow"];
 export const WILD_TYPES = ["wild", "wild_draw_four"];
 export const SPECIAL_TYPES = ["skip", "reverse", "draw_two"];
