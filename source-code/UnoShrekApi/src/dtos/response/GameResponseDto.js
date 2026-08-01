@@ -43,9 +43,20 @@ export default class GameResponseDto {
       players: game.players.map((gamePlayer) => {
         const playerId = gamePlayer.player.toString();
         const player = players.find((p) => p._id.toString() === playerId);
-        return PlayerResponseDto.fromDocumentRoom(player, gamePlayer.ready);
+        return PlayerResponseDto.fromDocumentRoom(
+          player,
+          gamePlayer.ready,
+          gamePlayer.score,
+        );
       }),
       createdAt: game.createdAt,
+    };
+  }
+
+  static fromDocumentCurrentScore(game, scores) {
+    return {
+      id: game._id.toString(),
+      scores: scores,
     };
   }
 

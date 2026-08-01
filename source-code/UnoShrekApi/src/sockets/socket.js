@@ -8,7 +8,7 @@ const log = PinoGlobal.getInstance();
 
 export default function initSocket(httpServer, { gameService, playerService }) {
   const io = new Server(httpServer, {
-    path: "",
+    path: process.env.PROFILE === "prod" ? process.env.SOCKET_PATH : "",
     cors: {
       origin: process.env.FRONTEND_URL ?? "*",
       credentials: true,

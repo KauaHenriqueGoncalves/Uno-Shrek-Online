@@ -36,7 +36,7 @@ const gameSchema = new mongoose.Schema(
     },
     players: {
       type: [
-        // ATENÇAO, CASO ALTERE A LISTA DE PLAYERS, ATUALIZE O PlayerService.create!!!!
+        // ATENÇAO, CASO ALTERE A LISTA DE PLAYERS, ATUALIZE O PlayerService.create no saveData!!!!
         {
           player: {
             type: mongoose.Schema.Types.ObjectId,
@@ -46,6 +46,10 @@ const gameSchema = new mongoose.Schema(
           ready: {
             type: Boolean,
             default: false,
+          },
+          score: {
+            type: Number,
+            default: 0,
           },
           _id: false,
         },
