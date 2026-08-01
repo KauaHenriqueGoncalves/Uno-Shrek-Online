@@ -1,8 +1,8 @@
 import JwtCoder from "../jwt/JwtCoder.js";
 import PinoGlobal from "../logger/PinoGlobal.js";
-import { UnauthorizedError } from "../../config/exceptions/UnauthorizedError.js";
+import { UnauthorizedError } from "../exceptions/UnauthorizedError.js";
 import BlacklistedToken from "../token/BlacklistedToken.js";
-import BlacklistedTokenRepository from "../../repository/BlacklistedTokenRepository.js";
+import BlacklistedTokenRepository from "../token/BlacklistedTokenRepository.js";
 
 const log = PinoGlobal.getInstance();
 const jwtCoder = JwtCoder.getInstance();

@@ -1,9 +1,9 @@
-import { parseOrThrow } from "../config/utils/validate.js";
+import { parseOrThrow } from "../shared/utils/validate.js";
 import { CreateCardRequestDto } from "./dto/CreateCardRequestDto.js";
 import { UpdateCardRequestDto } from "./dto/UpdateCardRequestDto.js";
 import CardRepository from "./CardRepository.js";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { NotFoundError } from "../config/exceptions/NotFoundError.js";
+import { NotFoundError } from "../shared/exceptions/NotFoundError.js";
 
 export default class CardService {
   constructor(schema, gameService) {

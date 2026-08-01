@@ -1,7 +1,7 @@
 import GameRepository from "./GameRepository.js";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { NotFoundError } from "../../config/exceptions/NotFoundError.js";
-import { BusinessError } from "../../config/exceptions/BusinessError.js";
+import { NotFoundError } from "../shared/exceptions/NotFoundError.js";
+import { BusinessError } from "../shared/exceptions/BusinessError.js";
 import { CreateGameRequestDto } from "./dto/create-game.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.dto.js";
 import { GAME_STATUS } from "./Game.js";
@@ -10,7 +10,7 @@ import GameEngine from "./game.engine.js";
 import mongoose from "mongoose";
 import GameOrchestrator from "./GameOrchestrator.js";
 import { GameStatusDto } from "./dto/game-status.dto.js";
-import { parseOrThrow } from "../../config/utils/validate.js";
+import { parseOrThrow } from "../shared/utils/validate.js";
 
 export default class GameService {
   constructor(schema, playerService) {

@@ -2,8 +2,8 @@ import mongoose from "mongoose";
 import GameRepository from "./GameRepository.js";
 import GameEngine from "./game.engine.js";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { BusinessError } from "../../config/exceptions/BusinessError.js";
-import { NotFoundError } from "../../config/exceptions/NotFoundError.js";
+import { BusinessError } from "../shared/exceptions/BusinessError.js";
+import { NotFoundError } from "../shared/exceptions/NotFoundError.js";
 import { GAME_STATUS } from "./Game.js";
 
 export default class GameOrchestrator {

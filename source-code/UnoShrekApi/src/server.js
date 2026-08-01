@@ -1,7 +1,7 @@
 import App from "./app.js";
-import PinoGlobal from "./config/logger/PinoGlobal.js";
+import PinoGlobal from "./modules/shared/logger/PinoGlobal.js";
 import { createServer } from "http";
-import initSocket from "./sockets/socket.js";
+import initSocket from "./modules/sockets/socket.js";
 
 class Server {
   constructor() {

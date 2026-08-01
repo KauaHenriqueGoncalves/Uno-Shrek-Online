@@ -1,5 +1,5 @@
 import express from "express";
-import GameResponseDto from "../../dtos/response/GameResponseDto.js";
+import GameResponseDto from "./response/game.response.dto.js";
 import authMiddleware from "../shared/middleware/authMiddleware.js";
 import asyncHandler from "../shared/utils/asyncHandler.js";
 
