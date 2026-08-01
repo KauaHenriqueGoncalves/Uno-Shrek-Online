@@ -23,6 +23,11 @@ const gameSchema = new mongoose.Schema(
       ref: "Player",
       required: [true, "Id of owner is required"],
     },
+    currentPlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      required: false,
+    },
     maxPlayers: {
       type: Number,
       required: true,
@@ -45,6 +50,34 @@ const gameSchema = new mongoose.Schema(
           score: {
             type: Number,
             default: 0,
+          },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+    // Deck of remaining cards in the draw pile
+    deck: {
+      type: [Object],
+      default: [],
+    },
+    // Discard pile (top card is the last element)
+    discard: {
+      type: [Object],
+      default: [],
+    },
+    // Hands per player: [{ player: ObjectId, cards: [cardObj] }]
+    hands: {
+      type: [
+        {
+          player: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Player",
+            required: true,
+          },
+          cards: {
+            type: [Object],
+            default: [],
           },
           _id: false,
         },
