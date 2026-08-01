@@ -44,9 +44,26 @@ export default class GameService {
   async getByIdInfo(id) {
     this.log.info(`Getting game info by id [id=${id}]`);
     const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player);
+    const ids = game.players.map((p) => p.player.toString());
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
+  }
+
+  async getCurrentScoreById(id) {
+    this.log.info(`Getting current score by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const ids = game.players.map((p) => p.player.toString());
+    const players = await this.playerService.getAllByIds(ids);
+    const scores = game.players.map((p) => {
+      const player = players.find((player) => player._id.toString() === p.player.toString());
+      const username = player ? player.username : "Unknown";
+      return {
+        playerId: p.player.toString(),
+        username: username,
+        score: p.score,
+      };
+    });
+    return { game, scores };
   }
 
   async getCurrentPlayersById(id) {
@@ -77,7 +94,7 @@ export default class GameService {
     const dataSave = {
       ...validData,
       owner: ownerId,
-      players: [{ player: ownerId, ready: false }],
+      players: [{ player: ownerId, ready: false, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
     this.log.info({ gameId: game._id.toString() }, "Game created");
