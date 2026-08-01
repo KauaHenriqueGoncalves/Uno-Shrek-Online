@@ -15,9 +15,9 @@ import { parseOrThrow } from "../shared/utils/validate.js";
 export default class GameService {
   constructor(schema, playerService) {
     this.gameRepository = new GameRepository(schema);
+    this.orchestrator = new GameOrchestrator(schema);
     this.playerService = playerService;
     this.log = PinoGlobal.getInstance();
-    this.orchestrator = new GameOrchestrator(schema);
   }
 
   async getAll() {
@@ -241,21 +241,30 @@ export default class GameService {
     }
     condicionPlayer.ready = false;
     const gameUpdate = await this.gameRepository.update(gameId, game);
-    this.log.info(`Player is not ready. [playerId=${playerId}] [gameId=${gameId}]`);
+    this.log.info(
+      `Player is not ready. [playerId=${playerId}] [gameId=${gameId}]`,
+    );
     return gameUpdate;
   }
 
   async startGame(userId, gameId) {
-    this.log.info(`Delegating start to orchestrator. [ownerId=${userId}] [gameId=${gameId}]`);
+    this.log.info(
+      `Delegating start to orchestrator. [ownerId=${userId}] [gameId=${gameId}]`,
+    );
     const updated = await this.orchestrator.start(userId, gameId);
     return updated;
   }
 
   async _refillDeckIfNeeded(game) {
-
     if (!game.deck || game.deck.length === 0) {
-      const top = game.discard && game.discard.length > 0 ? game.discard[game.discard.length - 1] : null;
-      const rest = game.discard && game.discard.length > 1 ? game.discard.slice(0, game.discard.length - 1) : [];
+      const top =
+        game.discard && game.discard.length > 0
+          ? game.discard[game.discard.length - 1]
+          : null;
+      const rest =
+        game.discard && game.discard.length > 1
+          ? game.discard.slice(0, game.discard.length - 1)
+          : [];
       const shuffled = shuffle(rest);
 
       game.deck = shuffled;
@@ -264,14 +273,23 @@ export default class GameService {
   }
 
   async draw(userId, gameId) {
-    this.log.info(`Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`);
+    this.log.info(
+      `Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`,
+    );
     const updated = await this.orchestrator.draw(userId, gameId);
     return updated;
   }
 
   async play(userId, gameId, playedCard, colorChoice = null) {
-    this.log.info(`Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [card=${JSON.stringify(playedCard)}]`);
-    const updated = await this.orchestrator.play(userId, gameId, playedCard, colorChoice);
+    this.log.info(
+      `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [card=${JSON.stringify(playedCard)}]`,
+    );
+    const updated = await this.orchestrator.play(
+      userId,
+      gameId,
+      playedCard,
+      colorChoice,
+    );
     return updated;
   }
 
@@ -302,56 +320,38 @@ export default class GameService {
   }
 
   async update(id, data) {
-
     const validData = parseOrThrow(UpdateGameRequestDto, data);
-
     this.log.info(`Updating game by id. [id=${id}]`);
-
     const game = await this.gameRepository.getById(id);
-
     if (!game) {
       this.log.warn({ gameId: id }, "Attempt to update non-existing game");
       throw new NotFoundError("Game not found");
     }
-
     if (game.status === GAME_STATUS.FINISHED) {
       this.log.warn({ gameId: id }, "Attempt to update a finished game");
       throw new BusinessError("Finished games cannot be updated");
     }
-
     const updatedGame = await this.gameRepository.update(id, validData);
-
     this.log.info(
       { gameId: id, fields: Object.keys(validData) },
       "Game updated",
     );
-
     return updatedGame;
   }
 
   async deleteById(id) {
-
     this.log.info(`Deleting delete by id. [id=${id}]`);
-
     const game = await this.gameRepository.getById(id);
-
     if (!game) {
-
       this.log.warn({ gameId: id }, "Attempt to delete non-existing game");
       throw new NotFoundError("Game not found");
-
     }
-
     if (game.status === GAME_STATUS.FINISHED) {
-
       this.log.warn({ gameId: id }, "Attempt to delete a finished game");
       throw new BusinessError("Finished games cannot be deleted");
-
     }
-
     const deleted = await this.gameRepository.deleteById(id);
     this.log.info({ gameId: id }, "Game deleted");
-
     return deleted;
   }
 }
