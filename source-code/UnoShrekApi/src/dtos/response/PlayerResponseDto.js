@@ -11,7 +11,14 @@ export default class PlayerResponseDto {
     return new PlayerResponseDto(player);
   }
 
-  static fromDocumentList(players) {
-    return players.map((player) => new PlayerResponseDto(player));
+  static fromDocumentViewSimple(player) {
+    return {
+      id: player._id,
+      username: player.username,
+    };
+  }
+
+  static fromDocumentViewSimpleList(players) {
+    return players.map((player) => this.fromDocumentViewSimple(player));
   }
 }

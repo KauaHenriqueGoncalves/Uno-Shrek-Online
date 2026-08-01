@@ -11,6 +11,7 @@ describe("PlayerController", () => {
   beforeEach(() => {
     serviceMock = {
       getAll: jest.fn(),
+      getByMe: jest.fn(),
       getById: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
