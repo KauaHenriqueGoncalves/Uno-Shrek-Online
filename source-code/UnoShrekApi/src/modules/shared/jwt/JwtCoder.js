@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { UnauthorizedError } from "../../../config/exceptions/UnauthorizedError.js";
+import { UnauthorizedError } from "../exceptions/UnauthorizedError.js";
 
 export default class JwtCoder {
   static instance = null;

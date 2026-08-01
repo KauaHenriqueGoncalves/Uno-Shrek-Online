@@ -1,10 +1,10 @@
-import PlayerRepository from "../../repository/PlayerRepository.js";
+import PlayerRepository from "./PlayerRepository.js";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { NotFoundError } from "../../config/exceptions/NotFoundError.js";
-import { BusinessError } from "../../config/exceptions/BusinessError.js";
+import { NotFoundError } from "../shared/exceptions/NotFoundError.js";
+import { BusinessError } from "../shared/exceptions/BusinessError.js";
 import { CreatePlayerRequestDto } from "./dto/CreatePlayerRequestDto.js";
 import { UpdatePlayerRequestDto } from "./dto/UpdatePlayerRequestDto.js";
-import { parseOrThrow } from "../../config/utils/validate.js";
+import { parseOrThrow } from "../shared/utils/validate.js";
 import JwtCoder from "../shared/jwt/JwtCoder.js";
 import bcrypt from "bcryptjs";
 

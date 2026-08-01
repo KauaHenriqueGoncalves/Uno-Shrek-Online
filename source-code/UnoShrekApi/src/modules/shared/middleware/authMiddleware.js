@@ -1,11 +1,11 @@
-import { UnauthorizedError } from "./../exceptions/UnauthorizedError.js";
+import { UnauthorizedError } from "../exceptions/UnauthorizedError.js";
 import JwtCoder from "../jwt/JwtCoder.js";
-import PinoGLobal from "../logger/PinoGlobal.js";
+import PinoGlobal from "../logger/PinoGlobal.js";
 import BlacklistedToken from "../token/BlacklistedToken.js";
-import BlacklistedTokenRepository from "../../repository/BlacklistedTokenRepository.js";
+import BlacklistedTokenRepository from "../token/BlacklistedTokenRepository.js";
 
 const jwtCoder = JwtCoder.getInstance();
-const log = PinoGLobal.getInstance();
+const log = PinoGlobal.getInstance();
 const blacklistedRepo = new BlacklistedTokenRepository(BlacklistedToken);
 
 export default async function authMiddleware(req, res, next) {

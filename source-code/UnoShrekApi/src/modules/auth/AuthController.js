@@ -1,6 +1,6 @@
 import { Router } from "express";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { BusinessError } from "../config/exceptions/BusinessError.js";
+import { BusinessError } from "../shared/exceptions/BusinessError.js";
 import asyncHandler from "../shared/utils/asyncHandler.js";
 
 export default class AuthController {

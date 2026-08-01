@@ -1,5 +1,5 @@
 import PinoGlobal from "../../shared/logger/PinoGlobal.js";
-import GameResponseDto from "../../dtos/response/GameResponseDto.js";
+import GameResponseDto from "../../game/response/game.response.dto.js";
 import GAME_EVENTS from "../events/gameEvents.js";
 import { GAME_STATUS } from "../../game/Game.js";
 
@@ -22,11 +22,11 @@ export default function registerGameHandlers(socket, io, { gameService }) {
 
   socket.on(GAME_EVENTS.INPUT.CREATE, async (data) => {
     try {
-      const token = socket.token;
+      const userId = socket.playerId;
       log.info(
         `Creating game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
       );
-      const gameInfo = await gameService.create(token, data);
+      const gameInfo = await gameService.create(userId, data);
       const gameId = (gameInfo.id ?? gameInfo._id)?.toString();
       log.info(
         `Created game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
@@ -63,8 +63,8 @@ export default function registerGameHandlers(socket, io, { gameService }) {
 
   socket.on(GAME_EVENTS.INPUT.JOIN, async ({ gameId }) => {
     try {
-      const token = socket.token;
-      const game = await gameService.joinInGame(token, gameId);
+      const userId = socket.playerId;
+      const game = await gameService.joinInGame(userId, gameId);
       log.info(
         `Player join on game. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
       );
@@ -86,12 +86,12 @@ export default function registerGameHandlers(socket, io, { gameService }) {
 
   socket.on(GAME_EVENTS.INPUT.LEAVE, async () => {
     try {
-      const token = socket.token;
       const gameId = socket.currentGameId;
       if (!gameId) {
         throw Error("Dont have a current game");
       }
-      const game = await gameService.leaveGame(token, gameId);
+      const userId = socket.playerId;
+      const game = await gameService.leaveGame(userId, gameId);
       log.info(
         `Player leave game. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
       );

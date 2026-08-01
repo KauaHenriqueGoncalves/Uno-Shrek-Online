@@ -1,4 +1,4 @@
-import CrudRepository from "./CrudRepository.js";
+import CrudRepository from "../shared/repository/CrudRepository.js";
 import mongoose from "mongoose";
 
 export default class PlayerRepository extends CrudRepository {

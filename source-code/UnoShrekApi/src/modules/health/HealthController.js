@@ -1,6 +1,6 @@
 import express from "express";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
-import { ApiError } from "../config/exceptions/ApiError.js";
+import { ApiError } from "../shared/exceptions/ApiError.js";
 import asyncHandler from "../shared/utils/asyncHandler.js";
 
 export default class HealthController {

@@ -4,7 +4,7 @@ import morgan from "morgan";
 import cors from "cors";
 import PinoGlobal from "./modules/shared/logger/PinoGlobal.js";
 import HealthController from "./modules/health/HealthController.js";
-import MongoDb from "./config/database/MongoDb.js";
+import MongoDb from "./modules/shared/database/MongoDb.js";
 import errorHandler from "./modules/shared/middleware/errorHandler.js";
 import PlayerService from "./modules/player/PlayerService.js";
 import Player from "./modules/player/Player.js";

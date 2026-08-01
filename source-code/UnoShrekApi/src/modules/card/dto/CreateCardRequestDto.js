@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdMongo } from "../../../config/utils/validate.js";
+import { objectIdMongo } from "../../shared/utils/validate.js";
 
 const COLORS = ["red", "blue", "green", "yellow", "wild"];
 

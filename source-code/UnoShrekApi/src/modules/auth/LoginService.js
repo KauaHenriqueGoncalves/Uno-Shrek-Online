@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { LoginRequestDto } from "./dto/LoginRequestDto.js";
-import { parseOrThrow } from "../config/utils/validate.js";
-import { UnauthorizedError } from "../config/exceptions/UnauthorizedError.js";
+import { parseOrThrow } from "../shared/utils/validate.js";
+import { UnauthorizedError } from "../shared/exceptions/UnauthorizedError.js";
 import JwtCoder from "../shared/jwt/JwtCoder.js";
 import PinoGlobal from "../shared/logger/PinoGlobal.js";
 

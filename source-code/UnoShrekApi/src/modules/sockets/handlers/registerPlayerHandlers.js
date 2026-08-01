@@ -24,12 +24,12 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
     broadcastOnlineCount(io, false);
     if (!socket.currentGameId) return;
     try {
-      const token = socket.token;
+      const userId = socket.playerId;
       const gameId = socket.currentGameId;
       log.info(
         `Removing player from game on disconnect. [playerId=${socket.playerId}] [gameId=${gameId}]`,
       );
-      const game = await gameService.leaveGame(token, gameId);
+      const game = await gameService.leaveGame(userId, gameId);
       broadcastRoomGameInfo(io, gameService, gameId);
       broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
     } catch (err) {
