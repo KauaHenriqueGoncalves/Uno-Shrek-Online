@@ -1,7 +1,7 @@
 import App from "./app.js";
 import PinoGlobal from "./config/logger/PinoGlobal.js";
 import { createServer } from "http";
-import { initSockets } from "./sockets/socket.js";
+import initSocket from "./sockets/socket.js";
 
 class Server {
   constructor() {
@@ -14,7 +14,7 @@ class Server {
     try {
       await this.app.init();
       const httpServer = createServer(this.app.express);
-      initSockets(httpServer);
+      const io = initSocket(httpServer, this.app.services);
       httpServer.listen(this.port, () => {
         this.log.info(
           `Started Application - Available in host http://localhost:${this.port}`,

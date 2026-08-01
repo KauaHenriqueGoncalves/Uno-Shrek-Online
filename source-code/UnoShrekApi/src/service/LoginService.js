@@ -21,6 +21,7 @@ export default class LoginService {
         parsed.password,
         player.password,
       );
+      
       if (!passwordMatches) {
         this.log.error("Invalid credentials in login.");
         throw new UnauthorizedError("Invalid credentials");
