@@ -14,6 +14,12 @@ export default class JwtCoder {
   constructor() {
     this.jwtCoder = jwt;
     this.jwtSecret = process.env.JWT_SECRET;
+    if (!this.jwtSecret) {
+      // Fail fast with a clear error message when secret is missing
+      throw new Error(
+        "JWT_SECRET is not defined. Set JWT_SECRET in environment variables or .env",
+      );
+    }
   }
 
   sign(userId) {
