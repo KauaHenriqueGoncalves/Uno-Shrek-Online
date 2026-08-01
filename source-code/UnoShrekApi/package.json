@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --env-file=.env ./src/server.js",
     "start::watch": "nodemon --env-file=.env ./src/server.js",
-    "test": "jest"
+    "test": "jest",
+    "test::coverage": "jest --coverage"
   },
   "keywords": [],
   "authors": [
@@ -18,8 +19,11 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.4",
     "morgan": "^1.11.0",
     "pino": "^10.3.1",

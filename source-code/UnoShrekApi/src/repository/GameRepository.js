@@ -1,5 +1,6 @@
 import CrudRepository from "./CrudRepository.js";
 import mongoose from "mongoose";
+import { GAME_STATUS } from "../schema/Game.js";
 
 export default class GameRepository extends CrudRepository {
   constructor(schema) {
@@ -15,5 +16,18 @@ export default class GameRepository extends CrudRepository {
       query.limit(limit);
     }
     return await query.exec();
+  }
+
+  async getAllByStatus(status, session = null) {
+    return await this.schema.find({ status }).session(session);
+  }
+
+  async getActiveGameByOwner(ownerId, session = null) {
+    return await this.schema
+      .findOne({
+        owner: ownerId,
+        status: { $ne: GAME_STATUS.FINISHED },
+      })
+      .session(session);
   }
 }

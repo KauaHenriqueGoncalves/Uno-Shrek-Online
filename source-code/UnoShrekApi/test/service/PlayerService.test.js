@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import PlayerService from "../../src/service/PlayerService.js";
 import PlayerRepository from "../../src/repository/PlayerRepository.js";
 import PinoGlobal from "../../src/config/logger/PinoGlobal.js";
@@ -8,6 +9,7 @@ import { parseOrThrow } from "../../src/config/utils/validate.js";
 jest.mock("../../src/repository/PlayerRepository.js");
 jest.mock("../../src/config/logger/PinoGlobal.js");
 jest.mock("../../src/config/utils/validate.js");
+jest.mock("bcryptjs");
 
 describe("PlayerService", () => {
   let playerService;
@@ -56,26 +58,66 @@ describe("PlayerService", () => {
   });
 
   describe("create", () => {
-    it("should create a player when email does not exist", async () => {
-      const inputData = { username: "kaua", age: 20, email: "kaua@test.com" };
-      const createdPlayer = { _id: "1", ...inputData };
+    it("should create a player when email and username do not exist", async () => {
+      const inputData = {
+        username: "kaua",
+        age: 20,
+        email: "kaua@test.com",
+        password: "password123",
+      };
+      const createdPlayer = { _id: "1", ...inputData, password: "hashed" };
 
       parseOrThrow.mockReturnValue(inputData);
       repositoryMock.getByEmail.mockResolvedValue(null);
+      repositoryMock.getByUsername.mockResolvedValue(null);
+      bcrypt.hash.mockResolvedValue("hashed");
       repositoryMock.create.mockResolvedValue(createdPlayer);
 
       const result = await playerService.create(inputData);
 
       expect(repositoryMock.getByEmail).toHaveBeenCalledWith(inputData.email);
-      expect(repositoryMock.create).toHaveBeenCalledWith(inputData);
+      expect(repositoryMock.getByUsername).toHaveBeenCalledWith(
+        inputData.username,
+      );
+      expect(bcrypt.hash).toHaveBeenCalledWith(inputData.password, 10);
+      expect(repositoryMock.create).toHaveBeenCalledWith({
+        ...inputData,
+        password: "hashed",
+      });
       expect(result).toEqual(createdPlayer);
     });
 
     it("should throw BusinessError when email already exists", async () => {
-      const inputData = { username: "kaua", age: 20, email: "kaua@test.com" };
+      const inputData = {
+        username: "kaua",
+        age: 20,
+        email: "kaua@test.com",
+        password: "password123",
+      };
 
       parseOrThrow.mockReturnValue(inputData);
       repositoryMock.getByEmail.mockResolvedValue({ _id: "1", ...inputData });
+
+      await expect(playerService.create(inputData)).rejects.toThrow(
+        BusinessError,
+      );
+      expect(repositoryMock.create).not.toHaveBeenCalled();
+    });
+
+    it("should throw BusinessError when username already exists", async () => {
+      const inputData = {
+        username: "kaua",
+        age: 20,
+        email: "kaua@test.com",
+        password: "password123",
+      };
+
+      parseOrThrow.mockReturnValue(inputData);
+      repositoryMock.getByEmail.mockResolvedValue(null);
+      repositoryMock.getByUsername.mockResolvedValue({
+        _id: "1",
+        ...inputData,
+      });
 
       await expect(playerService.create(inputData)).rejects.toThrow(
         BusinessError,

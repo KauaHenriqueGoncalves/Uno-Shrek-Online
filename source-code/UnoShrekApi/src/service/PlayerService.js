@@ -5,17 +5,27 @@ import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { CreatePlayerRequestDto } from "../dtos/request/player/CreatePlayerRequestDto.js";
 import { UpdatePlayerRequestDto } from "../dtos/request/player/UpdatePlayerRequestDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
-import mongoose from "mongoose";
+import JwtCoder from "../config/jwt/JwtCoder.js";
+import bcrypt from "bcryptjs";
+
+const SALT_ROUNDS = 10;
 
 export default class PlayerService {
   constructor(schema) {
     this.playerRepository = new PlayerRepository(schema);
+    this.jwtCoder = JwtCoder.getInstance();
     this.log = PinoGlobal.getInstance();
   }
 
   async getAll() {
     this.log.info("Getting all players");
     const players = await this.playerRepository.getAll();
+    return players;
+  }
+
+  async getAllByIds(ids) {
+    this.log.info(`Getting all players by ids [ids=${ids}]`);
+    const players = await this.playerRepository.getAllByIds(ids);
     return players;
   }
 
@@ -29,9 +39,29 @@ export default class PlayerService {
     return player;
   }
 
+  async getByUsername(username) {
+    this.log.info(`Getting player by username [username=${username}]`);
+    const player = await this.playerRepository.getByUsername(username);
+    if (!player) {
+      this.log.warn({ username: username }, "Player not found");
+      throw new NotFoundError("Player not found");
+    }
+    return player;
+  }
+
+  async getByToken(token) {
+    const tokenDecode = this.jwtCoder.decode(token);
+    const id = tokenDecode.id;
+    this.log.info(`Getting by own user. [id=${id}]`);
+    const player = await this.getById(id);
+    return player;
+  }
+
   async create(data) {
     const validData = parseOrThrow(CreatePlayerRequestDto, data);
-    this.log.info(`Creating a player. [email=${validData.email}] [username=${validData.name}]`);
+    this.log.info(
+      `Creating a player. [email=${validData.email}] [username=${validData.username}]`,
+    );
     const isExistEmail = await this.playerRepository.getByEmail(
       validData.email,
     );
@@ -42,7 +72,21 @@ export default class PlayerService {
       );
       throw new BusinessError("Email already exists");
     }
-    const player = await this.playerRepository.create(validData);
+    const isExistUsername = await this.playerRepository.getByUsername(
+      validData.username,
+    );
+    if (isExistUsername) {
+      this.log.warn(
+        { username: validData.username },
+        "Attempt to create player with existing username",
+      );
+      throw new BusinessError("Username already exists");
+    }
+    const hashedPassword = await bcrypt.hash(validData.password, SALT_ROUNDS);
+    const player = await this.playerRepository.create({
+      ...validData,
+      password: hashedPassword,
+    });
     this.log.info(
       { playerId: player._id.toString(), email: player.email },
       "Player created",

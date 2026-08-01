@@ -1,5 +1,6 @@
 import express from "express";
 import PlayerResponseDto from "./../dtos/response/PlayerResponseDto.js";
+import authMiddleware from "../config/middleware/authMiddleware.js";
 
 export default class PlayerController {
   constructor(service) {
@@ -9,16 +10,24 @@ export default class PlayerController {
   }
 
   registerRoutes() {
-    this.routers.get("/", this.getAll.bind(this));
-    this.routers.get("/:id", this.getById.bind(this));
-    this.routers.post("/", this.create.bind(this));
-    this.routers.put("/:id", this.update.bind(this));
-    this.routers.delete("/:id", this.delete.bind(this));
+    this.routers.get("/", authMiddleware, this.getAll.bind(this));
+    this.routers.get("/me", authMiddleware, this.getByMe.bind(this));
+    this.routers.post("/", authMiddleware, this.create.bind(this));
+    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
+    this.routers.put("/:id", authMiddleware, this.update.bind(this));
+    this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
 
   async getAll(req, res) {
     const players = await this.service.getAll();
-    const response = PlayerResponseDto.fromDocumentList(players);
+    const response = PlayerResponseDto.fromDocumentViewSimpleList(players);
+    return res.status(200).json(response);
+  }
+
+  async getByMe(req, res) {
+    const token = req.cookies.accessToken;
+    const player = await this.service.getByToken(token);
+    const response = PlayerResponseDto.fromDocument(player);
     return res.status(200).json(response);
   }
 
