@@ -36,7 +36,6 @@ const gameSchema = new mongoose.Schema(
     },
     players: {
       type: [
-        // ATENÇAO, CASO ALTERE A LISTA DE PLAYERS, ATUALIZE O PlayerService.create no saveData!!!!
         {
           player: {
             type: mongoose.Schema.Types.ObjectId,
@@ -51,37 +50,26 @@ const gameSchema = new mongoose.Schema(
             type: Number,
             default: 0,
           },
+          hand: {
+            type: {
+              cards: {
+                type: [Object],
+                default: [],
+              },
+            },
+            default: () => ({ cards: [] }),
+          },
           _id: false,
         },
       ],
       default: [],
     },
-    // Deck of remaining cards in the draw pile
     deck: {
       type: [Object],
       default: [],
     },
-    // Discard pile (top card is the last element)
     discard: {
       type: [Object],
-      default: [],
-    },
-    // Hands per player: [{ player: ObjectId, cards: [cardObj] }]
-    hands: {
-      type: [
-        {
-          player: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Player",
-            required: true,
-          },
-          cards: {
-            type: [Object],
-            default: [],
-          },
-          _id: false,
-        },
-      ],
       default: [],
     },
   },
