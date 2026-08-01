@@ -55,7 +55,9 @@ export default class GameService {
     const ids = game.players.map((p) => p.player.toString());
     const players = await this.playerService.getAllByIds(ids);
     const scores = game.players.map((p) => {
-      const player = players.find((player) => player._id.toString() === p.player.toString());
+      const player = players.find(
+        (player) => player._id.toString() === p.player.toString(),
+      );
       const username = player ? player.username : "Unknown";
       return {
         playerId: p.player.toString(),
@@ -72,6 +74,32 @@ export default class GameService {
     const ids = game.players.map((p) => p.player);
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
+  }
+
+  async getCurrentPlayerById(id) {
+    this.log.info(`Getting current player by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const playerId =
+      game.currentPlayer ?? (game.players && game.players[0]?.player);
+    if (!playerId) {
+      this.log.warn(
+        { gameId: id },
+        "No players in game to determine current player",
+      );
+      throw new NotFoundError("No players in game");
+    }
+    const player = await this.playerService.getById(playerId.toString());
+    return { game, player };
+  }
+
+  async getTopCardById(id) {
+    this.log.info(`Getting top card by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const top =
+      game.discard && game.discard.length > 0
+        ? game.discard[game.discard.length - 1]
+        : null;
+    return { game, topCard: top };
   }
 
   async create(token, data) {
@@ -252,51 +280,25 @@ export default class GameService {
       throw new BusinessError("All players must be ready.");
     }
     game.status = GAME_STATUS.ACTIVE;
-    // initialize deck, hands and discard
     const HAND_SIZE = 7;
     let deck = createDeck();
-    const hands = [];
-
-    for (const gp of game.players) {
+    game.players.forEach((gp) => {
       const cards = deal(deck, HAND_SIZE);
-      hands.push({ player: gp.player, cards });
-    }
-    
-    // draw top card to discard
+      gp.hand = { cards };
+    });
     const topCard = deck.shift();
     const discard = [];
-    if (topCard) discard.push(topCard);
-
+    if (topCard) {
+      discard.push(topCard);
+    }
     game.deck = deck;
     game.discard = discard;
-    game.hands = hands;
-
-    // set current player to the first player in the list (usually owner)
     if (game.players && game.players.length > 0) {
       game.currentPlayer = game.players[0].player;
     }
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
     return gameUpdate;
-  }
-
-  async getCurrentPlayerById(id) {
-    this.log.info(`Getting current player by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const playerId = game.currentPlayer ?? (game.players && game.players[0]?.player);
-    if (!playerId) {
-      this.log.warn({ gameId: id }, "No players in game to determine current player");
-      throw new NotFoundError("No players in game");
-    }
-    const player = await this.playerService.getById(playerId.toString());
-    return { game, player };
-  }
-
-  async getTopCardById(id) {
-    this.log.info(`Getting top card by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const top = game.discard && game.discard.length > 0 ? game.discard[game.discard.length - 1] : null;
-    return { game, topCard: top };
   }
 
   async finishedGame(token, gameId) {
