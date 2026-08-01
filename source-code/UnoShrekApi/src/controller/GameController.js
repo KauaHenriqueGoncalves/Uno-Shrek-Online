@@ -1,6 +1,7 @@
 import express from "express";
 import GameResponseDto from "./../dtos/response/GameResponseDto.js";
 import authMiddleware from "../config/middleware/authMiddleware.js";
+import asyncHandler from "../config/utils/asyncHandler.js";
 
 export default class GameController {
   constructor(service) {
@@ -10,23 +11,23 @@ export default class GameController {
   }
 
   registerRoutes() {
-    this.routers.get("/", authMiddleware, this.getAll.bind(this));
-    this.routers.get("/status/:status", authMiddleware, this.getAllByStatus.bind(this));
-    this.routers.post("/", authMiddleware, this.create.bind(this));
-    this.routers.put("/join", authMiddleware, this.joinInGame.bind(this));
-    this.routers.put("/leave", authMiddleware, this.leaveGame.bind(this));
-    this.routers.put("/ready", authMiddleware, this.readyInGame.bind(this));
-    this.routers.put("/not-ready", authMiddleware, this.notReadyInGame.bind(this));
-    this.routers.put("/start", authMiddleware, this.startGame.bind(this));
-    this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
-    this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
-    this.routers.get("/:id/current-score", authMiddleware, this.getCurrentScoreById.bind(this));
-    this.routers.get("/:id", authMiddleware, this.getById.bind(this));
-    this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));
-    this.routers.get("/:id/current-player", authMiddleware, this.getCurrentPlayerById.bind(this));
-    this.routers.get("/:id/top-card", authMiddleware, this.getTopCardById.bind(this));
-    this.routers.put("/:id", authMiddleware, this.update.bind(this));
-    this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
+    this.routers.get("/", authMiddleware, asyncHandler(this.getAll.bind(this)));
+    this.routers.get("/status/:status", authMiddleware, asyncHandler(this.getAllByStatus.bind(this)));
+    this.routers.post("/", authMiddleware, asyncHandler(this.create.bind(this)));
+    this.routers.put("/join", authMiddleware, asyncHandler(this.joinInGame.bind(this)));
+    this.routers.put("/leave", authMiddleware, asyncHandler(this.leaveGame.bind(this)));
+    this.routers.put("/ready", authMiddleware, asyncHandler(this.readyInGame.bind(this)));
+    this.routers.put("/not-ready", authMiddleware, asyncHandler(this.notReadyInGame.bind(this)));
+    this.routers.put("/start", authMiddleware, asyncHandler(this.startGame.bind(this)));
+    this.routers.put("/finish", authMiddleware, asyncHandler(this.finishedGame.bind(this)));
+    this.routers.get("/:id/status", authMiddleware, asyncHandler(this.getStatusById.bind(this)));
+    this.routers.get("/:id/current-score", authMiddleware, asyncHandler(this.getCurrentScoreById.bind(this)));
+    this.routers.get("/:id", authMiddleware, asyncHandler(this.getById.bind(this)));
+    this.routers.get("/:id/current-players", authMiddleware, asyncHandler(this.getCurrentPlayersById.bind(this)));
+    this.routers.get("/:id/current-player", authMiddleware, asyncHandler(this.getCurrentPlayerById.bind(this)));
+    this.routers.get("/:id/top-card", authMiddleware, asyncHandler(this.getTopCardById.bind(this)));
+    this.routers.put("/:id", authMiddleware, asyncHandler(this.update.bind(this)));
+    this.routers.delete("/:id", authMiddleware, asyncHandler(this.delete.bind(this)));
   }
 
   async getAll(req, res) {
@@ -68,12 +69,6 @@ export default class GameController {
   async getTopCardById(req, res) {
     const { game, topCard } = await this.service.getTopCardById(req.params.id);
     return res.status(200).json({ game_id: game._id.toString(), top_card: topCard });
-  }
-
-  async getStatusById(req, res) {
-    const game = await this.service.getById(req.params.id);
-    const response = GameResponseDto.fromDocumentStatus(game);
-    return res.status(200).json(response);
   }
 
   async getCurrentScoreById(req, res) {

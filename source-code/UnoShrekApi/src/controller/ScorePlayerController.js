@@ -1,5 +1,6 @@
 import express from "express";
 import ScorePlayerResponseDto from "../dtos/response/ScorePlayerResponseDto.js";
+import asyncHandler from "../config/utils/asyncHandler.js";
 
 export default class ScorePlayerController {
   constructor(service) {
@@ -9,12 +10,12 @@ export default class ScorePlayerController {
   }
 
   registerRoutes() {
-    this.routers.get("/", this.getAll.bind(this));
-    this.routers.get("/:id", this.getById.bind(this));
-    this.routers.get("/:id/details", this.getByIdDetails.bind(this));
-    this.routers.post("/", this.create.bind(this));
-    this.routers.put("/:id", this.update.bind(this));
-    this.routers.delete("/:id", this.delete.bind(this));
+    this.routers.get("/", asyncHandler(this.getAll.bind(this)));
+    this.routers.get("/:id", asyncHandler(this.getById.bind(this)));
+    this.routers.get("/:id/details", asyncHandler(this.getByIdDetails.bind(this)));
+    this.routers.post("/", asyncHandler(this.create.bind(this)));
+    this.routers.put("/:id", asyncHandler(this.update.bind(this)));
+    this.routers.delete("/:id", asyncHandler(this.delete.bind(this)));
   }
 
   async getAll(req, res) {
