@@ -5,6 +5,7 @@ import { BusinessError } from "../config/exceptions/BusinessError.js";
 import { CreateGameRequestDto } from "../dtos/request/game/CreateGameRequestDto.js";
 import { UpdateGameRequestDto } from "../dtos/request/game/UpdateGameRequestDto.js";
 import { GAME_STATUS } from "../schema/Game.js";
+import { createDeck, deal, shuffle } from "../game/deck.js";
 import { GameStatusDto } from "../dtos/request/game/GameStatusDto.js";
 import { parseOrThrow } from "./../config/utils/validate.js";
 import JwtCoder from "../config/jwt/JwtCoder.js";
@@ -43,9 +44,28 @@ export default class GameService {
   async getByIdInfo(id) {
     this.log.info(`Getting game info by id [id=${id}]`);
     const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player);
+    const ids = game.players.map((p) => p.player.toString());
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
+  }
+
+  async getCurrentScoreById(id) {
+    this.log.info(`Getting current score by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const ids = game.players.map((p) => p.player.toString());
+    const players = await this.playerService.getAllByIds(ids);
+    const scores = game.players.map((p) => {
+      const player = players.find(
+        (player) => player._id.toString() === p.player.toString(),
+      );
+      const username = player ? player.username : "Unknown";
+      return {
+        playerId: p.player.toString(),
+        username: username,
+        score: p.score,
+      };
+    });
+    return { game, scores };
   }
 
   async getCurrentPlayersById(id) {
@@ -54,6 +74,32 @@ export default class GameService {
     const ids = game.players.map((p) => p.player);
     const players = await this.playerService.getAllByIds(ids);
     return { game, players };
+  }
+
+  async getCurrentPlayerById(id) {
+    this.log.info(`Getting current player by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const playerId =
+      game.currentPlayer ?? (game.players && game.players[0]?.player);
+    if (!playerId) {
+      this.log.warn(
+        { gameId: id },
+        "No players in game to determine current player",
+      );
+      throw new NotFoundError("No players in game");
+    }
+    const player = await this.playerService.getById(playerId.toString());
+    return { game, player };
+  }
+
+  async getTopCardById(id) {
+    this.log.info(`Getting top card by game id [id=${id}]`);
+    const game = await this.getById(id);
+    const top =
+      game.discard && game.discard.length > 0
+        ? game.discard[game.discard.length - 1]
+        : null;
+    return { game, topCard: top };
   }
 
   async create(token, data) {
@@ -73,7 +119,11 @@ export default class GameService {
         "You already have an active game. Finish it before creating a new one.",
       );
     }
-    const dataSave = { ...validData, owner: ownerId };
+    const dataSave = {
+      ...validData,
+      owner: ownerId,
+      players: [{ player: ownerId, ready: false, score: 0 }],
+    };
     const game = await this.gameRepository.create(dataSave);
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return game;
@@ -230,6 +280,22 @@ export default class GameService {
       throw new BusinessError("All players must be ready.");
     }
     game.status = GAME_STATUS.ACTIVE;
+    const HAND_SIZE = 7;
+    let deck = createDeck();
+    game.players.forEach((gp) => {
+      const cards = deal(deck, HAND_SIZE);
+      gp.hand = { cards };
+    });
+    const topCard = deck.shift();
+    const discard = [];
+    if (topCard) {
+      discard.push(topCard);
+    }
+    game.deck = deck;
+    game.discard = discard;
+    if (game.players && game.players.length > 0) {
+      game.currentPlayer = game.players[0].player;
+    }
     const gameUpdate = await this.gameRepository.update(gameId, game);
     this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
     return gameUpdate;

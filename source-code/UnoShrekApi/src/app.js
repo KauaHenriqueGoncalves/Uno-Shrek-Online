@@ -20,6 +20,7 @@ import ScorePlayerService from "./service/ScorePlayerService.js";
 import ScorePlayerController from "./controller/ScorePlayerController.js";
 import LoginService from "./service/LoginService.js";
 import AuthController from "./controller/AuthController.js";
+import TokenService from "./service/TokenService.js";
 
 export default class App {
   constructor() {
@@ -92,7 +93,17 @@ export default class App {
       );
 
       const loginService = new LoginService(playerService);
-      this.authController = new AuthController(loginService);
+      const tokenService = new TokenService();
+      this.authController = new AuthController(loginService, playerService, tokenService);
+
+      this.services = {
+        playerService,
+        gameService,
+        cardService,
+        scorePlayerService,
+        loginService,
+        tokenService,
+      };
     } catch (error) {
       this.log.error(
         { err: error },

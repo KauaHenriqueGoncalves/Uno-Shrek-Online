@@ -23,6 +23,11 @@ const gameSchema = new mongoose.Schema(
       ref: "Player",
       required: [true, "Id of owner is required"],
     },
+    currentPlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      required: false,
+    },
     maxPlayers: {
       type: Number,
       required: true,
@@ -41,9 +46,30 @@ const gameSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
           },
+          score: {
+            type: Number,
+            default: 0,
+          },
+          hand: {
+            type: {
+              cards: {
+                type: [Object],
+                default: [],
+              },
+            },
+            default: () => ({ cards: [] }),
+          },
           _id: false,
         },
       ],
+      default: [],
+    },
+    deck: {
+      type: [Object],
+      default: [],
+    },
+    discard: {
+      type: [Object],
       default: [],
     },
   },

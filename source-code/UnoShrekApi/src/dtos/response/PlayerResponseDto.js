@@ -18,14 +18,6 @@ export default class PlayerResponseDto {
     };
   }
 
-  static fromDocumentRoom(player, ready) {
-    return {
-      id: player._id,
-      username: player.username,
-      ready: ready,
-    };
-  }
-
   static fromDocumentViewSimpleList(players) {
     return players.map((player) => this.fromDocumentViewSimple(player));
   }

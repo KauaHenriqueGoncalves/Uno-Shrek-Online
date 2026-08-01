@@ -20,8 +20,11 @@ export default class GameController {
     this.routers.put("/start", authMiddleware, this.startGame.bind(this));
     this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
     this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
+    this.routers.get("/:id/current-score", authMiddleware, this.getCurrentScoreById.bind(this));
     this.routers.get("/:id", authMiddleware, this.getById.bind(this));
     this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));
+    this.routers.get("/:id/current-player", authMiddleware, this.getCurrentPlayerById.bind(this));
+    this.routers.get("/:id/top-card", authMiddleware, this.getTopCardById.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
     this.routers.delete("/:id", authMiddleware, this.delete.bind(this));
   }
@@ -45,15 +48,37 @@ export default class GameController {
     return res.status(200).json(response);
   }
 
+  async getStatusById(req, res) {
+    const game = await this.service.getById(req.params.id);
+    const response = GameResponseDto.fromDocumentStatus(game);
+    return res.status(200).json(response);
+  }
+
   async getCurrentPlayersById(req, res) {
     const { game, players } = await this.service.getCurrentPlayersById(req.params.id);
     const response = GameResponseDto.fromDocumentCurrentPlayer(game, players);
     return res.status(200).json(response);
   }
 
+  async getCurrentPlayerById(req, res) {
+    const { game, player } = await this.service.getCurrentPlayerById(req.params.id);
+    return res.status(200).json({ game_id: game._id.toString(), current_player: player.username });
+  }
+
+  async getTopCardById(req, res) {
+    const { game, topCard } = await this.service.getTopCardById(req.params.id);
+    return res.status(200).json({ game_id: game._id.toString(), top_card: topCard });
+  }
+
   async getStatusById(req, res) {
     const game = await this.service.getById(req.params.id);
     const response = GameResponseDto.fromDocumentStatus(game);
+    return res.status(200).json(response);
+  }
+
+  async getCurrentScoreById(req, res) {
+    const { game, scores } = await this.service.getCurrentScoreById(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentScore(game, scores);
     return res.status(200).json(response);
   }
 
