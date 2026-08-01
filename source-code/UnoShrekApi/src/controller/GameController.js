@@ -20,6 +20,7 @@ export default class GameController {
     this.routers.put("/start", authMiddleware, this.startGame.bind(this));
     this.routers.put("/finish", authMiddleware, this.finishedGame.bind(this));
     this.routers.get("/:id/status", authMiddleware, this.getStatusById.bind(this));
+    this.routers.get("/:id/current-score", authMiddleware, this.getCurrentScoreById.bind(this));
     this.routers.get("/:id", authMiddleware, this.getById.bind(this));
     this.routers.get("/:id/current-players", authMiddleware, this.getCurrentPlayersById.bind(this));
     this.routers.put("/:id", authMiddleware, this.update.bind(this));
@@ -45,15 +46,21 @@ export default class GameController {
     return res.status(200).json(response);
   }
 
+  async getStatusById(req, res) {
+    const game = await this.service.getById(req.params.id);
+    const response = GameResponseDto.fromDocumentStatus(game);
+    return res.status(200).json(response);
+  }
+
   async getCurrentPlayersById(req, res) {
     const { game, players } = await this.service.getCurrentPlayersById(req.params.id);
     const response = GameResponseDto.fromDocumentCurrentPlayer(game, players);
     return res.status(200).json(response);
   }
 
-  async getStatusById(req, res) {
-    const game = await this.service.getById(req.params.id);
-    const response = GameResponseDto.fromDocumentStatus(game);
+  async getCurrentScoreById(req, res) {
+    const { game, scores } = await this.service.getCurrentScoreById(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentScore(game, scores);
     return res.status(200).json(response);
   }
 
