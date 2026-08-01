@@ -1,4 +1,4 @@
-import PlayerResponseDto from "../../player/response/PlayerResponseDto.js";
+import PlayerResponseDto from "../../player/response/player.response.dto.js";
 
 export default class GameResponseDto {
   constructor(game) {

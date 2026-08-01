@@ -2,25 +2,25 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import cors from "cors";
-import PinoGlobal from "./modules/shared/logger/PinoGlobal.js";
-import HealthController from "./modules/health/HealthController.js";
-import MongoDb from "./modules/shared/database/MongoDb.js";
-import errorHandler from "./modules/shared/middleware/errorHandler.js";
-import PlayerService from "./modules/player/PlayerService.js";
-import Player from "./modules/player/Player.js";
-import PlayerController from "./modules/player/PlayerController.js";
-import GameService from "./modules/game/GameService.js";
-import Game from "./modules/game/Game.js";
+import PinoGlobal from "./modules/shared/logger/pino-global.logger.js";
+import HealthController from "./modules/health/health.controller.js";
+import MongoDb from "./modules/shared/database/mongo-db.js";
+import errorHandler from "./modules/shared/middleware/error-handler.middleware.js";
+import PlayerService from "./modules/player/player.service.js";
+import Player from "./modules/player/player.schema.js";
+import PlayerController from "./modules/player/player.controller.js";
+import GameService from "./modules/game/game.service.js";
+import Game from "./modules/game/game.schema.js";
 import GameController from "./modules/game/game.controller.js";
-import Card from "./modules/card/Card.js";
-import CardService from "./modules/card/CardService.js";
-import CardController from "./modules/card/CardController.js";
-import ScorePlayer from "./modules/score/ScorePlayer.js";
-import ScorePlayerService from "./modules/score/ScorePlayerService.js";
-import ScorePlayerController from "./modules/score/ScorePlayerController.js";
-import LoginService from "./modules/auth/LoginService.js";
-import AuthController from "./modules/auth/AuthController.js";
-import TokenService from "./modules/auth/TokenService.js";
+import Card from "./modules/card/card.schema.js";
+import CardService from "./modules/card/card.service.js";
+import CardController from "./modules/card/card.controller.js";
+import ScorePlayer from "./modules/score/score-player.schema.js";
+import ScorePlayerService from "./modules/score/score-player.service.js";
+import ScorePlayerController from "./modules/score/score-player.controller.js";
+import LoginService from "./modules/auth/login.service.js";
+import AuthController from "./modules/auth/auth.controller.js";
+import TokenService from "./modules/auth/token.service.js";
 
 export default class App {
   constructor() {
@@ -92,8 +92,8 @@ export default class App {
         scorePlayerService,
       );
 
-      const loginService = new LoginService(playerService);
       const tokenService = new TokenService();
+      const loginService = new LoginService(playerService);
       this.authController = new AuthController(loginService, playerService, tokenService);
 
       this.services = {
