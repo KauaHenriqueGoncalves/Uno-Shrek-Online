@@ -7,11 +7,11 @@ export default {
   collectCoverageFrom: [
     "src/**/*.js",
     "!src/**/*.test.js",
-    "!src/config/database/**",
-    "!src/config/exceptions/**",
-    "!src/config/logger/**",
-    "!src/dtos/response/**",
-    "!src/schema/**",
+    "!src/modules/shared/database/**",
+    "!src/modules/shared/exceptions/**",
+    "!src/modules/shared/logger/**",
+    "!src/modules/**/response/**",
+    "!src/modules/schema/**",
     "!src/*.js",
   ],
 };
