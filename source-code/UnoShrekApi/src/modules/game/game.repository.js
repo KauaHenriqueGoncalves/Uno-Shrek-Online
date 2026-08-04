@@ -30,4 +30,17 @@ export default class GameRepository extends CrudRepository {
       })
       .session(session);
   }
+
+  async getByIdPopulated(id, session = null) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    return await this.schema
+      .findOne({ _id: id })
+      .populate("owner")
+      .populate("currentPlayer")
+      .populate("players.player")
+      .populate("players.scorePlayer")
+      .session(session);
+  }
 }

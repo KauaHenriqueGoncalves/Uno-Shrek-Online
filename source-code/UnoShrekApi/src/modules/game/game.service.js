@@ -13,9 +13,9 @@ import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
 export default class GameService {
-  constructor(schema, playerService) {
+  constructor(schema, orchestrator, playerService) {
     this.gameRepository = new GameRepository(schema);
-    this.orchestrator = new GameOrchestrator(schema);
+    this.orchestrator = orchestrator;
     this.playerService = playerService;
     this.log = PinoGlobal.getInstance();
   }
@@ -45,29 +45,23 @@ export default class GameService {
 
   async getByIdInfo(id) {
     this.log.info(`Getting game info by id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player.toString());
-    const players = await this.playerService.getAllByIds(ids);
-    return { game, players };
+    const game = await this.orchestrator.getFullGame(id);
+    return { game };
   }
 
   async getCurrentScoreById(id) {
     this.log.info(`Getting current score by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player.toString());
-    const players = await this.playerService.getAllByIds(ids);
+    const game = await this.orchestrator.getFullGame(id);
+    const gameId = game._id.toString();
     const scores = game.players.map((p) => {
-      const player = players.find(
-        (player) => player._id.toString() === p.player.toString(),
-      );
-      const username = player ? player.username : "Unknown";
       return {
-        playerId: p.player.toString(),
-        username: username,
-        score: p.score,
+        player: p.player._id.toString(),
+        username: p.player.username,
+        score: p.scorePlayer ? p.scorePlayer.score : 0,
       };
     });
-    return { game, scores };
+    console.log(scores);
+    return { gameId, scores };
   }
 
   async getCurrentPlayersById(id) {
@@ -126,8 +120,10 @@ export default class GameService {
       players: [{ player: ownerId, ready: false, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
+    const { game: gameWithScore } =
+      await this.orchestrator.createScorePlayerFor(game._id, ownerId);
     this.log.info({ gameId: game._id.toString() }, "Game created");
-    return game;
+    return gameWithScore;
   }
 
   async joinInGame(userId, gameId) {
@@ -155,7 +151,11 @@ export default class GameService {
       throw new BusinessError("Player already joined this game");
     }
     game.players.push({ player: playerId, ready: false });
-    const gameUpdate = await this.gameRepository.update(gameId, game);
+    await this.gameRepository.update(gameId, game);
+    const { game: gameUpdate } = await this.orchestrator.createScorePlayerFor(
+      gameId,
+      playerId,
+    );
     this.log.info(
       `Player added on game. [playerId=${playerId}] [gameId=${gameId}]`,
     );
@@ -247,6 +247,19 @@ export default class GameService {
     return gameUpdate;
   }
 
+  async updatePlayerScore(userId, gameId, score) {
+    const playerId = userId;
+    this.log.info(
+      `Updating player score. [playerId=${playerId}] [gameId=${gameId}] [score=${score}]`,
+    );
+    const updatedGame = await this.orchestrator.updateScore(
+      playerId,
+      gameId,
+      score,
+    );
+    return updatedGame;
+  }
+
   async startGame(userId, gameId) {
     this.log.info(
       `Delegating start to orchestrator. [ownerId=${userId}] [gameId=${gameId}]`,
@@ -272,6 +285,9 @@ export default class GameService {
     }
   }
 
+  /*
+   * ESTUDAR
+   */
   async draw(userId, gameId) {
     this.log.info(
       `Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`,
@@ -280,6 +296,9 @@ export default class GameService {
     return updated;
   }
 
+  /*
+   * ESTUDAR
+   */
   async play(userId, gameId, playedCard, colorChoice = null) {
     this.log.info(
       `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [card=${JSON.stringify(playedCard)}]`,

@@ -5,15 +5,21 @@ import PinoGlobal from "../shared/logger/pino-global.logger.js";
 import { BusinessError } from "../shared/errors/business.error.js";
 import { NotFoundError } from "../shared/errors/not-found.error.js";
 import { GAME_STATUS } from "./game.schema.js";
+import ScorePlayerRepository from "../score/score-player.repository.js";
+import PlayerRepository from "../player/player.repository.js";
+import CardRepository from "../card/card.repository.js";
 
 export default class GameOrchestrator {
-  constructor(schema) {
-    this.gameRepository = new GameRepository(schema);
+  constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
+    this.gameRepository = new GameRepository(gameSchema);
+    this.scoreRepository = new ScorePlayerRepository(scoreSchema);
+    this.playerRepository = new PlayerRepository(playerSchema);
+    this.cardRepository = new CardRepository(cardSchema);
     this.log = PinoGlobal.getInstance();
   }
 
   /**
-   *  OBS: NO MOMENTO, O MOTODO _runTransactionOrFallback NÃO ESTÁ SENDO SUPORTADO PELO MONGOOSE. 
+   *  OBS: NO MOMENTO, O MOTODO _runTransactionOrFallback NÃO ESTÁ SENDO SUPORTADO PELO MONGOOSE.
    *  NÃO IMPACTA O FUNCIONAMENTO DO SISTEMA, MAS É MOSTRADO NO LOG DE ERROS.
    */
   async _runTransactionOrFallback(operationFn) {
@@ -76,6 +82,85 @@ export default class GameOrchestrator {
       return { ...p, hand: ep ? { cards: ep.hand.cards } : { cards: [] } };
     });
     return game;
+  }
+
+  async getFullGame(gameId, session = null) {
+    this.log.info(`Fetching full game. [gameId=${gameId}]`);
+    const game = await this.gameRepository.getByIdPopulated(gameId, session);
+    if (!game) {
+      this.log.warn(`Game not found. [gameId=${gameId}]`);
+      throw new NotFoundError("Game not found");
+    }
+    return game;
+  }
+
+  async createScorePlayerFor(playerId, gameId, session = null) {
+    const scorePlayer = await this.scoreRepository.create(
+      { playerId, gameId, score: 0 },
+      session,
+    );
+    this.log.info(
+      `ScorePlayer created for game. [gameId=${gameId}] [playerId=${playerId}]`,
+    );
+    const game = await this.gameRepository.getById(gameId, session);
+    if (!game) {
+      this.log.warn(
+        `Game not found for creating score player. [gameId=${gameId}] [playerId=${playerId}]`,
+      );
+      throw new NotFoundError("Game not found");
+    }
+    const entry = game.players.find(
+      (p) => p.player.toString() === playerId.toString(),
+    );
+    if (!entry) {
+      this.log.warn(
+        `Player not found in game for creating score player. [gameId=${gameId}] [playerId=${playerId}]`,
+      );
+      throw new BusinessError("Player is not present this game");
+    }
+    entry.scorePlayer = scorePlayer._id;
+    const updatedGame = await this.gameRepository.update(gameId, game, session);
+    return { game: updatedGame, scorePlayer };
+  }
+
+  async updateScore(playerId, gameId, score, session = null) {
+    this.log.info(
+      `Updating score for player in game. [gameId=${gameId}] [playerId=${playerId}] [score=${score}]`,
+    );
+    const game = await this.gameRepository.getById(gameId, session);
+    if (!game) {
+      this.log.warn(
+        `Game not found for updating score. [gameId=${gameId}] [playerId=${playerId}]`,
+      );
+      throw new NotFoundError("Game not found");
+    }
+    const entry = game.players.find(
+      (p) => p.player.toString() === playerId.toString(),
+    );
+    if (!entry) {
+      this.log.warn(
+        `Player not found in game for updating score. [gameId=${gameId}] [playerId=${playerId}]`,
+      );
+      throw new BusinessError("Player is not present this game");
+    }
+    if (!entry.scorePlayer) {
+      this.log.warn(
+        `Player has no scorePlayer bound to this game. [gameId=${gameId}] [playerId=${playerId}]`,
+      );
+      throw new BusinessError("Player has no scorePlayer bound to this game");
+    }
+    if (typeof score !== "number" || score < 0) {
+      this.log.warn(
+        `Invalid score value. [gameId=${gameId}] [playerId=${playerId}] [score=${score}]`,
+      );
+      throw new BusinessError("Score must be a non-negative number");
+    }
+    const updatedScore = await this.scoreRepository.update(
+      entry.scorePlayer.toString(),
+      { score },
+      session,
+    );
+    return updatedScore;
   }
 
   async draw(userId, gameId) {
