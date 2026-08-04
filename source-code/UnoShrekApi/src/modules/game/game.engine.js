@@ -1,9 +1,15 @@
 import { createDeck, deal, shuffle, isValidPlay, cardEffect } from "./deck.js";
 
+/**
+ * Clona um objeto de estado de forma profunda (sem manter referências).
+ */
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+/**
+ * Monta o estado inicial de uma partida: cria o baralho, distribui as mãos, vira a primeira carta do descarte e define o primeiro jogador.
+ */
 export function startGameState(playerIds, handSize = 7) {
   const deck = createDeck();
   const players = playerIds.map((id) => ({ player: id, hand: { cards: [] } }));
@@ -18,17 +24,29 @@ export function startGameState(playerIds, handSize = 7) {
   return { deck, discard, players, currentPlayer, direction, activeColor };
 }
 
+/**
+ * Se o monte de compra estiver vazio, reembaralha o descarte (menos a carta do topo) e o transforma no novo monte.
+ */
 export function refillDeckIfNeeded(state) {
   const s = clone(state);
   if (!s.deck || s.deck.length === 0) {
-    const top = s.discard && s.discard.length > 0 ? s.discard[s.discard.length - 1] : null;
-    const rest = s.discard && s.discard.length > 1 ? s.discard.slice(0, s.discard.length - 1) : [];
+    const top =
+      s.discard && s.discard.length > 0
+        ? s.discard[s.discard.length - 1]
+        : null;
+    const rest =
+      s.discard && s.discard.length > 1
+        ? s.discard.slice(0, s.discard.length - 1)
+        : [];
     s.deck = shuffle(rest);
     s.discard = top ? [top] : [];
   }
   return s;
 }
 
+/**
+ * Compra `count` cartas do monte para o jogador informado, reabastecendo o monte se necessário.
+ */
 export function drawFromDeck(state, playerIndex, count = 1) {
   let s = refillDeckIfNeeded(state);
   s = clone(s);
@@ -45,14 +63,26 @@ export function drawFromDeck(state, playerIndex, count = 1) {
   return { state: s, drawn };
 }
 
+/**
+ * Verifica se uma carta pode ser jogada em cima da carta do topo, considerando a cor ativa.
+ */
 export function validatePlay(card, topCard, activeColor) {
   return isValidPlay(card, topCard, activeColor);
 }
 
+/**
+ * Aplica a jogada de uma carta: remove da mão, coloca no descarte, resolve cor ativa/efeito (pular, inverter, comprar) e define o próximo jogador.
+ */
 export function applyPlay(state, playerIndex, cardToPlay, colorChoice = null) {
   let s = clone(state);
   const hand = s.players[playerIndex].hand || { cards: [] };
-  const idx = hand.cards.findIndex((c) => c.id === cardToPlay.id || (c.color === cardToPlay.color && c.type === cardToPlay.type && c.value === cardToPlay.value));
+  const idx = hand.cards.findIndex(
+    (c) =>
+      c.id === cardToPlay.id ||
+      (c.color === cardToPlay.color &&
+        c.type === cardToPlay.type &&
+        c.value === cardToPlay.value),
+  );
   if (idx === -1) {
     throw new Error("Card not found in hand");
   }

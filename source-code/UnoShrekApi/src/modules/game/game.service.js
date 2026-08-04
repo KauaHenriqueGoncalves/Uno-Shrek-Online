@@ -6,9 +6,6 @@ import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
 import { createDeck, deal, shuffle } from "./deck.js";
-import GameEngine from "./game.engine.js";
-import mongoose from "mongoose";
-import GameOrchestrator from "./game.orchestrator.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
@@ -49,55 +46,6 @@ export default class GameService {
     return { game };
   }
 
-  async getCurrentScoreById(id) {
-    this.log.info(`Getting current score by game id [id=${id}]`);
-    const game = await this.orchestrator.getFullGame(id);
-    const gameId = game._id.toString();
-    const scores = game.players.map((p) => {
-      return {
-        player: p.player._id.toString(),
-        username: p.player.username,
-        score: p.scorePlayer ? p.scorePlayer.score : 0,
-      };
-    });
-    console.log(scores);
-    return { gameId, scores };
-  }
-
-  async getCurrentPlayersById(id) {
-    this.log.info(`Getting current players by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player);
-    const players = await this.playerService.getAllByIds(ids);
-    return { game, players };
-  }
-
-  async getCurrentPlayerById(id) {
-    this.log.info(`Getting current player by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const playerId =
-      game.currentPlayer ?? (game.players && game.players[0]?.player);
-    if (!playerId) {
-      this.log.warn(
-        { gameId: id },
-        "No players in game to determine current player",
-      );
-      throw new NotFoundError("No players in game");
-    }
-    const player = await this.playerService.getById(playerId.toString());
-    return { game, player };
-  }
-
-  async getTopCardById(id) {
-    this.log.info(`Getting top card by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const top =
-      game.discard && game.discard.length > 0
-        ? game.discard[game.discard.length - 1]
-        : null;
-    return { game, topCard: top };
-  }
-
   async create(userId, data) {
     const validData = parseOrThrow(CreateGameRequestDto, data);
     this.log.info(
@@ -120,8 +68,14 @@ export default class GameService {
       players: [{ player: ownerId, ready: false, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
+    this.log.info(
+      `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}]`,
+    );
     const { game: gameWithScore } =
-      await this.orchestrator.createScorePlayerFor(game._id, ownerId);
+      await this.orchestrator.createScorePlayerFor(
+        ownerId,
+        game._id.toString(),
+      );
     this.log.info({ gameId: game._id.toString() }, "Game created");
     return gameWithScore;
   }
@@ -153,8 +107,8 @@ export default class GameService {
     game.players.push({ player: playerId, ready: false });
     await this.gameRepository.update(gameId, game);
     const { game: gameUpdate } = await this.orchestrator.createScorePlayerFor(
-      gameId,
       playerId,
+      gameId,
     );
     this.log.info(
       `Player added on game. [playerId=${playerId}] [gameId=${gameId}]`,
@@ -285,9 +239,6 @@ export default class GameService {
     }
   }
 
-  /*
-   * ESTUDAR
-   */
   async draw(userId, gameId) {
     this.log.info(
       `Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`,

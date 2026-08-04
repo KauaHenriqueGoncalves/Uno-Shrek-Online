@@ -56,21 +56,43 @@ export default class GameResponseDto {
     };
   }
 
-  static fromDocumentCurrentScore(gameId, scores) {
+  static fromDocumentCurrentScore(game) {
     return {
-      id: gameId,
-      scores: scores.map((s) => ({
-        playerId: s.player.toString(),
-        username: s.username,
-        score: s.score,
+      id: game._id.toString(),
+      scores: game.players.map((p) => ({
+        playerId: p.player._id.toString(),
+        username: p.player.username,
+        score: p.scorePlayer ? p.scorePlayer.score : 0,
       })),
     };
   }
 
-  static fromDocumentCurrentPlayer(game, players) {
+  static fromDocumentCurrentPlayers(game) {
     return {
-      id: game._id,
-      players: players.map((p) => PlayerResponseDto.fromDocumentViewSimple(p)),
+      id: game._id.toString(),
+      players: game.players.map((p) => {
+        return {
+          id: p.player._id.toString(),
+          username: p.player.username,
+        };
+      }),
+    };
+  }
+
+  static fromDocumentCurrentPlayer(game) {
+    return {
+      id: game._id.toString(),
+      currentPlayer: game.currentPlayer
+        ? game.currentPlayer._id.toString()
+        : null,
+    };
+  }
+
+  static fromDocumentTopCard(game) {
+    return {
+      id: game._id.toString(),
+      topCard:
+        game.discard.length > 0 ? game.discard[game.discard.length - 1] : null,
     };
   }
 
