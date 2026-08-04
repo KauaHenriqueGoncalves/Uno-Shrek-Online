@@ -1,0 +1,284 @@
+.auth-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100vh;
+  min-height: 100vh;
+}
+
+/* Imagem esquerda */
+.auth-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  min-height: 100%;
+}
+
+/* Painel direito */
+.auth-panel {
+  display: flex;
+  flex-direction: column;
+  background: #f4f4f4;
+  color: #111;
+  overflow-y: auto;
+  position: relative;
+  padding: 24px 48px 40px;
+}
+
+/* Link "Don't have an account" no topo direito */
+.auth-top-link {
+  text-align: right;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 0;
+}
+
+.auth-top-link a {
+  color: #111;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Centraliza o formulário verticalmente */
+.auth-form-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  max-width: 380px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.auth-title {
+  font-size: 26px;
+  font-weight: 900;
+  color: #111;
+  margin-bottom: 4px;
+}
+
+.auth-sub {
+  font-size: 13px;
+  color: #555;
+  text-align: center;
+}
+
+.auth-sub a {
+  color: #111;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* Botão Google */
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  background: #fff;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+
+.btn-google:hover {
+  border-color: #aaa;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* Divisor OR */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #aaa;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #ddd;
+}
+
+/* Formulário */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Fields — override global para painel claro */
+.auth-panel .field {
+  gap: 5px;
+}
+
+.auth-panel .field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.auth-panel .field input {
+  background: #fff;
+  border: 1.5px solid #ddd;
+  color: #111;
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.auth-panel .field input:focus {
+  border-color: #888;
+}
+
+.auth-panel .field input.error {
+  border-color: #e84040;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Input com Show/Hide */
+.input-wrapper {
+  position: relative;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding-right: 60px;
+}
+
+.toggle-pass {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Esqueci a senha */
+.auth-forgot {
+  text-align: right;
+  margin-top: -6px;
+}
+
+.auth-forgot a {
+  font-size: 12px;
+  color: #555;
+  text-decoration: underline;
+}
+
+/* Botão submit */
+.auth-panel .btn-primary {
+  background: #ccc;
+  color: #666;
+  border-radius: 8px;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Ativa quando tem conteúdo — feito via JS com :not(:disabled) */
+.auth-panel .btn-primary:not(:disabled) {
+  background: #444;
+  color: #fff;
+}
+
+.auth-panel .btn-primary:not(:disabled):hover {
+  background: #111;
+}
+
+/* Alerts */
+.alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.alert-error {
+  background: rgba(232, 64, 64, 0.1);
+  color: #c0392b;
+  border: 1px solid rgba(232, 64, 64, 0.3);
+}
+
+.alert-success {
+  background: rgba(39, 174, 96, 0.1);
+  color: #1e8449;
+  border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.auth-logo {
+  width: 80px;
+  margin-bottom: 8px;
+}
+
+/* Spinner */
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsivo */
+@media (max-width: 720px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 40vh 1fr;
+    height: auto;
+    min-height: 100vh;t
+  }
+
+  .auth-image {
+    min-height: unset;
+  }
+
+  .auth-panel {
+    padding: 20px 24px 40px;
+  }
+
+  .auth-top-link {
+    text-align: center;
+  }
+
+  .auth-title {
+    font-size: 22px;
+  }
+}
