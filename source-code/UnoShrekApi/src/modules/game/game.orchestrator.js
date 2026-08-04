@@ -54,6 +54,9 @@ export default class GameOrchestrator {
     }
   }
 
+  /**
+   * State conversion methods between GameOrchestrator and GameEngine. Mongoose -> pure state
+   */
   _toEngineState(game) {
     const players = game.players.map((p) => ({
       player: p.player,
@@ -69,6 +72,9 @@ export default class GameOrchestrator {
     };
   }
 
+  /**
+   * State conversion methods between GameOrchestrator and GameEngine. pure state -> Mongoose
+   */
   _applyEngineStateToGame(game, state) {
     game.deck = state.deck;
     game.discard = state.discard;
@@ -165,38 +171,54 @@ export default class GameOrchestrator {
 
   async draw(userId, gameId) {
     return await this._runTransactionOrFallback(async (session) => {
+      this.log.info(
+        `Player wants to draw a card. [playerId=${userId}] [gameId=${gameId}]`,
+      );
       const game = await this.gameRepository.getById(gameId, session);
-      if (!game) throw new NotFoundError("Game not found");
-      if (game.status !== GAME_STATUS.ACTIVE)
+      if (!game) {
+        this.log.warn(`Game not found for draw. [gameId=${gameId}]`);
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        this.log.warn(
+          `Cannot draw, game is not active. [gameId=${gameId}] [status=${game.status}]`,
+        );
         throw new BusinessError("Cannot draw from a non-active game");
+      }
       const playerIndex = game.players.findIndex(
         (p) => p.player.toString() === userId.toString(),
       );
-      if (playerIndex === -1)
+      if (playerIndex === -1) {
+        this.log.warn(
+          `Player is not present in game. [playerId=${userId}] [gameId=${gameId}]`,
+        );
         throw new BusinessError("Player is not present this game");
-      if (
-        game.currentPlayer &&
-        game.currentPlayer.toString() !== userId.toString()
-      )
+      }
+      if (game.currentPlayer && game.currentPlayer.toString() !== userId.toString()) {
+        this.log.warn(
+          `Not player's turn to draw. [playerId=${userId}] [gameId=${gameId}] [currentPlayer=${game.currentPlayer}]`,
+        );
         throw new BusinessError("It's not your turn");
+      }
 
+      // Buying a card from the deck
       const state = this._toEngineState(game);
-      const { state: newState } = GameEngine.drawFromDeck(
-        state,
-        playerIndex,
-        1,
+      const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(state, playerIndex, 1);
+      this.log.debug(
+        { gameId, playerId: userId, drawnCount: drawn.length, deckRemaining: stateAfterDraw.deck.length },
+        "Card drawn from deck",
       );
 
-      const nextIndex = (playerIndex + 1) % newState.players.length;
-      newState.currentPlayer = newState.players[nextIndex].player;
-
-      this._applyEngineStateToGame(game, newState);
-      const resultGame = await this.gameRepository.update(
-        gameId,
-        game,
-        session,
+      // Comprar carta consome o turno: passa a vez pro próximo jogador.
+      const nextIndex = (playerIndex + 1) % stateAfterDraw.players.length;
+      stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
+      this.log.info(
+        `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
-      return resultGame;
+      this._applyEngineStateToGame(game, stateAfterDraw);
+      const updatedGame = await this.gameRepository.update(gameId, game, session);
+      this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
+      return updatedGame;
     });
   }
 

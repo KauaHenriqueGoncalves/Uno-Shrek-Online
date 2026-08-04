@@ -50,13 +50,11 @@ export function isValidPlay(card, topCard, activeColor) {
   if (WILD_TYPES.includes(card.type)) {
     return true;
   }
-
   const matchColor = card.color === (activeColor ?? topCard.color);
   const matchType =
     card.type !== "number"
       ? card.type === topCard.type
       : card.value === topCard.value && topCard.type === "number";
-
   return matchColor || matchType;
 }
 
