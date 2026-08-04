@@ -8,6 +8,7 @@ import { GAME_STATUS } from "./game.schema.js";
 import ScorePlayerRepository from "../score/score-player.repository.js";
 import PlayerRepository from "../player/player.repository.js";
 import CardRepository from "../card/card.repository.js";
+import { createDeck } from "./deck.js";
 
 export default class GameOrchestrator {
   constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
@@ -17,6 +18,14 @@ export default class GameOrchestrator {
     this.cardRepository = new CardRepository(cardSchema);
     this.log = PinoGlobal.getInstance();
   }
+
+  /**
+   * OBS: comentário adicionando em metodos que convertem estado do jogo entre o GameOrchestrator e
+   * o GameEngine com o objetivo de simplificar o entendimento, já que é uma camada mais "chata" de entender.
+   * O GameEngine trabalha com um estado "puro" (pure state), enquanto o GameOrchestrator trabalha com
+   * o estado persistido no banco de dados (Mongoose). Esses métodos são responsáveis por converter entre
+   * esses dois formatos de estado.
+   */
 
   /**
    *  OBS: NO MOMENTO, O MOTODO _runTransactionOrFallback NÃO ESTÁ SENDO SUPORTADO PELO MONGOOSE.
@@ -55,16 +64,60 @@ export default class GameOrchestrator {
   }
 
   /**
-   * State conversion methods between GameOrchestrator and GameEngine. Mongoose -> pure state
+   * Coleta, sem duplicar, todos os ids de carta usados pelo jogo (deck, descarte e mãos).
    */
-  _toEngineState(game) {
+  _collectCardIds(game) {
+    const deckIds = game.deck;
+    const discardIds = game.discard;
+    const handIds = game.players.flatMap((p) => p.hand?.cards ?? []);
+    const allIds = [...deckIds, ...discardIds, ...handIds].map((id) =>
+      id.toString(),
+    );
+    return [...new Set(allIds)];
+  }
+
+  /**
+   * Busca as cartas no banco e monta um mapa id -> carta, para consulta rápida.
+   */
+  async _loadCardMap(cardIds) {
+    if (cardIds.length === 0) {
+      return new Map();
+    }
+    const cardDocs = await this.cardRepository.getAllByIds(cardIds);
+    return new Map(cardDocs.map((c) => [c._id.toString(), c]));
+  }
+
+  /**
+   * Transforma um id de carta no objeto simples que o engine entende.
+   */
+  _hydrateCard(cardMap, id) {
+    const card = cardMap.get(id.toString());
+    if (!card) {
+      throw new NotFoundError(`Card not found. [cardId=${id}]`);
+    }
+    return {
+      id: card._id.toString(),
+      color: card.color,
+      type: card.type,
+      value: card.value,
+    };
+  }
+
+  /**
+   * Busca no banco as cartas referenciadas pelo jogo (deck, descarte e mãos) e monta o estado "puro" que
+   * o engine entende. Mongoose -> pure state
+   */
+  async _toEngineState(game) {
+    const cardIds = this._collectCardIds(game);
+    const cardMap = await this._loadCardMap(cardIds);
+    const hydrate = (id) => this._hydrateCard(cardMap, id);
     const players = game.players.map((p) => ({
       player: p.player,
-      hand: { cards: p.hand && p.hand.cards ? [...p.hand.cards] : [] },
+      hand: { cards: (p.hand?.cards ?? []).map(hydrate) },
     }));
     return {
-      deck: game.deck ? [...game.deck] : [],
-      discard: game.discard ? [...game.discard] : [],
+      deck: game.deck.map(hydrate),
+      discard: game.discard.map(hydrate),
       players,
       currentPlayer: game.currentPlayer,
       direction: game.direction ?? 1,
@@ -76,8 +129,9 @@ export default class GameOrchestrator {
    * State conversion methods between GameOrchestrator and GameEngine. pure state -> Mongoose
    */
   _applyEngineStateToGame(game, state) {
-    game.deck = state.deck;
-    game.discard = state.discard;
+    const dehydrate = (card) => card.id;
+    game.deck = state.deck.map(dehydrate);
+    game.discard = state.discard.map(dehydrate);
     game.currentPlayer = state.currentPlayer;
     game.direction = state.direction;
     game.activeColor = state.activeColor;
@@ -85,7 +139,10 @@ export default class GameOrchestrator {
       const ep = state.players.find(
         (sp) => sp.player.toString() === p.player.toString(),
       );
-      return { ...p, hand: ep ? { cards: ep.hand.cards } : { cards: [] } };
+      return {
+        ...p,
+        hand: ep ? { cards: ep.hand.cards.map(dehydrate) } : { cards: [] },
+      };
     });
     return game;
   }
@@ -194,7 +251,10 @@ export default class GameOrchestrator {
         );
         throw new BusinessError("Player is not present this game");
       }
-      if (game.currentPlayer && game.currentPlayer.toString() !== userId.toString()) {
+      if (
+        game.currentPlayer &&
+        game.currentPlayer.toString() !== userId.toString()
+      ) {
         this.log.warn(
           `Not player's turn to draw. [playerId=${userId}] [gameId=${gameId}] [currentPlayer=${game.currentPlayer}]`,
         );
@@ -202,10 +262,20 @@ export default class GameOrchestrator {
       }
 
       // Buying a card from the deck
-      const state = this._toEngineState(game);
-      const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(state, playerIndex, 1);
+      const state = await this._toEngineState(game);
+      console.log("State before draw:", state);
+      const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
+        state,
+        playerIndex,
+        1,
+      );
       this.log.debug(
-        { gameId, playerId: userId, drawnCount: drawn.length, deckRemaining: stateAfterDraw.deck.length },
+        {
+          gameId,
+          playerId: userId,
+          drawnCount: drawn.length,
+          deckRemaining: stateAfterDraw.deck.length,
+        },
         "Card drawn from deck",
       );
 
@@ -216,7 +286,11 @@ export default class GameOrchestrator {
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
       this._applyEngineStateToGame(game, stateAfterDraw);
-      const updatedGame = await this.gameRepository.update(gameId, game, session);
+      const updatedGame = await this.gameRepository.update(
+        gameId,
+        game,
+        session,
+      );
       this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
       return updatedGame;
     });
@@ -239,7 +313,7 @@ export default class GameOrchestrator {
       )
         throw new BusinessError("It's not your turn");
 
-      const state = this._toEngineState(game);
+      const state = await this._toEngineState(game);
       const top =
         state.discard && state.discard.length > 0
           ? state.discard[state.discard.length - 1]
@@ -306,18 +380,34 @@ export default class GameOrchestrator {
       );
       const HAND_SIZE = 7;
       const playerIds = game.players.map((p) => p.player);
-      const engineState = GameEngine.startGameState(playerIds, HAND_SIZE);
-      game.players = game.players.map((p) => {
-        const found = engineState.players.find(
-          (ep) => ep.player.toString() === p.player.toString(),
-        );
-        return { ...p, hand: found ? found.hand : { cards: [] } };
+      const rawDeck = createDeck();
+      const cardsToPersist = rawDeck.map((c) => {
+        return {
+          gameId: game._id,
+          color: c.color,
+          type: c.type,
+          value:
+            c.value === null || c.value === undefined ? null : String(c.value),
+        };
       });
-      game.deck = engineState.deck;
-      game.discard = engineState.discard;
-      game.currentPlayer = engineState.currentPlayer;
-      game.direction = engineState.direction;
-      game.activeColor = engineState.activeColor;
+      const persistedCards = await this.cardRepository.createMany(
+        cardsToPersist,
+        session,
+      );
+      this.log.info(
+        { gameId, cardsCreated: persistedCards.length },
+        "Cards persisted for game",
+      );
+
+      // Anexa o id real do Mongo a cada carta, preservando a ordem embaralhada.
+      const deckWithIds = rawDeck.map((c, index) => ({
+        ...c,
+        id: persistedCards[index]._id.toString(),
+      }));
+
+      const engineState = GameEngine.startGameState(playerIds, HAND_SIZE, deckWithIds);
+      this._applyEngineStateToGame(game, engineState);
+      game.status = GAME_STATUS.ACTIVE;
       this.log.info(
         {
           ownerId,
@@ -328,12 +418,7 @@ export default class GameOrchestrator {
         },
         "Game status transition",
       );
-      game.status = GAME_STATUS.ACTIVE;
-      const resultGame = await this.gameRepository.update(
-        gameId,
-        game,
-        session,
-      );
+      const resultGame = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
       return resultGame;
     });

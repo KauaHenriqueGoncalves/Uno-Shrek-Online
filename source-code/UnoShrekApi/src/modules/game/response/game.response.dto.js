@@ -48,10 +48,12 @@ export default class GameResponseDto {
         username: p.player.username,
         ready: p.ready,
         score: p.scorePlayer ? p.scorePlayer.score : 0,
-        hand: { cards: p.hand.cards },
+        hand: {
+          cards: p.hand.cards.map((c) => this.fromDocumentDeckOnHand(c)),
+        },
       })),
-      deck: game.deck,
-      discard: game.discard,
+      deck: game.deck.map((c) => this.fromDocumentDeckOnHand(c)),
+      discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
       createdAt: game.createdAt,
     };
   }
@@ -93,6 +95,15 @@ export default class GameResponseDto {
       id: game._id.toString(),
       topCard:
         game.discard.length > 0 ? game.discard[game.discard.length - 1] : null,
+    };
+  }
+
+  static fromDocumentDeckOnHand(card) {
+    return {
+      id: card._id.toString(),
+      type: card.type,
+      color: card.color,
+      value: card.value,
     };
   }
 
