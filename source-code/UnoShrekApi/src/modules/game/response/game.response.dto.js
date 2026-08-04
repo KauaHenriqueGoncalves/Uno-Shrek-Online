@@ -33,38 +33,37 @@ export default class GameResponseDto {
     };
   }
 
-  static fromDocumentRoom(game, players) {
+  static fromDocumentRoom(game) {
     return {
       id: game._id.toString(),
       title: game.title,
-      owner: game.owner,
+      owner: game.owner ? game.owner._id.toString() : null,
       status: game.status,
-      currentPlayer: game.currentPlayer ? game.currentPlayer.toString() : null,
+      currentPlayer: game.currentPlayer
+        ? game.currentPlayer._id.toString()
+        : null,
       maxPlayers: game.maxPlayers,
-      players: game.players.map((p) => {
-        const playerInfo = players.find(
-          (pl) => pl._id.toString() === p.player.toString(),
-        );
-        return {
-          player: p.player.toString(),
-          username: playerInfo ? playerInfo.username : null,
-          ready: p.ready,
-          score: p.score,
-          hand: {
-            cards: p.hand.cards,
-          },
-        };
-      }),
+      players: game.players.map((p) => ({
+        player: p.player._id.toString(),
+        username: p.player.username,
+        ready: p.ready,
+        score: p.scorePlayer ? p.scorePlayer.score : 0,
+        hand: { cards: p.hand.cards },
+      })),
       deck: game.deck,
       discard: game.discard,
       createdAt: game.createdAt,
     };
   }
 
-  static fromDocumentCurrentScore(game, scores) {
+  static fromDocumentCurrentScore(gameId, scores) {
     return {
-      id: game._id.toString(),
-      scores: scores,
+      id: gameId,
+      scores: scores.map((s) => ({
+        playerId: s.player.toString(),
+        username: s.username,
+        score: s.score,
+      })),
     };
   }
 

@@ -28,6 +28,7 @@ export default class GameController {
     this.routers.get("/:id/top-card", authMiddleware, asyncHandler(this.getTopCardById.bind(this)));
     this.routers.put("/:id/draw", authMiddleware, asyncHandler(this.draw.bind(this)));
     this.routers.put("/:id/play", authMiddleware, asyncHandler(this.play.bind(this)));
+    this.routers.put("/:id/score", authMiddleware, asyncHandler(this.updatePlayerScore.bind(this)));
     this.routers.put("/:id", authMiddleware, asyncHandler(this.update.bind(this)));
     this.routers.delete("/:id", authMiddleware, asyncHandler(this.delete.bind(this)));
   }
@@ -74,8 +75,8 @@ export default class GameController {
   }
 
   async getCurrentScoreById(req, res) {
-    const { game, scores } = await this.service.getCurrentScoreById(req.params.id);
-    const response = GameResponseDto.fromDocumentCurrentScore(game, scores);
+    const { gameId, scores } = await this.service.getCurrentScoreById(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentScore(gameId, scores);
     return res.status(200).json(response);
   }
 
@@ -116,6 +117,14 @@ export default class GameController {
     const game = await this.service.notReadyInGame(userId, gameId);
     const response = { message: "Player is not ready" };
     return res.status(200).json(response);
+  }
+
+  async updatePlayerScore(req, res) {
+    const userId = req.user && req.user.id;
+    const gameId = req.params.id;
+    const score = req.body.score;
+    const updatedGame = await this.service.updatePlayerScore(userId, gameId, score);
+    return res.status(200).json({ message: "Player score updated", gameId: updatedGame._id });
   }
 
   async startGame(req, res) {
