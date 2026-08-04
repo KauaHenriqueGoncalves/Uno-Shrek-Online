@@ -40,7 +40,10 @@ export default class GameRepository extends CrudRepository {
       .populate("owner")
       .populate("currentPlayer")
       .populate("players.player")
+      .populate("players.hand.cards")
       .populate("players.scorePlayer")
+      .populate("deck")
+      .populate("discard")
       .session(session);
   }
 }

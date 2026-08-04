@@ -10,8 +10,7 @@ function clone(obj) {
 /**
  * Monta o estado inicial de uma partida: cria o baralho, distribui as mãos, vira a primeira carta do descarte e define o primeiro jogador.
  */
-export function startGameState(playerIds, handSize = 7) {
-  const deck = createDeck();
+export function startGameState(playerIds, handSize = 7, deck = createDeck()) {
   const players = playerIds.map((id) => ({ player: id, hand: { cards: [] } }));
   players.forEach((p) => {
     p.hand.cards = deal(deck, handSize);

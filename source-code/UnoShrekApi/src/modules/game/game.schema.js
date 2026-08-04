@@ -54,7 +54,12 @@ const gameSchema = new mongoose.Schema(
           hand: {
             type: {
               cards: {
-                type: [Object],
+                type: [
+                  {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "Card",
+                  },
+                ],
                 default: [],
               },
             },
@@ -66,11 +71,21 @@ const gameSchema = new mongoose.Schema(
       default: [],
     },
     deck: {
-      type: [Object],
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Card",
+        },
+      ],
       default: [],
     },
     discard: {
-      type: [Object],
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Card",
+        },
+      ],
       default: [],
     },
     direction: {

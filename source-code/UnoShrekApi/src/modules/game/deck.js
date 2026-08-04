@@ -4,33 +4,27 @@ export const SPECIAL_TYPES = ["skip", "reverse", "draw_two"];
 
 export function createDeck() {
   const deck = [];
-  let id = 0;
-
   for (const color of COLORS) {
-    deck.push(makeCard(id++, color, "number", 0));
-
+    deck.push(makeCard(color, "number", 0));
     for (let number = 1; number <= 9; number++) {
-      deck.push(makeCard(id++, color, "number", number));
-      deck.push(makeCard(id++, color, "number", number));
+      deck.push(makeCard(color, "number", number));
+      deck.push(makeCard(color, "number", number));
     }
-
     for (const type of SPECIAL_TYPES) {
-      deck.push(makeCard(id++, color, type));
-      deck.push(makeCard(id++, color, type));
+      deck.push(makeCard(color, type));
+      deck.push(makeCard(color, type));
     }
   }
-
   for (const type of WILD_TYPES) {
     for (let i = 0; i < 4; i++) {
-      deck.push(makeCard(id++, "wild", type, null));
+      deck.push(makeCard("wild", type, null));
     }
   }
-
   return shuffle(deck);
 }
 
-function makeCard(id, color, type, value) {
-  return { id: String(id), color, type, value };
+function makeCard(color, type, value) {
+  return { color, type, value };
 }
 
 export function shuffle(arr) {
