@@ -5,15 +5,14 @@ import { BusinessError } from "../shared/errors/business.error.js";
 import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
-import { createDeck, deal, shuffle } from "./deck.js";
+import { shuffle } from "./deck.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
 export default class GameService {
-  constructor(schema, orchestrator, playerService) {
+  constructor(schema, orchestrator) {
     this.gameRepository = new GameRepository(schema);
     this.orchestrator = orchestrator;
-    this.playerService = playerService;
     this.log = PinoGlobal.getInstance();
   }
 
@@ -222,45 +221,21 @@ export default class GameService {
     return updated;
   }
 
-  async _refillDeckIfNeeded(game) {
-    if (!game.deck || game.deck.length === 0) {
-      const top =
-        game.discard && game.discard.length > 0
-          ? game.discard[game.discard.length - 1]
-          : null;
-      const rest =
-        game.discard && game.discard.length > 1
-          ? game.discard.slice(0, game.discard.length - 1)
-          : [];
-      const shuffled = shuffle(rest);
-
-      game.deck = shuffled;
-      game.discard = top ? [top] : [];
-    }
-  }
-
   async draw(userId, gameId) {
     this.log.info(
       `Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`,
     );
-    const updated = await this.orchestrator.draw(userId, gameId);
-    return updated;
+    return await this.orchestrator.draw(userId, gameId);
   }
 
   /*
    * ESTUDAR
    */
-  async play(userId, gameId, playedCard, colorChoice = null) {
+  async play(userId, gameId, cardId, colorChoice = null) {
     this.log.info(
-      `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [card=${JSON.stringify(playedCard)}]`,
+      `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}] [colorChoice=${colorChoice}]`,
     );
-    const updated = await this.orchestrator.play(
-      userId,
-      gameId,
-      playedCard,
-      colorChoice,
-    );
-    return updated;
+    return await this.orchestrator.play(userId, gameId, cardId, colorChoice);
   }
 
   async finishedGame(userId, gameId) {

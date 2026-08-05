@@ -32,7 +32,6 @@ export function shuffle(arr) {
     const j = Math.floor(Math.random() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-
   return arr;
 }
 
@@ -56,33 +55,26 @@ export function cardEffect(card, currentDirection, playerCount) {
   let direction = currentDirection;
   let skipNext = false;
   let drawCount = 0;
-
   switch (card.type) {
     case "reverse":
       direction = currentDirection * -1;
-
       if (playerCount === 2) {
         skipNext = true;
       }
       break;
-
     case "skip":
       skipNext = true;
       break;
-
     case "draw_two":
       drawCount = 2;
       skipNext = true;
       break;
-
     case "wild_draw_four":
       drawCount = 4;
       skipNext = true;
       break;
-
     default:
       break;
   }
-
   return { direction, skipNext, drawCount };
 }

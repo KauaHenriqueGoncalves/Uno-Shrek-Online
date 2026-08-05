@@ -54,6 +54,8 @@ export default class GameResponseDto {
       })),
       deck: game.deck.map((c) => this.fromDocumentDeckOnHand(c)),
       discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
+      direction: game.direction,
+      activeColor: game.activeColor,
       createdAt: game.createdAt,
     };
   }
