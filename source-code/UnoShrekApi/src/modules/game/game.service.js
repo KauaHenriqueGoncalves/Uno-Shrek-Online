@@ -5,18 +5,14 @@ import { BusinessError } from "../shared/errors/business.error.js";
 import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
-import { createDeck, deal, shuffle } from "./deck.js";
-import GameEngine from "./game.engine.js";
-import mongoose from "mongoose";
-import GameOrchestrator from "./game.orchestrator.js";
+import { shuffle } from "./deck.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
 export default class GameService {
-  constructor(schema, playerService) {
+  constructor(schema, orchestrator) {
     this.gameRepository = new GameRepository(schema);
-    this.orchestrator = new GameOrchestrator(schema);
-    this.playerService = playerService;
+    this.orchestrator = orchestrator;
     this.log = PinoGlobal.getInstance();
   }
 
@@ -45,63 +41,8 @@ export default class GameService {
 
   async getByIdInfo(id) {
     this.log.info(`Getting game info by id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player.toString());
-    const players = await this.playerService.getAllByIds(ids);
-    return { game, players };
-  }
-
-  async getCurrentScoreById(id) {
-    this.log.info(`Getting current score by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player.toString());
-    const players = await this.playerService.getAllByIds(ids);
-    const scores = game.players.map((p) => {
-      const player = players.find(
-        (player) => player._id.toString() === p.player.toString(),
-      );
-      const username = player ? player.username : "Unknown";
-      return {
-        playerId: p.player.toString(),
-        username: username,
-        score: p.score,
-      };
-    });
-    return { game, scores };
-  }
-
-  async getCurrentPlayersById(id) {
-    this.log.info(`Getting current players by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const ids = game.players.map((p) => p.player);
-    const players = await this.playerService.getAllByIds(ids);
-    return { game, players };
-  }
-
-  async getCurrentPlayerById(id) {
-    this.log.info(`Getting current player by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const playerId =
-      game.currentPlayer ?? (game.players && game.players[0]?.player);
-    if (!playerId) {
-      this.log.warn(
-        { gameId: id },
-        "No players in game to determine current player",
-      );
-      throw new NotFoundError("No players in game");
-    }
-    const player = await this.playerService.getById(playerId.toString());
-    return { game, player };
-  }
-
-  async getTopCardById(id) {
-    this.log.info(`Getting top card by game id [id=${id}]`);
-    const game = await this.getById(id);
-    const top =
-      game.discard && game.discard.length > 0
-        ? game.discard[game.discard.length - 1]
-        : null;
-    return { game, topCard: top };
+    const game = await this.orchestrator.getFullGame(id);
+    return { game };
   }
 
   async create(userId, data) {
@@ -126,8 +67,16 @@ export default class GameService {
       players: [{ player: ownerId, ready: false, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
+    this.log.info(
+      `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}]`,
+    );
+    const { game: gameWithScore } =
+      await this.orchestrator.createScorePlayerFor(
+        ownerId,
+        game._id.toString(),
+      );
     this.log.info({ gameId: game._id.toString() }, "Game created");
-    return game;
+    return gameWithScore;
   }
 
   async joinInGame(userId, gameId) {
@@ -155,7 +104,11 @@ export default class GameService {
       throw new BusinessError("Player already joined this game");
     }
     game.players.push({ player: playerId, ready: false });
-    const gameUpdate = await this.gameRepository.update(gameId, game);
+    await this.gameRepository.update(gameId, game);
+    const { game: gameUpdate } = await this.orchestrator.createScorePlayerFor(
+      playerId,
+      gameId,
+    );
     this.log.info(
       `Player added on game. [playerId=${playerId}] [gameId=${gameId}]`,
     );
@@ -247,6 +200,19 @@ export default class GameService {
     return gameUpdate;
   }
 
+  async updatePlayerScore(userId, gameId, score) {
+    const playerId = userId;
+    this.log.info(
+      `Updating player score. [playerId=${playerId}] [gameId=${gameId}] [score=${score}]`,
+    );
+    const updatedGame = await this.orchestrator.updateScore(
+      playerId,
+      gameId,
+      score,
+    );
+    return updatedGame;
+  }
+
   async startGame(userId, gameId) {
     this.log.info(
       `Delegating start to orchestrator. [ownerId=${userId}] [gameId=${gameId}]`,
@@ -255,42 +221,18 @@ export default class GameService {
     return updated;
   }
 
-  async _refillDeckIfNeeded(game) {
-    if (!game.deck || game.deck.length === 0) {
-      const top =
-        game.discard && game.discard.length > 0
-          ? game.discard[game.discard.length - 1]
-          : null;
-      const rest =
-        game.discard && game.discard.length > 1
-          ? game.discard.slice(0, game.discard.length - 1)
-          : [];
-      const shuffled = shuffle(rest);
-
-      game.deck = shuffled;
-      game.discard = top ? [top] : [];
-    }
-  }
-
   async draw(userId, gameId) {
     this.log.info(
       `Delegating draw to orchestrator. [playerId=${userId}] [gameId=${gameId}]`,
     );
-    const updated = await this.orchestrator.draw(userId, gameId);
-    return updated;
+    return await this.orchestrator.draw(userId, gameId);
   }
 
-  async play(userId, gameId, playedCard, colorChoice = null) {
+  async play(userId, gameId, cardId, colorChoice = null) {
     this.log.info(
-      `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [card=${JSON.stringify(playedCard)}]`,
+      `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}] [colorChoice=${colorChoice}]`,
     );
-    const updated = await this.orchestrator.play(
-      userId,
-      gameId,
-      playedCard,
-      colorChoice,
-    );
-    return updated;
+    return await this.orchestrator.play(userId, gameId, cardId, colorChoice);
   }
 
   async finishedGame(userId, gameId) {
