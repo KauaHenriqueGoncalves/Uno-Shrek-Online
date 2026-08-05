@@ -1,5 +1,5 @@
-import BlacklistedTokenRepository from "../shared/token/blacklisted-token.repository.js";
-import BlacklistedToken from "../shared/token/blacklisted-token.schema.js";
+import BlacklistedTokenRepository from "../shared/blacklisted-token/blacklisted-token.repository.js";
+import BlacklistedToken from "../shared/blacklisted-token/blacklisted-token.schema.js";
 
 export default class TokenService {
   constructor() {
