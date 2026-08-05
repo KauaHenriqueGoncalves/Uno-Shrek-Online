@@ -21,6 +21,7 @@ import ScorePlayerController from "./modules/score/score-player.controller.js";
 import LoginService from "./modules/auth/login.service.js";
 import AuthController from "./modules/auth/auth.controller.js";
 import TokenService from "./modules/auth/token.service.js";
+import GameOrchestrator from "./modules/game/game.orchestrator.js";
 
 export default class App {
   constructor() {
@@ -74,10 +75,12 @@ export default class App {
     try {
       this.healthController = new HealthController();
 
+      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card);
+
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
 
-      const gameService = new GameService(Game, playerService);
+      const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
 
       const cardService = new CardService(Card, gameService);

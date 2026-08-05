@@ -33,45 +33,79 @@ export default class GameResponseDto {
     };
   }
 
-  static fromDocumentRoom(game, players) {
+  static fromDocumentRoom(game) {
     return {
       id: game._id.toString(),
       title: game.title,
-      owner: game.owner,
+      owner: game.owner ? game.owner._id.toString() : null,
       status: game.status,
-      currentPlayer: game.currentPlayer ? game.currentPlayer.toString() : null,
+      currentPlayer: game.currentPlayer
+        ? game.currentPlayer._id.toString()
+        : null,
       maxPlayers: game.maxPlayers,
-      players: game.players.map((p) => {
-        const playerInfo = players.find(
-          (pl) => pl._id.toString() === p.player.toString(),
-        );
-        return {
-          player: p.player.toString(),
-          username: playerInfo ? playerInfo.username : null,
-          ready: p.ready,
-          score: p.score,
-          hand: {
-            cards: p.hand.cards,
-          },
-        };
-      }),
-      deck: game.deck,
-      discard: game.discard,
+      players: game.players.map((p) => ({
+        player: p.player._id.toString(),
+        username: p.player.username,
+        ready: p.ready,
+        score: p.scorePlayer ? p.scorePlayer.score : 0,
+        hand: {
+          cards: p.hand.cards.map((c) => this.fromDocumentDeckOnHand(c)),
+        },
+      })),
+      deck: game.deck.map((c) => this.fromDocumentDeckOnHand(c)),
+      discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
+      direction: game.direction,
+      activeColor: game.activeColor,
       createdAt: game.createdAt,
     };
   }
 
-  static fromDocumentCurrentScore(game, scores) {
+  static fromDocumentCurrentScore(game) {
     return {
       id: game._id.toString(),
-      scores: scores,
+      scores: game.players.map((p) => ({
+        playerId: p.player._id.toString(),
+        username: p.player.username,
+        score: p.scorePlayer ? p.scorePlayer.score : 0,
+      })),
     };
   }
 
-  static fromDocumentCurrentPlayer(game, players) {
+  static fromDocumentCurrentPlayers(game) {
     return {
-      id: game._id,
-      players: players.map((p) => PlayerResponseDto.fromDocumentViewSimple(p)),
+      id: game._id.toString(),
+      players: game.players.map((p) => {
+        return {
+          id: p.player._id.toString(),
+          username: p.player.username,
+        };
+      }),
+    };
+  }
+
+  static fromDocumentCurrentPlayer(game) {
+    return {
+      id: game._id.toString(),
+      currentPlayer: game.currentPlayer
+        ? game.currentPlayer._id.toString()
+        : null,
+    };
+  }
+
+  static fromDocumentTopCard(game) {
+    return {
+      id: game._id.toString(),
+      topCard:
+        game.discard.length > 0 ? game.discard[game.discard.length - 1] : null,
+    };
+  }
+
+  static fromDocumentDeckOnHand(card) {
+    return {
+      id: card._id.toString(),
+      type: card.type,
+      color: card.color,
+      value: card.value,
     };
   }
 

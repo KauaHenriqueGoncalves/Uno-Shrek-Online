@@ -12,24 +12,101 @@ export default class GameController {
 
   registerRoutes() {
     this.routers.get("/", authMiddleware, asyncHandler(this.getAll.bind(this)));
-    this.routers.get("/status/:status", authMiddleware, asyncHandler(this.getAllByStatus.bind(this)));
-    this.routers.post("/", authMiddleware, asyncHandler(this.create.bind(this)));
-    this.routers.put("/join", authMiddleware, asyncHandler(this.joinInGame.bind(this)));
-    this.routers.put("/leave", authMiddleware, asyncHandler(this.leaveGame.bind(this)));
-    this.routers.put("/ready", authMiddleware, asyncHandler(this.readyInGame.bind(this)));
-    this.routers.put("/not-ready", authMiddleware, asyncHandler(this.notReadyInGame.bind(this)));
-    this.routers.put("/start", authMiddleware, asyncHandler(this.startGame.bind(this)));
-    this.routers.put("/finish", authMiddleware, asyncHandler(this.finishedGame.bind(this)));
-    this.routers.get("/:id/status", authMiddleware, asyncHandler(this.getStatusById.bind(this)));
-    this.routers.get("/:id/current-score", authMiddleware, asyncHandler(this.getCurrentScoreById.bind(this)));
-    this.routers.get("/:id", authMiddleware, asyncHandler(this.getById.bind(this)));
-    this.routers.get("/:id/current-players", authMiddleware, asyncHandler(this.getCurrentPlayersById.bind(this)));
-    this.routers.get("/:id/current-player", authMiddleware, asyncHandler(this.getCurrentPlayerById.bind(this)));
-    this.routers.get("/:id/top-card", authMiddleware, asyncHandler(this.getTopCardById.bind(this)));
-    this.routers.put("/:id/draw", authMiddleware, asyncHandler(this.draw.bind(this)));
-    this.routers.put("/:id/play", authMiddleware, asyncHandler(this.play.bind(this)));
-    this.routers.put("/:id", authMiddleware, asyncHandler(this.update.bind(this)));
-    this.routers.delete("/:id", authMiddleware, asyncHandler(this.delete.bind(this)));
+    this.routers.get(
+      "/status/:status",
+      authMiddleware,
+      asyncHandler(this.getAllByStatus.bind(this)),
+    );
+    this.routers.post(
+      "/",
+      authMiddleware,
+      asyncHandler(this.create.bind(this)),
+    );
+    this.routers.put(
+      "/join",
+      authMiddleware,
+      asyncHandler(this.joinInGame.bind(this)),
+    );
+    this.routers.put(
+      "/leave",
+      authMiddleware,
+      asyncHandler(this.leaveGame.bind(this)),
+    );
+    this.routers.put(
+      "/ready",
+      authMiddleware,
+      asyncHandler(this.readyInGame.bind(this)),
+    );
+    this.routers.put(
+      "/not-ready",
+      authMiddleware,
+      asyncHandler(this.notReadyInGame.bind(this)),
+    );
+    this.routers.put(
+      "/start",
+      authMiddleware,
+      asyncHandler(this.startGame.bind(this)),
+    );
+    this.routers.put(
+      "/finish",
+      authMiddleware,
+      asyncHandler(this.finishedGame.bind(this)),
+    );
+    this.routers.get(
+      "/:id/status",
+      authMiddleware,
+      asyncHandler(this.getStatusById.bind(this)),
+    );
+    this.routers.get(
+      "/:id/current-score",
+      authMiddleware,
+      asyncHandler(this.getCurrentScoreById.bind(this)),
+    );
+    this.routers.get(
+      "/:id",
+      authMiddleware,
+      asyncHandler(this.getById.bind(this)),
+    );
+    this.routers.get(
+      "/:id/current-players",
+      authMiddleware,
+      asyncHandler(this.getCurrentPlayersById.bind(this)),
+    );
+    this.routers.get(
+      "/:id/current-player",
+      authMiddleware,
+      asyncHandler(this.getCurrentPlayerById.bind(this)),
+    );
+    this.routers.get(
+      "/:id/top-card",
+      authMiddleware,
+      asyncHandler(this.getTopCardById.bind(this)),
+    );
+    this.routers.put(
+      "/:id/draw",
+      authMiddleware,
+      asyncHandler(this.draw.bind(this)),
+    );
+    this.routers.put(
+      "/:id/play",
+      authMiddleware,
+      asyncHandler(this.play.bind(this)),
+    );
+    this.routers.put(
+      "/:id/score",
+      authMiddleware,
+      asyncHandler(this.updatePlayerScore.bind(this)),
+    );
+    this.routers.put(
+      "/:id",
+      authMiddleware,
+      asyncHandler(this.update.bind(this)),
+    );
+    this.routers.delete(
+      "/:id",
+      authMiddleware,
+      asyncHandler(this.delete.bind(this)),
+    );
   }
 
   async getAll(req, res) {
@@ -46,8 +123,8 @@ export default class GameController {
   }
 
   async getById(req, res) {
-    const { game, players } = await this.service.getByIdInfo(req.params.id);
-    const response = GameResponseDto.fromDocumentRoom(game, players);
+    const { game } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentRoom(game);
     return res.status(200).json(response);
   }
 
@@ -58,24 +135,26 @@ export default class GameController {
   }
 
   async getCurrentPlayersById(req, res) {
-    const { game, players } = await this.service.getCurrentPlayersById(req.params.id);
-    const response = GameResponseDto.fromDocumentCurrentPlayer(game, players);
+    const { game } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentPlayers(game);
     return res.status(200).json(response);
   }
 
   async getCurrentPlayerById(req, res) {
-    const { game, player } = await this.service.getCurrentPlayerById(req.params.id);
-    return res.status(200).json({ game_id: game._id.toString(), current_player: player.username });
+    const { game } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentPlayer(game);
+    return res.status(200).json(response);
   }
 
   async getTopCardById(req, res) {
-    const { game, topCard } = await this.service.getTopCardById(req.params.id);
-    return res.status(200).json({ game_id: game._id.toString(), top_card: topCard });
+    const { game } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentTopCard(game);
+    return res.status(200).json(response);
   }
 
   async getCurrentScoreById(req, res) {
-    const { game, scores } = await this.service.getCurrentScoreById(req.params.id);
-    const response = GameResponseDto.fromDocumentCurrentScore(game, scores);
+    const { game } = await this.service.getByIdInfo(req.params.id);
+    const response = GameResponseDto.fromDocumentCurrentScore(game);
     return res.status(200).json(response);
   }
 
@@ -118,6 +197,20 @@ export default class GameController {
     return res.status(200).json(response);
   }
 
+  async updatePlayerScore(req, res) {
+    const userId = req.user && req.user.id;
+    const gameId = req.params.id;
+    const score = req.body.score;
+    const updatedGame = await this.service.updatePlayerScore(
+      userId,
+      gameId,
+      score,
+    );
+    return res
+      .status(200)
+      .json({ message: "Player score updated", gameId: updatedGame._id });
+  }
+
   async startGame(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
@@ -136,9 +229,14 @@ export default class GameController {
   async play(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.params.id;
-    const playedCard = req.body.card;
+    const cardId = req.body.cardId;
     const colorChoice = req.body.colorChoice || null;
-    const game = await this.service.play(userId, gameId, playedCard, colorChoice);
+    const game = await this.service.play(
+      userId,
+      gameId,
+      cardId,
+      colorChoice,
+    );
     return res.status(200).json({ message: "Card played", gameId: game._id });
   }
 
