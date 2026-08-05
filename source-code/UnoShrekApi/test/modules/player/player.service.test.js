@@ -21,7 +21,7 @@ describe("PlayerService", () => {
       warn: jest.fn(),
       error: jest.fn(),
     });
-    JwtCoder.getInstance.mockReturnValue({ sign: jest.fn(), decode: jest.fn() });
+    JwtCoder.getInstance.mockReturnValue({});
     playerService = new PlayerService({});
     repositoryMock = playerService.playerRepository;
   });
