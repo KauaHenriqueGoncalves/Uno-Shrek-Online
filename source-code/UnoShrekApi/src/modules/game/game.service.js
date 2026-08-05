@@ -228,9 +228,6 @@ export default class GameService {
     return await this.orchestrator.draw(userId, gameId);
   }
 
-  /*
-   * ESTUDAR
-   */
   async play(userId, gameId, cardId, colorChoice = null) {
     this.log.info(
       `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}] [colorChoice=${colorChoice}]`,
