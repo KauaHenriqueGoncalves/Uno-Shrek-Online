@@ -296,45 +296,99 @@ export default class GameOrchestrator {
     });
   }
 
-  async play(userId, gameId, playedCard, colorChoice = null) {
+  async play(userId, gameId, cardId, colorChoice = null) {
     return await this._runTransactionOrFallback(async (session) => {
+      this.log.info(
+        `Player wants to play a card. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}]`,
+      );
       const game = await this.gameRepository.getById(gameId, session);
-      if (!game) throw new NotFoundError("Game not found");
-      if (game.status !== GAME_STATUS.ACTIVE)
+      if (!game) {
+        this.log.warn(`Game not found for play. [gameId=${gameId}]`);
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        this.log.warn(
+          `Cannot play, game is not active. [gameId=${gameId}] [status=${game.status}]`,
+        );
         throw new BusinessError("Cannot play in a non-active game");
+      }
       const playerIndex = game.players.findIndex(
         (p) => p.player.toString() === userId.toString(),
       );
-      if (playerIndex === -1)
+      if (playerIndex === -1) {
+        this.log.warn(
+          `Player is not present in game. [playerId=${userId}] [gameId=${gameId}]`,
+        );
         throw new BusinessError("Player is not present this game");
+      }
       if (
         game.currentPlayer &&
         game.currentPlayer.toString() !== userId.toString()
-      )
+      ) {
+        this.log.warn(
+          `Not player's turn to play. [playerId=${userId}] [gameId=${gameId}] [currentPlayer=${game.currentPlayer}]`,
+        );
         throw new BusinessError("It's not your turn");
+      }
 
       const state = await this._toEngineState(game);
-      const top =
-        state.discard && state.discard.length > 0
+
+      const playedCard = state.players[playerIndex].hand.cards.find(
+        (c) => c.id === cardId,
+      );
+      if (!playedCard) {
+        this.log.warn(
+          `Card not found in player's hand. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}]`,
+        );
+        throw new BusinessError("Card not found in your hand");
+      }
+
+      const topCard =
+        state.discard.length > 0
           ? state.discard[state.discard.length - 1]
           : null;
-      if (!GameEngine.validatePlay(playedCard, top, state.activeColor)) {
+
+      if (!GameEngine.validatePlay(playedCard, topCard, state.activeColor)) {
+        this.log.warn(
+          {
+            gameId,
+            playerId: userId,
+            playedCard,
+            topCard,
+            activeColor: state.activeColor,
+          },
+          "Invalid play attempt",
+        );
         throw new BusinessError("Invalid play");
       }
 
-      const { state: newState } = GameEngine.applyPlay(
-        state,
-        playerIndex,
-        playedCard,
-        colorChoice,
+      const {
+        state: stateAfterPlay,
+        drawnCards,
+        effect,
+      } = GameEngine.applyPlay(state, playerIndex, playedCard, colorChoice);
+
+      this.log.debug(
+        {
+          gameId,
+          playerId: userId,
+          effect,
+          cardsDrawnByNextPlayer: drawnCards.length,
+        },
+        "Card effect resolved",
       );
-      this._applyEngineStateToGame(game, newState);
-      const resultGame = await this.gameRepository.update(
+      this.log.info(
+        `Turn passed after play. [gameId=${gameId}] [from=${userId}] [to=${stateAfterPlay.currentPlayer}]`,
+      );
+
+      this._applyEngineStateToGame(game, stateAfterPlay);
+      const updatedGame = await this.gameRepository.update(
         gameId,
         game,
         session,
       );
-      return resultGame;
+      this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
+      return updatedGame;
     });
   }
 
@@ -405,7 +459,11 @@ export default class GameOrchestrator {
         id: persistedCards[index]._id.toString(),
       }));
 
-      const engineState = GameEngine.startGameState(playerIds, HAND_SIZE, deckWithIds);
+      const engineState = GameEngine.startGameState(
+        playerIds,
+        HAND_SIZE,
+        deckWithIds,
+      );
       this._applyEngineStateToGame(game, engineState);
       game.status = GAME_STATUS.ACTIVE;
       this.log.info(
@@ -418,7 +476,11 @@ export default class GameOrchestrator {
         },
         "Game status transition",
       );
-      const resultGame = await this.gameRepository.update(gameId, game, session);
+      const resultGame = await this.gameRepository.update(
+        gameId,
+        game,
+        session,
+      );
       this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
       return resultGame;
     });

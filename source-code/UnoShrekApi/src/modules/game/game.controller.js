@@ -229,12 +229,12 @@ export default class GameController {
   async play(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.params.id;
-    const playedCard = req.body.card;
+    const cardId = req.body.cardId;
     const colorChoice = req.body.colorChoice || null;
     const game = await this.service.play(
       userId,
       gameId,
-      playedCard,
+      cardId,
       colorChoice,
     );
     return res.status(200).json({ message: "Card played", gameId: game._id });

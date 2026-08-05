@@ -75,11 +75,12 @@ export default class App {
     try {
       this.healthController = new HealthController();
 
+      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card);
+
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
 
-      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card);
-      const gameService = new GameService(Game, gameOrchestrator, playerService);
+      const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
 
       const cardService = new CardService(Card, gameService);
