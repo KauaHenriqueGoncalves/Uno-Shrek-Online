@@ -2,6 +2,8 @@ import { jest } from '@jest/globals';
 import bcrypt from 'bcryptjs';
 import PlayerService from '../../../src/modules/player/player.service.js';
 import PlayerRepository from '../../../src/modules/player/player.repository.js';
+import { BusinessError } from '../../../src/modules/shared/errors/business.error.js';
+import { NotFoundError } from '../../../src/modules/shared/errors/not-found.error.js';
 
 const mockSchema = {}; 
 process.env.JWT_SECRET = 'segredinho_para_testes';
@@ -65,7 +67,7 @@ describe('player.service.js - Create', () => {
         // ACT & ASSERT
         await expect(playerService.create(baseValidData))
         .rejects
-        .toThrow("Email already exists"); // Jest verifies this specific error message
+        .toThrow(BusinessError);
     });
 
     test('should throw an error when username already exists', async () => {
@@ -77,7 +79,7 @@ describe('player.service.js - Create', () => {
         // ACT & ASSERT
         await expect(playerService.create(baseValidData))
         .rejects
-        .toThrow("Username already exists");
+        .toThrow(BusinessError);
     });
 });
 
@@ -116,7 +118,7 @@ describe('player.service.js - Read (getById)', () => {
         // ACT & ASSERT
         await expect(playerService.getById(playerId))
             .rejects
-            .toThrow("Player not found");
+            .toThrow(NotFoundError);
     });
 });
 
@@ -180,7 +182,7 @@ describe('player.service.js - Read (getByUsername)', () => {
 
         await expect(playerService.getByUsername(username))
             .rejects
-            .toThrow("Player not found");
+            .toThrow(NotFoundError);
     });
 });
 
@@ -281,7 +283,7 @@ describe("player.service.js - Update", () => {
 
         await expect(playerService.update(playerId, validUpdateData))
             .rejects
-            .toThrow("Player not found");
+            .toThrow(NotFoundError);
     });
 
     test('should throw an error when trying to update to an already used email', async () => {
@@ -292,7 +294,7 @@ describe("player.service.js - Update", () => {
         // ACT & ASSERT
         await expect(playerService.update(playerId, validUpdateData))
             .rejects
-            .toThrow("Email already exists");
+            .toThrow(BusinessError);
     });
 })
 
@@ -322,6 +324,6 @@ describe('player.service.js - Delete', () => {
 
         await expect(playerService.deleteById(playerDeleteId))
            .rejects
-           .toThrow("Player not found");
+           .toThrow(NotFoundError);
     });
 })
