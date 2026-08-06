@@ -263,7 +263,6 @@ export default class GameOrchestrator {
 
       // Buying a card from the deck
       const state = await this._toEngineState(game);
-      console.log("State before draw:", state);
       const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
         state,
         playerIndex,

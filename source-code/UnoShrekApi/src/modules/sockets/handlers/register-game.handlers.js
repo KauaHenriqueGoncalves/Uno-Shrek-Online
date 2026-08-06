@@ -20,29 +20,6 @@ export default function registerGameHandlers(socket, io, { gameService }) {
     }
   });
 
-  socket.on(GAME_EVENTS.INPUT.CREATE, async (data) => {
-    try {
-      const userId = socket.playerId;
-      log.info(
-        `Creating game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
-      );
-      const gameInfo = await gameService.create(userId, data);
-      const gameId = (gameInfo.id ?? gameInfo._id)?.toString();
-      log.info(
-        `Created game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
-      );
-      socket.join(gameId);
-      socket.currentGameId = gameId;
-      const { game, players } = await gameService.getByIdInfo(gameId);
-      const emited = GameResponseDto.fromDocumentRoom(game, players);
-      socket.emit(GAME_EVENTS.OUTPUT.GAME_INFO, emited);
-      await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
-    } catch (err) {
-      log.warn({ err }, "socket failed");
-      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
-    }
-  });
-
   socket.on(GAME_EVENTS.INPUT.GET_BY_ID_INFO, async () => {
     try {
       const gameId = socket.currentGameId;
@@ -55,6 +32,29 @@ export default function registerGameHandlers(socket, io, { gameService }) {
       const { game, players } = await gameService.getByIdInfo(gameId);
       const emited = GameResponseDto.fromDocumentRoom(game, players);
       socket.emit(GAME_EVENTS.OUTPUT.GAME_INFO, emited);
+    } catch (err) {
+      log.warn({ err }, "socket failed");
+      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
+    }
+  });
+
+  socket.on(GAME_EVENTS.INPUT.CREATE, async (data) => {
+    try {
+      const userId = socket.playerId;
+      log.info(
+        `Creating game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
+      );
+      const gameCreated = await gameService.create(userId, data);
+      const gameId = (gameCreated.id ?? gameCreated._id)?.toString();
+      log.info(
+        `Created game on socket. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
+      );
+      socket.join(gameId);
+      socket.currentGameId = gameId;
+      const { game, players } = await gameService.getByIdInfo(gameId);
+      const emited = GameResponseDto.fromDocumentRoom(game, players);
+      socket.emit(GAME_EVENTS.OUTPUT.GAME_INFO, emited);
+      await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
     } catch (err) {
       log.warn({ err }, "socket failed");
       socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
@@ -108,7 +108,41 @@ export default function registerGameHandlers(socket, io, { gameService }) {
     }
   });
 
-  //socket.on("", async ({}) => {});
+  socket.on(GAME_EVENTS.INPUT.READY, async ({ gameId }) => {
+    try {
+      const userId = socket.playerId;
+      const game = await gameService.readyInGame(userId, gameId);
+      log.info(
+        `Player is ready on game. [playerId=${userId}] [socketId=${socket.id}] [gameId=${gameId}]`,
+      );
+      await broadcastRoomGameInfo(io, gameService, gameId);
+    } catch(e) {
+      log.warn({ err }, "socket failed");
+      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
+    }
+  });
+
+  socket.on(GAME_EVENTS.INPUT.NOT_READY, async ({ gameId }) => {
+    try {
+      const userId = socket.playerId;
+      const game = await gameService.notReadyInGame(userId, gameId);
+      log.info(
+        `Player is ready on game. [playerId=${userId}] [socketId=${socket.id}] [gameId=${gameId}]`,
+      );
+      await broadcastRoomGameInfo(io, gameService, gameId);
+    } catch(e) {
+      log.warn({ err }, "socket failed");
+      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
+    }
+  });
+
+  socket.on(GAME_EVENTS.INPUT.DRAW, async ({}) => {});
+
+  socket.on(GAME_EVENTS.INPUT.PLAY, async ({}) => {});
+
+  socket.on(GAME_EVENTS.INPUT.START, async ({}) => {});
+
+  socket.on(GAME_EVENTS.INPUT.FINISH, async ({}) => {});
 }
 
 export async function broadcastRoomGameInfo(io, gameService, gameId) {

@@ -30,8 +30,8 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
         `Removing player from game on disconnect. [playerId=${socket.playerId}] [gameId=${gameId}]`,
       );
       const game = await gameService.leaveGame(userId, gameId);
-      broadcastRoomGameInfo(io, gameService, gameId);
-      broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
+      await broadcastRoomGameInfo(io, gameService, gameId);
+      await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
     } catch (err) {
       log.warn({ err }, "failed to remove player from game on disconnect");
     }

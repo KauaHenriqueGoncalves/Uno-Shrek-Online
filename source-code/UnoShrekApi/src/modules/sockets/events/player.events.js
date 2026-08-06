@@ -4,7 +4,7 @@ const PLAYER_EVENTS = {
   },
   OUTPUT: {
     ONLINE_COUNT: "player::onlineCount",
-    ERROR: "player::error",
+    ERROR:        "player::error",
   },
 };
 
