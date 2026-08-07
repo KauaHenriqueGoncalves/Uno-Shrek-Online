@@ -350,3 +350,147 @@ describe("getByIdInfo", () => {
     );
   });
 });
+
+describe("getAll", () => {
+  it("should return the list of games", async () => {
+    const games = [{ _id: "game1" }, { _id: "game2" }];
+    repositoryMock.getAll.mockResolvedValue(games);
+
+    const result = await gameService.getAll();
+
+    expect(repositoryMock.getAll).toHaveBeenCalled();
+    expect(result).toEqual(games);
+  });
+});
+
+describe("getAllByStatus", () => {
+  it("should return the games filtered by status", async () => {
+    const games = [{ _id: "game1", status: GAME_STATUS.PENDING }];
+    repositoryMock.getAllByStatus.mockResolvedValue(games);
+
+    const result = await gameService.getAllByStatus(GAME_STATUS.PENDING);
+
+    expect(repositoryMock.getAllByStatus).toHaveBeenCalledWith(
+      GAME_STATUS.PENDING,
+    );
+    expect(result).toEqual(games);
+  });
+});
+
+describe("readyInGame", () => {
+  const gameId = "game1";
+  const userId = "player1";
+
+  it("should mark the player as ready", async () => {
+    const game = {
+      _id: gameId,
+      players: [{ player: { toString: () => userId }, ready: false }],
+    };
+    repositoryMock.getById.mockResolvedValue(game);
+    repositoryMock.update.mockResolvedValue(game);
+
+    await gameService.readyInGame(userId, gameId);
+
+    expect(game.players[0].ready).toBe(true);
+    expect(repositoryMock.update).toHaveBeenCalledWith(gameId, game);
+  });
+
+  it("should throw BusinessError when player is not present in the game", async () => {
+    const game = {
+      _id: gameId,
+      players: [{ player: { toString: () => "someoneElse" }, ready: false }],
+    };
+    repositoryMock.getById.mockResolvedValue(game);
+
+    await expect(gameService.readyInGame(userId, gameId)).rejects.toThrow(
+      BusinessError,
+    );
+    expect(repositoryMock.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("notReadyInGame", () => {
+  const gameId = "game1";
+  const userId = "player1";
+
+  it("should mark the player as not ready", async () => {
+    const game = {
+      _id: gameId,
+      players: [{ player: { toString: () => userId }, ready: true }],
+    };
+    repositoryMock.getById.mockResolvedValue(game);
+    repositoryMock.update.mockResolvedValue(game);
+
+    await gameService.notReadyInGame(userId, gameId);
+
+    expect(game.players[0].ready).toBe(false);
+    expect(repositoryMock.update).toHaveBeenCalledWith(gameId, game);
+  });
+
+  it("should throw BusinessError when player is not present in the game", async () => {
+    const game = {
+      _id: gameId,
+      players: [{ player: { toString: () => "someoneElse" }, ready: true }],
+    };
+    repositoryMock.getById.mockResolvedValue(game);
+
+    await expect(gameService.notReadyInGame(userId, gameId)).rejects.toThrow(
+      BusinessError,
+    );
+    expect(repositoryMock.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("updatePlayerScore", () => {
+  const gameId = "game1";
+  const userId = "player1";
+
+  it("should delegate score update to the orchestrator", async () => {
+    const updatedGame = { _id: gameId };
+    mockOrchestrator.updateScore.mockResolvedValue(updatedGame);
+
+    const result = await gameService.updatePlayerScore(userId, gameId, 10);
+
+    expect(mockOrchestrator.updateScore).toHaveBeenCalledWith(
+      userId,
+      gameId,
+      10,
+    );
+    expect(result).toEqual(updatedGame);
+  });
+
+  it("should propagate the error thrown by the orchestrator", async () => {
+    mockOrchestrator.updateScore.mockRejectedValue(
+      new BusinessError("Score must be a non-negative number"),
+    );
+
+    await expect(
+      gameService.updatePlayerScore(userId, gameId, -5),
+    ).rejects.toThrow(BusinessError);
+  });
+});
+
+describe("startGame", () => {
+  const gameId = "game1";
+  const userId = "owner1";
+
+  it("should delegate the start to the orchestrator", async () => {
+    const startedGame = { _id: gameId, status: GAME_STATUS.ACTIVE };
+    mockOrchestrator.start.mockResolvedValue(startedGame);
+
+    const result = await gameService.startGame(userId, gameId);
+
+    expect(mockOrchestrator.start).toHaveBeenCalledWith(userId, gameId);
+    expect(result).toEqual(startedGame);
+  });
+
+  it("should propagate the error thrown by the orchestrator", async () => {
+    mockOrchestrator.start.mockRejectedValue(
+      new BusinessError("All players must be ready."),
+    );
+
+    await expect(gameService.startGame(userId, gameId)).rejects.toThrow(
+      BusinessError,
+    );
+  });
+});
