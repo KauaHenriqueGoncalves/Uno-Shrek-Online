@@ -11,13 +11,13 @@ describe("GameService", () => {
   let repositoryMock;
 
   const mockOrchestrator = {
-  createScorePlayerFor: jest.fn(),
-  getFullGame: jest.fn(),
-  start: jest.fn(),
-  draw: jest.fn(),
-  play: jest.fn(),
-  updateScore: jest.fn(),
-};
+    createScorePlayerFor: jest.fn(),
+    getFullGame: jest.fn(),
+    start: jest.fn(),
+    draw: jest.fn(),
+    play: jest.fn(),
+    updateScore: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
