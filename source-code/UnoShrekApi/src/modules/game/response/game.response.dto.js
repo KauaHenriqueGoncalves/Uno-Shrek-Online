@@ -1,5 +1,3 @@
-import PlayerResponseDto from "../../player/response/player.response.dto.js";
-
 export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();

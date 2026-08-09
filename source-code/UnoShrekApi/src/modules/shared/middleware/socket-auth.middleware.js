@@ -7,6 +7,7 @@ import BlacklistedTokenRepository from "../blacklisted-token/blacklisted-token.r
 const log = PinoGlobal.getInstance();
 const jwtCoder = JwtCoder.getInstance();
 const blacklistedRepo = new BlacklistedTokenRepository(BlacklistedToken);
+
 export default async function socketAuthMiddleware(socket, next) {
   try {
     const token = socket.handshake.headers.accesstoken;
