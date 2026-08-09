@@ -5,7 +5,6 @@ import { BusinessError } from "../shared/errors/business.error.js";
 import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
-import { shuffle } from "./deck.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
