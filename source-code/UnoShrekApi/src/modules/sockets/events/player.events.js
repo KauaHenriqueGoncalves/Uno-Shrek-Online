@@ -3,8 +3,8 @@ const PLAYER_EVENTS = {
     GET_ONLINE_COUNT: "player::getOnlineCount",
   },
   OUTPUT: {
-    ONLINE_COUNT: "player::onlineCount",
-    ERROR:        "player::error",
+    ONLINE_COUNT:     "player::onlineCount",
+    ERROR:            "player::error",
   },
 };
 

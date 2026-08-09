@@ -1,7 +1,7 @@
 import PinoGlobal from "../../shared/logger/pino-global.logger.js";
 import PLAYER_EVENTS from "../events/player.events.js";
 import { GAME_STATUS } from "../../game/game.schema.js";
-import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.js";
+import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.socket.js";
 
 const log = PinoGlobal.getInstance();
 
