@@ -2,10 +2,10 @@
   "name": "uno-shrek-api",
   "version": "0.0.1",
   "description": "Api Shrek Uno",
-  "main": "./src/server.js",
+  "main": "./server.js",
   "scripts": {
-    "start": "node --env-file=.env ./src/server.js",
-    "start::watch": "nodemon --env-file=.env ./src/server.js",
+    "start": "node --env-file=.env ./server.js",
+    "start::watch": "nodemon --env-file=.env ./server.js",
     "test": "jest",
     "test::coverage": "jest --coverage"
   },
