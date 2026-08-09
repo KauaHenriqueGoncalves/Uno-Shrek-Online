@@ -13,11 +13,12 @@ const GAME_EVENTS = {
     FINISH:            "game::finish",
   },
   OUTPUT: {
-    LIST_UPDATED: "game::list::updated",
-    GAME_INFO:    "game::info",
-    JOINED:       "game::joined",
-    LEAVED:       "game::leaved",
-    ERROR:        "game::error",
+    LIST_UPDATED:      "game::list::updated",
+    GAME_INFO:         "game::info",
+    JOINED:            "game::joined",
+    LEAVED:            "game::leaved",
+    FINISHED:          "game::finished",
+    ERROR:             "game::error",
   },
 };
 
