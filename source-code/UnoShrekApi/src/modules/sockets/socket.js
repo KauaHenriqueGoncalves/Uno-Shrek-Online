@@ -1,8 +1,8 @@
 import { Server } from "socket.io";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
 import socketAuthMiddleware from "../shared/middleware/socket-auth.middleware.js";
-import registerGameHandlers from "./handlers/register-game.handlers.js";
-import registerPlayerHandlers from "./handlers/register-player.handlers.js";
+import registerGameHandlers from "./handlers/register-game.handlers.socket.js";
+import registerPlayerHandlers from "./handlers/register-player.handlers.socket.js";
 
 const log = PinoGlobal.getInstance();
 
