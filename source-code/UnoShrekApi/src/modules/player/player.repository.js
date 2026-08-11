@@ -12,4 +12,8 @@ export default class PlayerRepository extends CrudRepository {
   async getByEmail(email, session = null) {
     return await this.schema.findOne({ email }).session(session);
   }
+
+  async getByGoogleId(googleId, session = null) {
+  return await this.schema.findOne({ googleId }).session(session);
+}
 }
