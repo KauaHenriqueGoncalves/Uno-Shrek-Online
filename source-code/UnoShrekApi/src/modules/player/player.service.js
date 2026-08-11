@@ -7,6 +7,7 @@ import { UpdatePlayerRequestDto } from "./dto/update.player.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 import JwtCoder from "../shared/jwt/jwt-coder.js";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const SALT_ROUNDS = 10;
 
@@ -133,4 +134,35 @@ export default class PlayerService {
     this.log.info({ playerId: id }, "Player deleted");
     return deleted;
   }
+
+  async getByGoogleId(googleId) {
+    this.log.info(`Getting player by googleId [googleId=${googleId}]`);
+    return await this.playerRepository.getByGoogleId(googleId);
+  }
+
+  async getByEmailSafe(email) {
+    this.log.info(`Getting player by email safe [email=${email}]`);
+    return await this.playerRepository.getByEmail(email);
+  }
+
+  async linkGoogle(id, googleId, picture) {
+    this.log.info(`Linking Google to player. [playerId=${id}]`);
+    return await this.playerRepository.update(id, { googleId, picture });
+  }
+
+  async createFromGoogle({ username, email, googleId, picture }) {
+    this.log.info(`Creating player from Google. [email=${email}]`);
+    const baseUsername = username.replace(/\s+/g, "_").toLowerCase();
+    const isExist = await this.playerRepository.getByUsername(baseUsername);
+    const finalUsername = isExist ? `${baseUsername}_${Date.now()}` : baseUsername;
+
+  return await this.playerRepository.create({
+    username: finalUsername,
+    email,
+    googleId,
+    picture,
+    age: 18,
+    password: crypto.randomUUID(), 
+  });
+}
 }
