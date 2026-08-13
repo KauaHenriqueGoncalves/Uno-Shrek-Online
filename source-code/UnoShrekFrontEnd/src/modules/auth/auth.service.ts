@@ -15,4 +15,9 @@ export const authService = {
     const { data } = await api.post("/api/auth/logout");
     return data;
   },
+
+  googleAuth: async (accessToken: string) => {
+    const { data } = await api.post("/api/auth/google", { accessToken });
+    return data;
+  },
 };

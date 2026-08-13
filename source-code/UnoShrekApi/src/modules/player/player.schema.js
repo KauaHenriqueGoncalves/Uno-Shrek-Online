@@ -20,6 +20,16 @@ const playerSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
     },
+    picture: {
+      type: String,
+      required: false,
+      default: null,
+    },
+    googleId: {
+      type: String,
+      required: false,
+      default: null,
+},
   },
   {
     timestamps: true,

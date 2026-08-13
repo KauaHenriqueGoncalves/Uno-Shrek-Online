@@ -7,6 +7,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 function NotFoundComponent() {
   return (
@@ -81,16 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      {/* O HeadContent injeta as meta tags e fontes dinamicamente de forma segura */}
-      <HeadContent />
-      
-      {/* Aqui é onde a sua AuthScreen e outras telas vão aparecer */}
-      <Outlet />
-      
-      {/* Scripts gerados pela biblioteca de roteamento */}
-      <Scripts />
-    </QueryClientProvider>
+ return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    </GoogleOAuthProvider>
   );
 }
