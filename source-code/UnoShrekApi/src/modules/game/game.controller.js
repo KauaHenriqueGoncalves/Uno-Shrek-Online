@@ -168,7 +168,8 @@ export default class GameController {
   async joinInGame(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.joinInGame(userId, gameId);
+    const password = req.body.password;
+    const game = await this.service.joinInGame(userId, gameId, password);
     const response = { message: "User joined the game successfully" };
     return res.status(200).json(response);
   }
