@@ -12,6 +12,10 @@ const gameSchema = new mongoose.Schema(
       type: String,
       required: [true, "Title is required"],
     },
+    password: {
+      type: String,
+      required: [true, "Password on game is requered"],
+    },
     status: {
       type: String,
       required: true,
