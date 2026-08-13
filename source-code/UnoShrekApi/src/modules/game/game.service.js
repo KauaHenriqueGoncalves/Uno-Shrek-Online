@@ -2,11 +2,15 @@ import GameRepository from "./game.repository.js";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
 import { NotFoundError } from "../shared/errors/not-found.error.js";
 import { BusinessError } from "../shared/errors/business.error.js";
+import { UnauthorizedError } from "../shared/errors/unauthorized.error.js"
 import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
+import bcrypt from "bcryptjs";
+
+const SALT_ROUNDS = 10;
 
 export default class GameService {
   constructor(schema, orchestrator) {
@@ -60,8 +64,10 @@ export default class GameService {
         "You already have an active game. Finish it before creating a new one.",
       );
     }
+    const hashedPassword = await bcrypt.hash(validData.password, SALT_ROUNDS);
     const dataSave = {
       ...validData,
+      password: hashedPassword,
       owner: ownerId,
       players: [{ player: ownerId, ready: false, score: 0 }],
     };
@@ -78,7 +84,7 @@ export default class GameService {
     return gameWithScore;
   }
 
-  async joinInGame(userId, gameId) {
+  async joinInGame(userId, gameId, password) {
     const playerId = userId;
     this.log.info(
       `Player want to join in game. [playerId=${playerId}] [gameId=${gameId}]`,
@@ -101,6 +107,15 @@ export default class GameService {
         `Player already in game. [playerId=${playerId}] [gameId=${gameId}]`,
       );
       throw new BusinessError("Player already joined this game");
+    }
+    if (!password) {
+      this.log.warn(`Invalid password. [userId=${userId}] [gameId=${gameId}]`);
+      throw new BusinessError("Invalind password");
+    }
+    const passwordMatches = await bcrypt.compare(password, game.password);
+    if (!passwordMatches) {
+      this.log.warn(`Invalid password in game. [userId=${userId}] [gameId=${gameId}]`);
+      throw new UnauthorizedError("Invalid credentials to game");
     }
     game.players.push({ player: playerId, ready: false });
     await this.gameRepository.update(gameId, game);
