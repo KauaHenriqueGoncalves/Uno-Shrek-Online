@@ -65,13 +65,13 @@ export default function registerGameHandlers(socket, io, { gameService }) {
     }
   });
 
-  socket.on(GAME_EVENTS.INPUT.JOIN, async ({ gameId }) => {
+  socket.on(GAME_EVENTS.INPUT.JOIN, async ({ gameId, password }) => {
     try {
       const userId = socket.playerId;
       log.info(
         `Player joining on game on socket. [playerId=${userId}] [socketId=${socket.id}]`,
       );
-      const game = await gameService.joinInGame(userId, gameId);
+      const game = await gameService.joinInGame(userId, gameId, password);
       log.info(
         `Player join on game. [playerId=${socket.playerId}] [socketId=${socket.id}] [gameId=${gameId}]`,
       );
