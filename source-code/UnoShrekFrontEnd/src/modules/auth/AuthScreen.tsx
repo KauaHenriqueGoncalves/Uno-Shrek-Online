@@ -2,9 +2,11 @@ import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, Loader2  } from "lucide-react";
 import { authService } from "./auth.service";
 import { Field } from "../../shared/components/Field";
+import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleIcon } from "../../shared/components/GoogleIcon";
 import sideArt from "../../../assets/auth-side.png";
-import logo from "../../../assets/logo-urro.png"
+import logo from "../../../assets/logo-urro.png";
+
 
 type ApiError = {
   response?: { data?: { error?: string; message?: string } };
@@ -61,6 +63,27 @@ export function AuthScreen() {
     setForm({ username: "", email: "", password: "", age: "" });
   };
 
+  const googleLogin = useGoogleLogin({
+  onSuccess: async (tokenResponse) => {
+    setLoading(true);
+    try {
+      await authService.googleAuth(tokenResponse.access_token);
+      // TODO: redirecionar para /lobby
+    } catch (err) {
+      const apiErr = err as ApiError;
+      const message =
+        apiErr.response?.data?.error ??
+        apiErr.response?.data?.message ??
+        "Falha ao autenticar com o Google";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  },
+  onError: () => setError("Falha ao autenticar com o Google"),
+  flow: "implicit",
+});
+
   return (
     <main className="grid min-h-screen grid-cols-1 bg-parchment md:grid-cols-2">
       <img
@@ -83,7 +106,7 @@ export function AuthScreen() {
 
           <button
             type="button"
-            onClick={() => {}}
+            onClick={() => googleLogin()}
             className="mt-7 flex h-12 w-full items-center justify-center gap-3 rounded-full border border-ink/40 bg-white text-[15px] font-semibold text-ink transition hover:bg-ink/5"
           >
             <GoogleIcon className="h-5 w-5" />
