@@ -7,7 +7,7 @@ import {
   COLORS,
   WILD_TYPES,
   SPECIAL_TYPES,
-} from "../../../src/modules/game/deck.js";
+} from "../../../src/modules/game/util/deck.js";
 
 describe("deck", () => {
   describe("createDeck", () => {
