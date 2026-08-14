@@ -5,7 +5,7 @@ import {
   validatePlay,
   applyPlay,
 } from "../../../src/modules/game/game.engine.js";
-import * as deckModule from "../../../src/modules/game/deck.js";
+import * as deckModule from "../../../src/modules/game/util/deck.js";
 
 jest.mock("../../../src/modules/game/deck.js", () => {
   const actual = jest.requireActual("../../../src/modules/game/deck.js");

@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import GameRepository from "./game.repository.js";
 import GameEngine from "./game.engine.js";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
@@ -8,7 +7,9 @@ import { GAME_STATUS } from "./game.schema.js";
 import ScorePlayerRepository from "../score/score-player.repository.js";
 import PlayerRepository from "../player/player.repository.js";
 import CardRepository from "../card/card.repository.js";
-import { createDeck } from "./deck.js";
+import { createDeck } from "./util/deck.js";
+import TransactionRunner from "../shared/mongoose/transaction-runner.js";
+import GameStateMapper from "./mapper/game-state.mapper.js";
 
 export default class GameOrchestrator {
   constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
@@ -16,135 +17,9 @@ export default class GameOrchestrator {
     this.scoreRepository = new ScorePlayerRepository(scoreSchema);
     this.playerRepository = new PlayerRepository(playerSchema);
     this.cardRepository = new CardRepository(cardSchema);
+    this.gameStateMapper = new GameStateMapper(cardSchema);
+    this.transaction = new TransactionRunner();
     this.log = PinoGlobal.getInstance();
-  }
-
-  /**
-   * OBS: comentário adicionando em metodos que convertem estado do jogo entre o GameOrchestrator e
-   * o GameEngine com o objetivo de simplificar o entendimento, já que é uma camada mais "chata" de entender.
-   * O GameEngine trabalha com um estado "puro" (pure state), enquanto o GameOrchestrator trabalha com
-   * o estado persistido no banco de dados (Mongoose). Esses métodos são responsáveis por converter entre
-   * esses dois formatos de estado.
-   */
-
-  /**
-   *  OBS: NO MOMENTO, O MOTODO _runTransactionOrFallback NÃO ESTÁ SENDO SUPORTADO PELO MONGOOSE.
-   *  NÃO IMPACTA O FUNCIONAMENTO DO SISTEMA, MAS É MOSTRADO NO LOG DE ERROS.
-   */
-  async _runTransactionOrFallback(operationFn) {
-    let session = null;
-    try {
-      session = await mongoose.startSession();
-      let result = null;
-      await session.withTransaction(async () => {
-        result = await operationFn(session);
-      });
-      return result;
-    } catch (err) {
-      if (
-        err &&
-        (err.code === 20 ||
-          (err.message &&
-            err.message.includes("Transaction numbers are only allowed")))
-      ) {
-        this.log.warn(
-          { err: err.message },
-          "Transactions not supported; running operation without transaction/session",
-        );
-        try {
-          return await operationFn(null);
-        } catch (innerErr) {
-          throw innerErr;
-        }
-      }
-      throw err;
-    } finally {
-      if (session) session.endSession();
-    }
-  }
-
-  /**
-   * Coleta, sem duplicar, todos os ids de carta usados pelo jogo (deck, descarte e mãos).
-   */
-  _collectCardIds(game) {
-    const deckIds = game.deck;
-    const discardIds = game.discard;
-    const handIds = game.players.flatMap((p) => p.hand?.cards ?? []);
-    const allIds = [...deckIds, ...discardIds, ...handIds].map((id) =>
-      id.toString(),
-    );
-    return [...new Set(allIds)];
-  }
-
-  /**
-   * Busca as cartas no banco e monta um mapa id -> carta, para consulta rápida.
-   */
-  async _loadCardMap(cardIds) {
-    if (cardIds.length === 0) {
-      return new Map();
-    }
-    const cardDocs = await this.cardRepository.getAllByIds(cardIds);
-    return new Map(cardDocs.map((c) => [c._id.toString(), c]));
-  }
-
-  /**
-   * Transforma um id de carta no objeto simples que o engine entende.
-   */
-  _hydrateCard(cardMap, id) {
-    const card = cardMap.get(id.toString());
-    if (!card) {
-      throw new NotFoundError(`Card not found. [cardId=${id}]`);
-    }
-    return {
-      id: card._id.toString(),
-      color: card.color,
-      type: card.type,
-      value: card.value,
-    };
-  }
-
-  /**
-   * Busca no banco as cartas referenciadas pelo jogo (deck, descarte e mãos) e monta o estado "puro" que
-   * o engine entende. Mongoose -> pure state
-   */
-  async _toEngineState(game) {
-    const cardIds = this._collectCardIds(game);
-    const cardMap = await this._loadCardMap(cardIds);
-    const hydrate = (id) => this._hydrateCard(cardMap, id);
-    const players = game.players.map((p) => ({
-      player: p.player,
-      hand: { cards: (p.hand?.cards ?? []).map(hydrate) },
-    }));
-    return {
-      deck: game.deck.map(hydrate),
-      discard: game.discard.map(hydrate),
-      players,
-      currentPlayer: game.currentPlayer,
-      direction: game.direction ?? 1,
-      activeColor: game.activeColor ?? null,
-    };
-  }
-
-  /**
-   * State conversion methods between GameOrchestrator and GameEngine. pure state -> Mongoose
-   */
-  _applyEngineStateToGame(game, state) {
-    const dehydrate = (card) => card.id;
-    game.deck = state.deck.map(dehydrate);
-    game.discard = state.discard.map(dehydrate);
-    game.currentPlayer = state.currentPlayer;
-    game.direction = state.direction;
-    game.activeColor = state.activeColor;
-    game.players = game.players.map((p) => {
-      const ep = state.players.find(
-        (sp) => sp.player.toString() === p.player.toString(),
-      );
-      return {
-        ...p,
-        hand: ep ? { cards: ep.hand.cards.map(dehydrate) } : { cards: [] },
-      };
-    });
-    return game;
   }
 
   async getFullGame(gameId, session = null) {
@@ -227,7 +102,7 @@ export default class GameOrchestrator {
   }
 
   async draw(userId, gameId) {
-    return await this._runTransactionOrFallback(async (session) => {
+    return await this.transaction.run(async (session) => {
       this.log.info(
         `Player wants to draw a card. [playerId=${userId}] [gameId=${gameId}]`,
       );
@@ -262,7 +137,7 @@ export default class GameOrchestrator {
       }
 
       // Buying a card from the deck
-      const state = await this._toEngineState(game);
+      const state = await this.gameStateMapper.toEngineState(game);
       const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
         state,
         playerIndex,
@@ -284,7 +159,7 @@ export default class GameOrchestrator {
       this.log.info(
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
-      this._applyEngineStateToGame(game, stateAfterDraw);
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
       const updatedGame = await this.gameRepository.update(
         gameId,
         game,
@@ -296,7 +171,7 @@ export default class GameOrchestrator {
   }
 
   async play(userId, gameId, cardId, colorChoice = null) {
-    return await this._runTransactionOrFallback(async (session) => {
+    return await this.transaction.run(async (session) => {
       this.log.info(
         `Player wants to play a card. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}]`,
       );
@@ -330,7 +205,7 @@ export default class GameOrchestrator {
         throw new BusinessError("It's not your turn");
       }
 
-      const state = await this._toEngineState(game);
+      const state = await this.gameStateMapper.toEngineState(game);
 
       const playedCard = state.players[playerIndex].hand.cards.find(
         (c) => c.id === cardId,
@@ -380,7 +255,7 @@ export default class GameOrchestrator {
         `Turn passed after play. [gameId=${gameId}] [from=${userId}] [to=${stateAfterPlay.currentPlayer}]`,
       );
 
-      this._applyEngineStateToGame(game, stateAfterPlay);
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
       const updatedGame = await this.gameRepository.update(
         gameId,
         game,
@@ -392,7 +267,7 @@ export default class GameOrchestrator {
   }
 
   async start(ownerId, gameId) {
-    return await this._runTransactionOrFallback(async (session) => {
+    return await this.transaction.run(async (session) => {
       const game = await this.gameRepository.getById(gameId, session);
       this.log.info(
         `owner want to start the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
@@ -463,7 +338,7 @@ export default class GameOrchestrator {
         HAND_SIZE,
         deckWithIds,
       );
-      this._applyEngineStateToGame(game, engineState);
+      this.gameStateMapper.applyEngineStateToGame(game, engineState);
       game.status = GAME_STATUS.ACTIVE;
       this.log.info(
         {

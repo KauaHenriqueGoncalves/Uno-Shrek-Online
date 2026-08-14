@@ -5,7 +5,7 @@ import { BusinessError } from "../../../src/modules/shared/errors/business.error
 import { NotFoundError } from "../../../src/modules/shared/errors/not-found.error.js";
 import { GAME_STATUS } from "../../../src/modules/game/game.schema.js";
 import GameEngine from "../../../src/modules/game/game.engine.js";
-import { createDeck } from "../../../src/modules/game/deck.js";
+import { createDeck } from "../../../src/modules/game/util/deck.js";
 
 jest.mock("../../../src/modules/game/game.repository.js");
 jest.mock("../../../src/modules/score/score-player.repository.js");
