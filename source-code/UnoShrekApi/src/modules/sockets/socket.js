@@ -14,10 +14,8 @@ export default function initSocket(httpServer, { gameService, playerService }) {
       credentials: true,
     },
   });
-
   io.use(socketAuthMiddleware);
   log.info("Socket Middleware configured.");
-
   io.on("connection", (socket) => {
     log.info(
       `Player connected web socket. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
@@ -30,7 +28,6 @@ export default function initSocket(httpServer, { gameService, playerService }) {
       throw err;
     }
   });
-
   log.info("Connection with socket established.");
   return io;
 }

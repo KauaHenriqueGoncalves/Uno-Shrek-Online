@@ -1,4 +1,10 @@
-import { createDeck, deal, shuffle, isValidPlay, cardEffect } from "./deck.js";
+import {
+  createDeck,
+  deal,
+  shuffle,
+  isValidPlay,
+  cardEffect,
+} from "./util/deck.js";
 
 /**
  * Clona um objeto de estado de forma profunda (sem manter referências).
