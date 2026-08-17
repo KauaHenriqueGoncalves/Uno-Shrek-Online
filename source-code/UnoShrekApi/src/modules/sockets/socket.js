@@ -28,7 +28,7 @@ export default function initSocket(httpServer, { gameService, playerService, fri
       addOnlinePlayer(socket.playerId, socket.id);
       registerGameHandlers(socket, io, { gameService });
       registerPlayerHandlers(socket, io, { playerService, gameService });
-      registerFriendHandlers(socket, io, { friendshipService, playerService });
+      registerFriendHandlers(socket, io, { friendshipService, playerService, gameService });
     } catch (err) {
       log.warn({ err }, "socket failed to initialize");
       throw err;

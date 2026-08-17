@@ -8,9 +8,6 @@ import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
-import bcrypt from "bcryptjs";
-
-const SALT_ROUNDS = 10;
 
 export default class GameService {
   constructor(schema, orchestrator) {
@@ -64,10 +61,8 @@ export default class GameService {
         "You already have an active game. Finish it before creating a new one.",
       );
     }
-    const hashedPassword = await bcrypt.hash(validData.password, SALT_ROUNDS);
     const dataSave = {
       ...validData,
-      password: hashedPassword,
       owner: ownerId,
       players: [{ player: ownerId, ready: false, score: 0 }],
     };
@@ -75,6 +70,7 @@ export default class GameService {
     this.log.info(
       `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}]`,
     );
+    console.log(game.password) // ##########################
     const { game: gameWithScore } =
       await this.orchestrator.createScorePlayerFor(
         ownerId,
@@ -108,11 +104,12 @@ export default class GameService {
       );
       throw new BusinessError("Player already joined this game");
     }
+    console.log(game.password) // ##########################
     if (!password) {
       this.log.warn(`Invalid password. [userId=${userId}] [gameId=${gameId}]`);
       throw new BusinessError("Invalind password");
     }
-    const passwordMatches = await bcrypt.compare(password, game.password);
+    const passwordMatches = password === game.password;
     if (!passwordMatches) {
       this.log.warn(`Invalid password in game. [userId=${userId}] [gameId=${gameId}]`);
       throw new UnauthorizedError("Invalid credentials to game");
