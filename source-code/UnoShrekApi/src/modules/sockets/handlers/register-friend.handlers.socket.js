@@ -4,7 +4,7 @@ import { onlinePlayers } from "./online-players.handlers.js";
 
 const log = PinoGlobal.getInstance();
 
-export function registerFriendHandlers(socket, io, { friendshipService, playerService }) {
+export function registerFriendHandlers(socket, io, { friendshipService, playerService, gameService }) {
   socket.on(FRIEND_EVENTS.INPUT.INVITE_TO_GAME, async ({ friendId }) => {
     try {
       const userId = socket.playerId;
@@ -21,11 +21,13 @@ export function registerFriendHandlers(socket, io, { friendshipService, playerSe
         socket.emit(FRIEND_EVENTS.OUTPUT.ERROR, { message: "Friend is offline" });
         return;
       }
+      const game = await gameService.getById(gameId);
       const player = await playerService.getById(userId);
       const payload = {
         fromPlayerId: userId,
         fromUsername: player.username,
         gameId,
+        password: game.password,
       };
       for (const friendSocketId of friendSocketIds) {
         io.to(friendSocketId).emit(FRIEND_EVENTS.OUTPUT.GAME_INVITE_RECEIVED, payload);
