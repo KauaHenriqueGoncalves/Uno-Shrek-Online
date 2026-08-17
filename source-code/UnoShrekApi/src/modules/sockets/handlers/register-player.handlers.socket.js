@@ -1,22 +1,21 @@
 import PinoGlobal from "../../shared/logger/pino-global.logger.js";
 import PLAYER_EVENTS from "../events/player.events.js";
 import { GAME_STATUS } from "../../game/game.schema.js";
-import {
-  broadcastRoomGameInfo,
-  broadcastAllGamesByStatus,
-} from "./register-game.handlers.socket.js";
+import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.socket.js";
+import { onlinePlayers, removeOnlinePlayer } from "./online-players.handlers.js";
+import PlayerResponseDto from "../../player/response/player.response.dto.js";
 
 const log = PinoGlobal.getInstance();
 
-export default function registerPlayerHandlers(socket, io, { playerService, gameService }) {
-  broadcastOnlineCount(io, true);
+export function registerPlayerHandlers(socket, io, { playerService, gameService }) {
+  broadcastOnlineCount(socket, io, playerService);
 
   socket.on(PLAYER_EVENTS.INPUT.GET_ONLINE_COUNT, () => {
     log.info(
       `Player getting online count. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
     );
     socket.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, {
-      onlineCount: io.engine.clientsCount,
+      onlineCount: onlinePlayers.size,
     });
   });
 
@@ -44,7 +43,8 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
     log.info(
       `Player desconect. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
     );
-    broadcastOnlineCount(io, false);
+    removeOnlinePlayer(socket.playerId, socket.id)
+    broadcastOnlineCount(socket, io, playerService);
     if (!socket.currentGameId) return;
     try {
       const userId = socket.playerId;
@@ -61,12 +61,19 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
   });
 }
 
-export function broadcastOnlineCount(io, login) {
-  const onlineCount = login
-    ? io.engine.clientsCount
-    : io.engine.clientsCount - 1; // gambiarra
+export async function broadcastOnlineCount(socket, io, playerService) {
+  const onlineCount = onlinePlayers.size;
   log.info(`Broadcasting online count. [onlineCount=${onlineCount}]`);
-  io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, { onlineCount });
+  const playersOnlineIds = [...onlinePlayers.keys()];
+  if (playersOnlineIds.size === 0) {
+    log.info(`No one online. [onlinePlayers=${onlineCount}]`);
+    return;
+  }
+  const players = await playerService.getAllByIds(playersOnlineIds);
+  io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, { 
+    onlineCount, 
+    players: PlayerResponseDto.fromDocumentViewSimpleList(players) 
+  });
 }
 
 export async function broadcastRoomMessage(io, socket, playerService, playerId, gameId, message) {
@@ -78,7 +85,7 @@ export async function broadcastRoomMessage(io, socket, playerService, playerId, 
     if (!message || message.length === 0) {
       throw Error("Message cannot be empty to send message");
     }
-    if (message.length >= 300) {
+    if (message.length >= 500) {
       throw Error("Message is very long");
     }
     const player = await playerService.getById(playerId);

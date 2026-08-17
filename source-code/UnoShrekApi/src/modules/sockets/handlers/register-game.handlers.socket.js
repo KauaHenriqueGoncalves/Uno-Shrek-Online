@@ -5,7 +5,7 @@ import { GAME_STATUS } from "../../game/game.schema.js";
 
 const log = PinoGlobal.getInstance();
 
-export default function registerGameHandlers(socket, io, { gameService }) {
+export function registerGameHandlers(socket, io, { gameService }) {
   socket.on(GAME_EVENTS.INPUT.GET_ALL_BY_STATUS, async ({ status }) => {
     try {
       const games = await gameService.getAllByStatus(status);
