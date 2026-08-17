@@ -107,6 +107,10 @@ export default class GameController {
       authMiddleware,
       asyncHandler(this.delete.bind(this)),
     );
+    this.routers.put(
+      "/:id/add-bot", 
+      authMiddleware, 
+      asyncHandler(this.addBot.bind(this)));
   }
 
   async getAll(req, res) {
@@ -259,4 +263,9 @@ export default class GameController {
     await this.service.deleteById(req.params.id);
     return res.status(204).json();
   }
+
+  async addBot(req, res) {
+    const game = await this.service.addBot(req.params.id);
+    return res.status(200).json({ message: "Bot added successfully", gameId: game._id });
+}
 }

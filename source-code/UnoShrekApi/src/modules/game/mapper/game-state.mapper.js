@@ -13,10 +13,11 @@ export default class GameStateMapper {
     const cardIds = this._collectCardIds(game);
     const cardMap = await this._loadCardMap(cardIds);
     const hydrate = (id) => this._hydrateCard(cardMap, id);
-    const players = game.players.map((p) => ({
-      player: p.player,
-      hand: { cards: (p.hand?.cards ?? []).map(hydrate) },
-    }));
+   const players = game.players.map((p) => ({
+        player: p.player,
+        isBot: p.isBot === true,
+        hand: { cards: (p.hand?.cards ?? []).map(hydrate), },
+     }));
     return {
       deck: game.deck.map(hydrate),
       discard: game.discard.map(hydrate),
@@ -43,6 +44,7 @@ export default class GameStateMapper {
       );
       return {
         ...p,
+        isBot: p.isBot === true,
         hand: ep ? { cards: ep.hand.cards.map(dehydrate) } : { cards: [] },
       };
     });
