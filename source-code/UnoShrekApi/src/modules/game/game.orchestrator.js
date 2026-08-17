@@ -10,6 +10,9 @@ import CardRepository from "../card/card.repository.js";
 import { createDeck } from "./util/deck.js";
 import TransactionRunner from "../shared/mongoose/transaction-runner.js";
 import GameStateMapper from "./mapper/game-state.mapper.js";
+import UnoBot from "./bot/uno.bot.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 export default class GameOrchestrator {
   constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
@@ -20,6 +23,7 @@ export default class GameOrchestrator {
     this.gameStateMapper = new GameStateMapper(cardSchema);
     this.transaction = new TransactionRunner();
     this.log = PinoGlobal.getInstance();
+    this.bot = new UnoBot();
   }
 
   async getFullGame(gameId, session = null) {
@@ -32,6 +36,7 @@ export default class GameOrchestrator {
     return game;
   }
 
+  
   async createScorePlayerFor(playerId, gameId, session = null) {
     const scorePlayer = await this.scoreRepository.create(
       { playerId, gameId, score: 0 },
@@ -102,34 +107,41 @@ export default class GameOrchestrator {
   }
 
   async draw(userId, gameId) {
-    return await this.transaction.run(async (session) => {
+
+     await this.transaction.run(async (session) => {
+
       this.log.info(
         `Player wants to draw a card. [playerId=${userId}] [gameId=${gameId}]`,
       );
+
       const game = await this.gameRepository.getById(gameId, session);
+
       if (!game) {
         this.log.warn(`Game not found for draw. [gameId=${gameId}]`);
         throw new NotFoundError("Game not found");
       }
+
       if (game.status !== GAME_STATUS.ACTIVE) {
         this.log.warn(
           `Cannot draw, game is not active. [gameId=${gameId}] [status=${game.status}]`,
         );
+
         throw new BusinessError("Cannot draw from a non-active game");
       }
+
       const playerIndex = game.players.findIndex(
         (p) => p.player.toString() === userId.toString(),
       );
+
       if (playerIndex === -1) {
         this.log.warn(
           `Player is not present in game. [playerId=${userId}] [gameId=${gameId}]`,
         );
+
         throw new BusinessError("Player is not present this game");
       }
-      if (
-        game.currentPlayer &&
-        game.currentPlayer.toString() !== userId.toString()
-      ) {
+
+      if (game.currentPlayer && game.currentPlayer.toString() !== userId.toString()) {
         this.log.warn(
           `Not player's turn to draw. [playerId=${userId}] [gameId=${gameId}] [currentPlayer=${game.currentPlayer}]`,
         );
@@ -138,11 +150,13 @@ export default class GameOrchestrator {
 
       // Buying a card from the deck
       const state = await this.gameStateMapper.toEngineState(game);
+
       const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
         state,
         playerIndex,
         1,
       );
+
       this.log.debug(
         {
           gameId,
@@ -155,23 +169,35 @@ export default class GameOrchestrator {
 
       // Comprar carta consome o turno: passa a vez pro próximo jogador.
       const nextIndex = (playerIndex + 1) % stateAfterDraw.players.length;
+
       stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
+
       this.log.info(
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
+
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+
       const updatedGame = await this.gameRepository.update(
         gameId,
         game,
         session,
       );
+
       this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
-      return updatedGame;
+      
     });
+
+    return await this.runBotTurnIfNeeded(
+        gameId,
+      );
   }
 
   async play(userId, gameId, cardId, colorChoice = null) {
-    return await this.transaction.run(async (session) => {
+    
+    
+    const updatedGame = await this.transaction.run(
+      async (session) => {
       this.log.info(
         `Player wants to play a card. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}]`,
       );
@@ -264,11 +290,21 @@ export default class GameOrchestrator {
       this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
       return updatedGame;
     });
+
+    // Deixa o bot jogar
+    return await this.runBotTurnIfNeeded(
+    gameId,
+  );
   }
 
   async start(ownerId, gameId) {
-    return await this.transaction.run(async (session) => {
-      const game = await this.gameRepository.getById(gameId, session);
+      
+    await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(
+        gameId,
+        session,
+      );
+
       this.log.info(
         `owner want to start the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
       );
@@ -350,13 +386,273 @@ export default class GameOrchestrator {
         },
         "Game status transition",
       );
-      const resultGame = await this.gameRepository.update(
+      const updatedGame = await this.gameRepository.update(
         gameId,
         game,
         session,
       );
       this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
-      return resultGame;
+      return updatedGame;
     });
+    // Aqui deixa o bot jogar
+    return await this.runBotTurnIfNeeded(
+      gameId,
+    );
+  }
+
+  async playBotTurn(gameId) {
+  return await this.transaction.run(async (session) => {
+    const game = await this.gameRepository.getById(
+      gameId,
+      session,
+    );
+
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+    if (game.status !== GAME_STATUS.ACTIVE) {
+      return game;
+    }
+
+    const currentPlayerId =
+      game.currentPlayer?.toString();
+
+    const playerIndex = game.players.findIndex(
+      (player) =>
+        player.player.toString() ===
+        currentPlayerId,
+    );
+
+    if (playerIndex === -1) {
+      throw new BusinessError(
+        "Current player is not present in game",
+      );
+    }
+
+    const player = game.players[playerIndex];
+
+    // Este método só deve ser chamado quando o jogador atual for um bot.
+    if (player.isBot !== true) {
+      return game;
+    }
+
+    const state =
+      await this.gameStateMapper.toEngineState(
+        game,
+      );
+
+    const decision =
+      this.bot.choosePlay(
+        state,
+        playerIndex,
+      );
+
+    // Nenhuma carta jogável, o bot deve comprar uma carta
+    if (!decision) {
+      const {
+        state: stateAfterDraw,
+        drawn,
+      } = GameEngine.drawFromDeck(
+        state,
+        playerIndex,
+        1,
+      );
+
+      const nextIndex =
+        this.getNextPlayerIndex(
+          stateAfterDraw,
+          playerIndex,
+        );
+
+      stateAfterDraw.currentPlayer =
+        stateAfterDraw.players[
+          nextIndex
+        ].player;
+
+      this.gameStateMapper
+        .applyEngineStateToGame(
+          game,
+          stateAfterDraw,
+        );
+
+      const updatedGame =
+        await this.gameRepository.update(
+          gameId,
+          game,
+          session,
+        );
+
+      this.log.info(
+        {
+          gameId,
+          playerId: currentPlayerId,
+          drawnCards: drawn.length,
+          nextPlayer:
+            stateAfterDraw.currentPlayer,
+        },
+        "Bot drew a card",
+      );
+
+      return updatedGame;
+    }
+
+    // Verifica denovo se a carta escolhida pode real ser usada.
+    const topCard =
+      state.discard.length > 0
+        ? state.discard[
+            state.discard.length - 1
+          ]
+        : null;
+
+    if (
+      !GameEngine.validatePlay(
+        decision.card,
+        topCard,
+        state.activeColor,
+      )
+    ) {
+      throw new BusinessError(
+        "Bot selected an invalid play",
+      );
+    }
+
+    const {
+      state: stateAfterPlay,
+      drawnCards,
+      effect,
+    } = GameEngine.applyPlay(
+      state,
+      playerIndex,
+      decision.card,
+      decision.colorChoice,
+    );
+
+    // URROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO automatico
+    const remainingCards =
+      stateAfterPlay.players[
+        playerIndex
+      ].hand.cards.length;
+
+    game.players[playerIndex].saidUno =
+      remainingCards === 1;
+
+    if (remainingCards === 1) {
+      this.log.info(
+        {
+          gameId,
+          playerId: currentPlayerId,
+        },
+        "BOT DECLARED URROOOOOOOOOO",
+      );
+    }
+
+    // Att o estado do jogo com o estado do engine, que já contém a carta jogada e o efeito aplicado
+    this.gameStateMapper
+      .applyEngineStateToGame(
+        game,
+        stateAfterPlay,
+      );
+
+    // Atualiza o campo saidUno do jogador bot
+    game.players[playerIndex].saidUno =
+      remainingCards === 1;
+
+    const updatedGame =
+      await this.gameRepository.update(
+        gameId,
+        game,
+        session,
+      );
+
+    this.log.info(
+      {
+        gameId,
+        playerId: currentPlayerId,
+        card: decision.card,
+        colorChoice:
+          decision.colorChoice,
+        effect,
+        drawnCards:
+          drawnCards.length,
+        remainingCards,
+      },
+      "Bot played a card",
+    );
+
+      return updatedGame;
+    });
+  }
+  getNextPlayerIndex(state, playerIndex) {
+    const direction =
+      state.direction === -1
+        ? -1
+        : 1;
+
+    return (
+      (playerIndex + direction + state.players.length) %
+      state.players.length
+      );
+    }
+
+    async runBotTurnIfNeeded(gameId) {
+      let game = await this.gameRepository.getById(
+      gameId,
+    );
+
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+
+  
+    // Limita para impedir um loop infinito. (FASE DE TESTE)
+    let botTurns = 0;
+    const MAX_BOT_TURNS = 20;
+
+    while (
+      game.status === GAME_STATUS.ACTIVE &&
+      botTurns < MAX_BOT_TURNS
+    ) {
+      const currentPlayerId =
+        game.currentPlayer?.toString();
+
+      const currentPlayer =
+        game.players.find(
+          (player) =>
+            player.player.toString() ===
+            currentPlayerId,
+        );
+
+      if (!currentPlayer?.isBot) {
+        break;
+      }
+
+      this.log.info(
+        {
+          gameId,
+          playerId: currentPlayerId,
+          turn: botTurns + 1,
+        },
+        "Starting bot turn",
+      );
+
+      game = await this.playBotTurn(
+        gameId,
+      );
+
+      botTurns++;
+    }
+
+    if (botTurns >= MAX_BOT_TURNS) {
+      this.log.warn(
+        {
+          gameId,
+          botTurns,
+        },
+        "Maximum consecutive bot turns reached",
+      );
+    }
+
+    return game;
   }
 }
