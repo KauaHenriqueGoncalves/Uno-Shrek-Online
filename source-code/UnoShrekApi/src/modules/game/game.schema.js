@@ -50,6 +50,14 @@ const gameSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
           },
+          isBot: {
+            type: Boolean,
+            default: false,
+          },
+          saidUno: {
+            type: Boolean,
+            default: false,
+          },
           scorePlayer: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "ScorePlayer",
