@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Eye, EyeOff, Loader2  } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { authService } from "./auth.service";
 import { Field } from "../../shared/components/Field";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -7,12 +8,12 @@ import { GoogleIcon } from "../../shared/components/GoogleIcon";
 import sideArt from "../../../assets/auth-side.png";
 import logo from "../../../assets/logo-urro.png";
 
-
 type ApiError = {
   response?: { data?: { error?: string; message?: string } };
 };
 
 export function AuthScreen() {
+  const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({
     username: "",
@@ -27,6 +28,12 @@ export function AuthScreen() {
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
+  const handleSwitch = () => {
+    setIsRegister((v) => !v);
+    setError(null);
+    setForm({ username: "", email: "", password: "", age: "" });
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -40,10 +47,10 @@ export function AuthScreen() {
           return;
         }
         await authService.register(form.username, form.email, form.password, age);
-        // TODO: redirecionar para /lobby após implementar a rota
+        handleSwitch();
       } else {
         await authService.login(form.username, form.password);
-        // TODO: redirecionar para /lobby após implementar a rota
+        navigate({ to: "/home" });
       }
     } catch (err) {
       const apiErr = err as ApiError;
@@ -57,44 +64,38 @@ export function AuthScreen() {
     }
   };
 
-  const handleSwitch = () => {
-    setIsRegister((v) => !v);
-    setError(null);
-    setForm({ username: "", email: "", password: "", age: "" });
-  };
-
   const googleLogin = useGoogleLogin({
-  onSuccess: async (tokenResponse) => {
-    setLoading(true);
-    try {
-      await authService.googleAuth(tokenResponse.access_token);
-      // TODO: redirecionar para /lobby
-    } catch (err) {
-      const apiErr = err as ApiError;
-      const message =
-        apiErr.response?.data?.error ??
-        apiErr.response?.data?.message ??
-        "Falha ao autenticar com o Google";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  },
-  onError: () => setError("Falha ao autenticar com o Google"),
-  flow: "implicit",
-});
+    onSuccess: async (tokenResponse) => {
+      setLoading(true);
+      try {
+        await authService.googleAuth(tokenResponse.access_token);
+        navigate({ to: "/home" });
+      } catch (err) {
+        const apiErr = err as ApiError;
+        const message =
+          apiErr.response?.data?.error ??
+          apiErr.response?.data?.message ??
+          "Falha ao autenticar com o Google";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    onError: () => setError("Falha ao autenticar com o Google"),
+    flow: "implicit",
+  });
 
   return (
     <main className="grid min-h-screen grid-cols-1 bg-parchment md:grid-cols-2">
       <img
-         src={sideArt}
+        src={sideArt}
         alt="Personagens do pântano reunidos no jogo URRO"
         className="hidden h-full w-full object-cover md:block"
       />
 
       <div className="relative flex items-center justify-center px-6 py-14 sm:px-12">
         <img
-           src={logo}
+          src={logo}
           alt="Logo URRO"
           className="absolute top-5 right-6 w-16 rotate-[-12deg] sm:w-20"
         />
