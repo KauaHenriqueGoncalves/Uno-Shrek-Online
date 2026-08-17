@@ -310,4 +310,10 @@ export default class GameService {
     this.log.info({ gameId: id }, "Game deleted");
     return deleted;
   }
+
+  async addBot(gameId) {
+    return await this.orchestrator.addBotToGame(gameId);
+  }
+
+  
 }
