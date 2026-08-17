@@ -70,7 +70,6 @@ export default class GameService {
     this.log.info(
       `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}]`,
     );
-    console.log(game.password) // ##########################
     const { game: gameWithScore } =
       await this.orchestrator.createScorePlayerFor(
         ownerId,
@@ -104,7 +103,6 @@ export default class GameService {
       );
       throw new BusinessError("Player already joined this game");
     }
-    console.log(game.password) // ##########################
     if (!password) {
       this.log.warn(`Invalid password. [userId=${userId}] [gameId=${gameId}]`);
       throw new BusinessError("Invalind password");
