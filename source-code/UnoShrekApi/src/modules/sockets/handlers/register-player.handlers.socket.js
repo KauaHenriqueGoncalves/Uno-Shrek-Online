@@ -1,14 +1,12 @@
 import PinoGlobal from "../../shared/logger/pino-global.logger.js";
 import PLAYER_EVENTS from "../events/player.events.js";
 import { GAME_STATUS } from "../../game/game.schema.js";
-import {
-  broadcastRoomGameInfo,
-  broadcastAllGamesByStatus,
-} from "./register-game.handlers.socket.js";
+import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.socket.js";
+import { onlinePlayers, removeOnlinePlayer } from "./online-players.handlers.js";
 
 const log = PinoGlobal.getInstance();
 
-export default function registerPlayerHandlers(socket, io, { playerService, gameService }) {
+export function registerPlayerHandlers(socket, io, { playerService, gameService }) {
   broadcastOnlineCount(io, true);
 
   socket.on(PLAYER_EVENTS.INPUT.GET_ONLINE_COUNT, () => {
@@ -16,7 +14,7 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
       `Player getting online count. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
     );
     socket.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, {
-      onlineCount: io.engine.clientsCount,
+      onlineCount: onlinePlayers.size,
     });
   });
 
@@ -44,6 +42,7 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
     log.info(
       `Player desconect. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
     );
+    removeOnlinePlayer(socket.playerId, socket.id)
     broadcastOnlineCount(io, false);
     if (!socket.currentGameId) return;
     try {
@@ -62,9 +61,7 @@ export default function registerPlayerHandlers(socket, io, { playerService, game
 }
 
 export function broadcastOnlineCount(io, login) {
-  const onlineCount = login
-    ? io.engine.clientsCount
-    : io.engine.clientsCount - 1; // gambiarra
+  const onlineCount = onlinePlayers.size;
   log.info(`Broadcasting online count. [onlineCount=${onlineCount}]`);
   io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, { onlineCount });
 }
@@ -78,7 +75,7 @@ export async function broadcastRoomMessage(io, socket, playerService, playerId, 
     if (!message || message.length === 0) {
       throw Error("Message cannot be empty to send message");
     }
-    if (message.length >= 300) {
+    if (message.length >= 500) {
       throw Error("Message is very long");
     }
     const player = await playerService.getById(playerId);
