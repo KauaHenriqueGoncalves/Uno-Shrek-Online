@@ -22,6 +22,9 @@ import LoginService from "./modules/auth/login.service.js";
 import AuthController from "./modules/auth/auth.controller.js";
 import TokenService from "./modules/auth/token.service.js";
 import GameOrchestrator from "./modules/game/game.orchestrator.js";
+import Friendship from "./modules/friendship/friendship.schema.js";
+import FriendshipService from "./modules/friendship/friendship.service.js";
+import FriendshipController from "./modules/friendship/friendship.controller.js";
 
 export default class App {
   constructor() {
@@ -80,6 +83,9 @@ export default class App {
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
 
+      const friendshipService = new FriendshipService(Friendship, playerService);
+      this.friendshipController = new FriendshipController(friendshipService);
+
       const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
 
@@ -106,6 +112,7 @@ export default class App {
         scorePlayerService,
         loginService,
         tokenService,
+        friendshipService,
       };
     } catch (error) {
       this.log.error(
@@ -123,6 +130,7 @@ export default class App {
       this.express.use("/api/scores", this.scorePlayerController.routers);
       this.express.use("/api/cards", this.cardController.routers);
       this.express.use("/api/auth", this.authController.routers);
+      this.express.use("/api/friends", this.friendshipController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
