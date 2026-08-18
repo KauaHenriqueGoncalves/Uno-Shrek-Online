@@ -52,13 +52,14 @@ export function HomeScreen() {
   });
 
   const handleCreateRoom = (data: {
+    title: string;
     capacity: number;
     bots: boolean;
     botCount: number;
     password: string;
   }) => {
     createRoom({
-      title: "Sala de URRO",
+      title: data.title,
       maxPlayers: data.capacity,
       password: data.password,
     });
