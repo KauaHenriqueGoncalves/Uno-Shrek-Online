@@ -1,67 +1,38 @@
 import { useState, useEffect } from "react";
 import { User, Loader2 } from "lucide-react";
 import { GummyButton } from "../../shared/components/GummyButton";
-import { homeService, type Room } from "./home.service";
+import { api } from "../../shared/services/api";
+
+type Room = { id: string; name: string; players: number; capacity: number; code: string };
 
 type Props = {
   onClose: () => void;
-  onEnterRoom: (gameId: string, code: string) => void;
+  onJoinById: (gameId: string, password?: string) => void;
+  onJoinByCode: (code: string) => void;
 };
 
-type ApiError = {
-  response?: { data?: { error?: string; message?: string } };
-};
-
-export function JoinRoomModal({ onClose, onEnterRoom }: Props) {
+export function JoinRoomModal({ onClose, onJoinById, onJoinByCode }: Props) {
   const [code, setCode] = useState("");
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
-  const [loadingAction, setLoadingAction] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    homeService.listPublicRooms()
-      .then(setRooms)
+    api.get("/api/games/status/pending")
+      .then((res) =>
+        setRooms(
+          res.data.map((g: any) => ({
+            id: g.id,
+            name: g.title,
+            players: g.totalPlayers?.split("/")[0] ?? 0,
+            capacity: g.maxPlayers,
+            code: g.code,
+          })),
+        ),
+      )
       .catch(() => setError("Erro ao carregar salas."))
       .finally(() => setLoadingRooms(false));
   }, []);
-
-  const handleJoinByCode = async () => {
-    if (!code.trim()) return;
-    setError(null);
-    setLoadingAction(true);
-    try {
-      const game = await homeService.joinByCode(code.trim());
-      onEnterRoom(game.gameId ?? game._id, game.code);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setError(
-        apiErr.response?.data?.error ??
-        apiErr.response?.data?.message ??
-        "Código inválido ou sala não encontrada."
-      );
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-
-  const handleJoinById = async (room: Room) => {
-    setError(null);
-    setLoadingAction(true);
-    try {
-      await homeService.joinById(room.id);
-      onEnterRoom(room.id, room.code);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      setError(
-        apiErr.response?.data?.error ??
-        apiErr.response?.data?.message ??
-        "Erro ao entrar na sala."
-      );
-    } finally {
-      setLoadingAction(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -70,27 +41,24 @@ export function JoinRoomModal({ onClose, onEnterRoom }: Props) {
         <div className="my-4 h-[3px] rounded-full bg-[#4A3525]/25" />
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-400/40 bg-red-100 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
+          <div className="mb-4 rounded-lg bg-red-100 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         <p className="mb-2 text-xs font-bold tracking-wide text-[#4A3525]/70">TEM UM CÓDIGO?</p>
         <div className="mb-4 flex gap-2">
           <input
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="Ex: URRO-5X9Q"
-            disabled={loadingAction}
             className="h-12 flex-1 rounded-xl border-[3px] border-[#4A3525] bg-white px-4 text-[#4A3525] outline-none placeholder:text-[#4A3525]/40 focus:border-[#9CCB45] focus:ring-2 focus:ring-[#9CCB45]/50"
           />
           <GummyButton
             variant="yellow"
-            onClick={handleJoinByCode}
-            disabled={loadingAction || !code.trim()}
+            onClick={() => onJoinByCode(code)}
+            disabled={!code.trim()}
             className="h-12 font-display text-sm"
           >
-            {loadingAction ? <Loader2 size={16} className="animate-spin" /> : "BUSCAR"}
+            BUSCAR
           </GummyButton>
         </div>
 
@@ -108,7 +76,7 @@ export function JoinRoomModal({ onClose, onEnterRoom }: Props) {
             </div>
           ) : rooms.length === 0 ? (
             <p className="py-6 text-center text-sm text-[#4A3525]/50">
-              Nenhuma sala disponível no momento.
+              Nenhuma sala disponível.
             </p>
           ) : (
             rooms.map((room) => {
@@ -129,8 +97,8 @@ export function JoinRoomModal({ onClose, onEnterRoom }: Props) {
                   </div>
                   <GummyButton
                     variant={full ? "cream" : "green"}
-                    disabled={full || loadingAction}
-                    onClick={() => handleJoinById(room)}
+                    disabled={full}
+                    onClick={() => onJoinById(room.id)}
                     className="h-9 px-4 font-display text-xs disabled:cursor-not-allowed"
                   >
                     {full ? "CHEIA" : "ENTRAR"}
@@ -142,7 +110,7 @@ export function JoinRoomModal({ onClose, onEnterRoom }: Props) {
         </div>
 
         <div className="flex justify-center">
-          <GummyButton variant="cream" onClick={onClose} disabled={loadingAction} className="h-11 px-10 font-display text-sm">
+          <GummyButton variant="cream" onClick={onClose} className="h-11 px-10 font-display text-sm">
             CANCELAR
           </GummyButton>
         </div>
