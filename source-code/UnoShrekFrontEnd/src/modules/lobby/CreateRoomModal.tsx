@@ -4,6 +4,7 @@ import { GummyButton } from "../../shared/components/GummyButton";
 type Props = {
   onClose: () => void;
   onConfirm: (data: {
+    title: string;
     capacity: number;
     bots: boolean;
     botCount: number;
@@ -15,6 +16,7 @@ const capacities = [4, 3, 2];
 const botCounts = [1, 2, 3];
 
 export function CreateRoomModal({ onClose, onConfirm }: Props) {
+  const [title, setTitle] = useState("");
   const [capacity, setCapacity] = useState(4);
   const [bots, setBots] = useState(true);
   const [botCount, setBotCount] = useState(3);
@@ -70,6 +72,17 @@ export function CreateRoomModal({ onClose, onConfirm }: Props) {
             ))}
           </div>
         </div>
+        
+        <p className="mb-2 font-bold text-[#4A3525]">Nome da Sala</p>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Digite o nome da sala..."
+          minLength={3}
+          maxLength={60}
+          required
+          className="mb-4 h-12 w-full rounded-xl border-[3px] border-[#4A3525] bg-white px-4 text-[#4A3525] outline-none placeholder:text-[#4A3525]/40 focus:border-[#9CCB45] focus:ring-2 focus:ring-[#9CCB45]/50"
+        />
 
         <p className="mb-2 font-bold text-[#4A3525]">Senha da Sala (Opcional)</p>
         <input
@@ -85,7 +98,13 @@ export function CreateRoomModal({ onClose, onConfirm }: Props) {
           </GummyButton>
           <GummyButton
             variant="green"
-            onClick={() => onConfirm({ capacity, bots, botCount, password })}
+            disabled={title.trim().length < 3}
+            onClick={() => onConfirm({ 
+              title: title.trim(), 
+              capacity, 
+              bots, 
+              botCount, 
+              password })}
             className="h-12 flex-[1.4] font-display text-lg"
           >
             PRONTO!
