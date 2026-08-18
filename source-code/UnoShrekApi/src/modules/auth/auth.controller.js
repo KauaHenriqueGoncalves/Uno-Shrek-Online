@@ -27,7 +27,7 @@ export default class AuthController {
     res.cookie("accessToken", token, {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-      sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+      sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ access_token: token });
   }
@@ -53,7 +53,7 @@ export default class AuthController {
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-      sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+      sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ message: "Logout successful" });
   }
@@ -82,7 +82,7 @@ export default class AuthController {
     res.cookie("accessToken", token, {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-    sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+    sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ access_token: token });
 }
