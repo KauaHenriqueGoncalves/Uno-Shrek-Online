@@ -10,7 +10,10 @@ const blacklistedRepo = new BlacklistedTokenRepository(BlacklistedToken);
 
 export default async function socketAuthMiddleware(socket, next) {
   try {
-    const token = socket.handshake.headers.accesstoken;
+    const token =
+      socket.handshake.headers.accesstoken
+      || socket.handshake.auth?.token
+      || socket.handshake.query?.accesstoken;
     if (!token) {
       log.warn(`Player dont have token. [socketId=${socket.id}]`);
       return next(new UnauthorizedError());
