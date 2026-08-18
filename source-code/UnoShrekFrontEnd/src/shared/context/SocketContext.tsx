@@ -25,44 +25,53 @@ export function SocketProvider({
   children: React.ReactNode;
 }) {
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    // sem token, não conecta
     if (!token) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
-        setConnected(false);
       }
+      setSocket(null);
+      setConnected(false);
       return;
     }
 
-    const socket = io(window.location.origin, {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3000";
+
+    const socketInstance = io(socketUrl, {
       path: "/socket.io",
+      auth: { token },
+      query: { accesstoken: token },
       extraHeaders: { accesstoken: token },
       autoConnect: true,
     });
 
-    socket.on("connect", () => {
+    socketRef.current = socketInstance;
+    setSocket(socketInstance);
+
+    socketInstance.on("connect", () => {
       setConnected(true);
     });
 
-    socket.on("disconnect", () => {
+    socketInstance.on("disconnect", () => {
       setConnected(false);
     });
 
-    socketRef.current = socket;
-
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      socketInstance.disconnect();
+      if (socketRef.current === socketInstance) {
+        socketRef.current = null;
+      }
+      setSocket(null);
       setConnected(false);
     };
   }, [token]);
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, connected }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   );
