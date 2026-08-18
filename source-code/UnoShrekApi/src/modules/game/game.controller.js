@@ -63,6 +63,16 @@ export default class GameController {
       asyncHandler(this.getCurrentScoreById.bind(this)),
     );
     this.routers.get(
+      "/quick-join",
+      authMiddleware,
+      asyncHandler(this.quickJoin.bind(this))
+    );
+    this.routers.get(
+      "/code/:code",
+      authMiddleware, 
+      asyncHandler(this.getByCode.bind(this))
+    );
+    this.routers.get(
       "/:id",
       authMiddleware,
       asyncHandler(this.getById.bind(this)),
@@ -110,7 +120,8 @@ export default class GameController {
     this.routers.put(
       "/:id/add-bot", 
       authMiddleware, 
-      asyncHandler(this.addBot.bind(this)));
+      asyncHandler(this.addBot.bind(this))
+    );
   }
 
   async getAll(req, res) {
@@ -267,5 +278,26 @@ export default class GameController {
   async addBot(req, res) {
     const game = await this.service.addBot(req.params.id);
     return res.status(200).json({ message: "Bot added successfully", gameId: game._id });
+  }
+  
+  async quickJoin(req, res) {
+  const game = await this.service.quickJoin(req.user.id);
+  return res.status(200).json({
+    gameId: game._id,
+    code: game.code,
+    title: game.title,
+  });
+}
+
+async getByCode(req, res) {
+  const game = await this.service.getByCode(req.params.code);
+  return res.status(200).json({
+    gameId: game._id,
+    code: game.code,
+    title: game.title,
+    players: game.players.length,
+    maxPlayers: game.maxPlayers,
+    status: game.status,
+  });
 }
 }
