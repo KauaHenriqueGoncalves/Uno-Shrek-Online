@@ -24,7 +24,7 @@ const gameSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password on game is required"],
+      default: "",
     },
     status: {
       type: String,
