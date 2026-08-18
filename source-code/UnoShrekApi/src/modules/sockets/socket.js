@@ -12,7 +12,7 @@ export default function initSocket(httpServer, { gameService, playerService, fri
   const io = new Server(httpServer, {
     path: process.env.PROFILE === "prod" ? process.env.SOCKET_PATH : "",
     cors: {
-      origin: process.env.FRONTEND_URL ?? "*",
+      origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
       credentials: true,
     },
   });

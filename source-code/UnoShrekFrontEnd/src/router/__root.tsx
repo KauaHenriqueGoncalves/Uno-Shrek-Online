@@ -8,6 +8,9 @@ import {
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AuthProvider } from "../shared/context/AuthContext";
+import { SocketProvider } from "../shared/context/SocketContext";
+import { useAuth } from "../shared/context/AuthContext";
 
 function NotFoundComponent() {
   return (
@@ -79,13 +82,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+function SocketWrapper({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth();
+  return <SocketProvider token={token}>{children}</SocketProvider>;
+}
+
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-
- return (
+  return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <QueryClientProvider client={queryClient}>
-        <Outlet />
+        <AuthProvider>
+          <SocketWrapper>
+            <Outlet />
+          </SocketWrapper>
+        </AuthProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>
   );
