@@ -5,13 +5,22 @@ import { GummyButton } from "../../shared/components/GummyButton";
 import { CreateRoomModal } from "./CreateRoomModal";
 import { JoinRoomModal } from "./JoinRoomModal";
 import { homeService } from "../lobby/home.service"; 
+import { useGameSocket } from "../game/useGameSocket";
 
 const player = { name: "Pedro", level: 12 };
 
 export function HomeScreen() {
+  const [gameInfo, setGameInfo] = useState(null);
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [joinRoomOpen, setJoinRoomOpen] = useState(false);
   const [quickJoinLoading, setQuickJoinLoading] = useState(false);
+  const { createRoom, joinRoom } = useGameSocket({
+    onGameInfo: (game) => {
+      setGameInfo(game);
+      // TODO: abrir WaitingRoomModal com game
+    },
+    onError: (msg) => console.error("[socket error]", msg),
+  });
 
   const handleQuickJoin = async () => {
     setQuickJoinLoading(true);
@@ -121,6 +130,7 @@ export function HomeScreen() {
         <CreateRoomModal
           onClose={() => setCreateRoomOpen(false)}
           onEnterRoom={handleEnterRoom}
+          createRoom={createRoom}
         />
       )}
 

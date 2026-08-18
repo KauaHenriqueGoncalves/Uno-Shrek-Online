@@ -6,6 +6,7 @@ import { homeService } from "./home.service";
 type Props = {
   onClose: () => void;
   onEnterRoom: (gameId: string, code: string) => void;
+  createRoom: (data: { title: string; maxPlayers: number; password: string }) => void;
 };
 
 type ApiError = {
@@ -15,7 +16,7 @@ type ApiError = {
 const capacities = [4, 3, 2];
 const botCounts = [1, 2, 3];
 
-export function CreateRoomModal({ onClose, onEnterRoom }: Props) {
+export function CreateRoomModal({ onClose, onEnterRoom, createRoom }: Props) {
   const [capacity, setCapacity] = useState(4);
   const [bots, setBots] = useState(true);
   const [botCount, setBotCount] = useState(3);
@@ -28,22 +29,15 @@ export function CreateRoomModal({ onClose, onEnterRoom }: Props) {
       active ? "bg-[#A9C938] text-white" : "bg-[#FDF8E4] text-[#4A3525]"
     }`;
 
-  const handleConfirm = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const game = await homeService.createRoom({ capacity, bots, botCount, password });
-      onEnterRoom(game.gameId, game.code);
-    } catch (err) {
-      const apiErr = err as ApiError;
-      const message =
-        apiErr.response?.data?.error ??
-        apiErr.response?.data?.message ??
-        "Erro ao criar sala. Tente novamente.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+  const handleConfirm = () => {
+    createRoom({
+      title: "Sala de URRO",
+      maxPlayers: capacity,
+      password,
+    });
+
+    // O WaitingRoomModal vai abrir quando chegar o evento game::info
+    onClose();
   };
 
   return (

@@ -7,12 +7,14 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { GoogleIcon } from "../../shared/components/GoogleIcon";
 import sideArt from "../../../assets/auth-side.png";
 import logo from "../../../assets/logo-urro.png";
+import { useAuth } from "../../shared/context/AuthContext";
 
 type ApiError = {
   response?: { data?: { error?: string; message?: string } };
 };
 
 export function AuthScreen() {
+  const { setToken } = useAuth();
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({
@@ -49,7 +51,8 @@ export function AuthScreen() {
         await authService.register(form.username, form.email, form.password, age);
         handleSwitch();
       } else {
-        await authService.login(form.username, form.password);
+        const data = await authService.login(form.username, form.password);
+        setToken(data.access_token);
         navigate({ to: "/home" });
       }
     } catch (err) {
@@ -68,7 +71,8 @@ export function AuthScreen() {
     onSuccess: async (tokenResponse) => {
       setLoading(true);
       try {
-        await authService.googleAuth(tokenResponse.access_token);
+        const data = await authService.googleAuth(tokenResponse.access_token);
+        setToken(data.access_token);
         navigate({ to: "/home" });
       } catch (err) {
         const apiErr = err as ApiError;
