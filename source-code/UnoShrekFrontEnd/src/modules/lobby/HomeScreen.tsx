@@ -1,13 +1,39 @@
-import { Settings, Store, Users } from "lucide-react";
-import background from "../../../assets/home-bg.png"
+import { useState } from "react";
+import { Settings, Store, Users, Loader2 } from "lucide-react";
+import background from "../../../assets/home-bg.png";
 import { GummyButton } from "../../shared/components/GummyButton";
+import { CreateRoomModal } from "./CreateRoomModal";
+import { JoinRoomModal } from "./JoinRoomModal";
+import { homeService } from "../lobby/home.service"; 
 
 const player = { name: "Pedro", level: 12 };
 
 export function HomeScreen() {
-  const handleAction = (action: string) => {
-    // TODO: conectar com a API REST do URRO
-    console.log("[URRO][home]", JSON.stringify({ action }));
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
+  const [joinRoomOpen, setJoinRoomOpen] = useState(false);
+  const [quickJoinLoading, setQuickJoinLoading] = useState(false);
+
+  const handleQuickJoin = async () => {
+    setQuickJoinLoading(true);
+
+    try {
+      const game = await homeService.quickJoin();
+
+      // TODO: abrir WaitingRoomModal com game.gameId e game.code
+      console.log("quick join", game);
+    } catch {
+      // TODO: mostrar erro
+    } finally {
+      setQuickJoinLoading(false);
+    }
+  };
+
+  const handleEnterRoom = (gameId: string, code: string) => {
+    setCreateRoomOpen(false);
+    setJoinRoomOpen(false);
+
+    // TODO: abrir WaitingRoomModal com gameId e code
+    console.log("enter room", { gameId, code });
   };
 
   return (
@@ -17,13 +43,18 @@ export function HomeScreen() {
         alt="Personagens do pântano do URRO"
         className="absolute inset-0 h-full w-full object-cover"
       />
+
       <div className="absolute inset-0 bg-black/25" />
 
       <header className="relative flex items-start justify-between p-6">
         <div className="flex items-center gap-3">
           <div className="h-16 w-16 rounded-full border-4 border-[#9CCB45] bg-[#F4EBD9] shadow-[0_4px_0_#3D291F]" />
+
           <div>
-            <p className="font-display text-xl text-white drop-shadow-[0_2px_0_#3D291F]">{player.name}</p>
+            <p className="font-display text-xl text-white drop-shadow-[0_2px_0_#3D291F]">
+              {player.name}
+            </p>
+
             <span className="mt-1 inline-block rounded-full border-2 border-[#9CCB45] bg-[#4A3224] px-3 py-0.5 text-xs font-bold text-white">
               Nível {player.level}
             </span>
@@ -32,7 +63,6 @@ export function HomeScreen() {
 
         <button
           type="button"
-          onClick={() => handleAction("settings")}
           aria-label="Configurações"
           className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-[#4A3525] bg-[#A9C938] text-[#3D291F] shadow-[0_5px_0_#3D291F] transition active:translate-y-1 active:shadow-[0_2px_0_#3D291F]"
         >
@@ -47,15 +77,20 @@ export function HomeScreen() {
 
         <GummyButton
           variant="green"
-          onClick={() => handleAction("play")}
+          onClick={handleQuickJoin}
+          disabled={quickJoinLoading}
           className="h-16 w-full max-w-[300px] font-display text-2xl tracking-wide"
         >
-          JOGAR AGORA
+          {quickJoinLoading ? (
+            <Loader2 size={24} className="animate-spin" />
+          ) : (
+            "JOGAR AGORA"
+          )}
         </GummyButton>
 
         <GummyButton
           variant="cream"
-          onClick={() => handleAction("create-room")}
+          onClick={() => setCreateRoomOpen(true)}
           className="h-12 w-full max-w-[300px] text-lg"
         >
           Criar Sala
@@ -63,7 +98,7 @@ export function HomeScreen() {
 
         <GummyButton
           variant="yellow"
-          onClick={() => handleAction("join-room")}
+          onClick={() => setJoinRoomOpen(true)}
           className="h-12 w-full max-w-[300px] text-lg"
         >
           Entrar na Sala
@@ -71,16 +106,30 @@ export function HomeScreen() {
       </section>
 
       <footer className="relative flex items-center justify-between p-6">
-        <GummyButton variant="red" onClick={() => handleAction("shop")} className="h-14 text-xl">
+        <GummyButton variant="red" className="h-14 text-xl">
           <Store size={24} />
           Loja
         </GummyButton>
 
-        <GummyButton variant="brown" onClick={() => handleAction("friends")} className="h-14 text-xl">
+        <GummyButton variant="brown" className="h-14 text-xl">
           <Users size={24} />
           Amigos
         </GummyButton>
       </footer>
+
+      {createRoomOpen && (
+        <CreateRoomModal
+          onClose={() => setCreateRoomOpen(false)}
+          onEnterRoom={handleEnterRoom}
+        />
+      )}
+
+      {joinRoomOpen && (
+        <JoinRoomModal
+          onClose={() => setJoinRoomOpen(false)}
+          onEnterRoom={handleEnterRoom}
+        />
+      )}
     </main>
   );
 }
