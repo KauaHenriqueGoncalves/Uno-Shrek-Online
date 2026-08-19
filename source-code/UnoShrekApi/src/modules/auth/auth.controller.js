@@ -82,8 +82,8 @@ export default class AuthController {
     res.cookie("accessToken", token, {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-    sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+      sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
     });
     res.status(200).json({ access_token: token });
-}
+  }
 }

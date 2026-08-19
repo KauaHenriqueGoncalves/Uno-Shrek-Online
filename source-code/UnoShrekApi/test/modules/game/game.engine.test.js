@@ -7,8 +7,8 @@ import {
 } from "../../../src/modules/game/game.engine.js";
 import * as deckModule from "../../../src/modules/game/util/deck.js";
 
-jest.mock("../../../src/modules/game/deck.js", () => {
-  const actual = jest.requireActual("../../../src/modules/game/deck.js");
+jest.mock("../../../src/modules/game/util/deck.js", () => {
+  const actual = jest.requireActual("../../../src/modules/game/util/deck.js");
   return {
     ...actual,
     shuffle: jest.fn((arr) => arr),
