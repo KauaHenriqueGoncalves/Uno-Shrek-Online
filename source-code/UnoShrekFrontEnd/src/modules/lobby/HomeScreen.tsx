@@ -10,8 +10,10 @@ import { useAuth } from "../../shared/context/AuthContext";
 import { api } from "../../shared/services/api";
 import { WaitingRoomModal, WaitingPlayer } from "./WaitingRoomModal";
 import axios from "axios";
+import { useNavigate } from "@tanstack/react-router";
 
 export function HomeScreen() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [joinRoomOpen, setJoinRoomOpen] = useState(false);
@@ -24,10 +26,19 @@ export function HomeScreen() {
     gameId: string;
   } | null>(null);
 
-  const { createRoom, joinRoom, leaveRoom, setReady, setNotReady } = useGameSocket({
+  const { createRoom, joinRoom, leaveRoom, setReady, setNotReady, startGame } = useGameSocket({
     onGameInfo: (game) => {
 
-      console.log("🎮 GAME INFO RECEBIDO:", game);
+      console.log(" GAME INFO RECEBIDO:", game);
+
+      if (game.status === "playing") {
+        navigate({
+          to: "/game",
+        });
+
+        return;
+      }
+
       const me = user?.id;
       const isHost = game.owner === me;
       const players: WaitingPlayer[] = game.players.map((p) => ({
@@ -107,18 +118,20 @@ export function HomeScreen() {
 
   const handlePrimary = () => {
     if (!waitingGame) return;
+
     if (waitingGame.role === "host") {
-      // TODO: emitir start via socket
+      startGame();
+      return;
+    }
+
+    const me = waitingGame.players.find((p) => p.you);
+
+    if (me?.ready) {
+      setNotReady();
     } else {
-      const me = waitingGame.players.find((p) => p.you);
-      if (me?.ready) {
-        setNotReady();
-      } else {
-        setReady();
-      }
+      setReady();
     }
   };
-
   return (
     <main className="relative flex min-h-screen flex-col justify-between overflow-hidden">
       <img
