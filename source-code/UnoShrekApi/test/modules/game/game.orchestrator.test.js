@@ -13,7 +13,7 @@ jest.mock("../../../src/modules/player/player.repository.js");
 jest.mock("../../../src/modules/card/card.repository.js");
 jest.mock("../../../src/modules/shared/logger/pino-global.logger.js");
 jest.mock("../../../src/modules/game/game.engine.js");
-jest.mock("../../../src/modules/game/deck.js");
+jest.mock("../../../src/modules/game/util/deck.js");
 
 describe("GameOrchestrator", () => {
   let orchestrator;
