@@ -240,13 +240,18 @@ export function useGameSocket(
     );
   }, [socket]);
 
-  const getGameInfo = useCallback(() => {
+  const getGameInfo = useCallback(
+  (gameId: string) => {
     socket?.emit(
       GAME_EVENTS.INPUT.GET_BY_ID_INFO,
+      { gameId },
     );
-  }, [socket]);
+  },
+  [socket],
+);
 
   const startGame = useCallback(() => {
+    console.log("[GAME SOCKET] START");
     socket?.emit(
       GAME_EVENTS.INPUT.START,
     );
@@ -286,6 +291,8 @@ export function useGameSocket(
     );
   }, [socket]);
 
+ 
+
   return {
     createRoom,
     joinRoom,
@@ -303,5 +310,7 @@ export function useGameSocket(
 
     sayUno,
     challengeUno,
+
+   
   };
 }

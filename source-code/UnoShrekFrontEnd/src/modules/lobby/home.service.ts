@@ -9,43 +9,84 @@ export type Room = {
 };
 
 export const homeService = {
-  // Criar sala + adicionar bots
   async createRoom(data: {
+    title: string;
     capacity: number;
     bots: boolean;
     botCount: number;
     password: string;
   }) {
-    const { data: game } = await api.post("/api/games", {
-      title: "Sala de URRO",
+    console.log(" Criando sala via REST:", data);
+
+    const payload = {
+      title: data.title,
       maxPlayers: data.capacity,
       password: data.password,
-    });
+    };
 
-    if (data.bots) {
+    console.log(" Payload enviado para /api/games:", payload);
+
+    const response = await api.post("/api/games", payload);
+
+    console.log(" Sala criada:", response.data);
+
+    const gameId = response.data.gameId;
+
+    if (!gameId) {
+      throw new Error("Backend não retornou gameId");
+    }
+
+    if (data.bots && data.botCount > 0) {
+      console.log(
+        `🤖 Adicionando ${data.botCount} bots à sala ${gameId}`,
+      );
+
       for (let i = 0; i < data.botCount; i++) {
-        await api.put(`/api/games/${game.gameId}/add-bot`);
+        await homeService.addBot(gameId);
+
+        console.log(`🤖 Bot ${i + 1}/${data.botCount} adicionado`);
       }
     }
 
-    return game;
+    return {
+      ...response.data,
+      gameId,
+    };
   },
 
-  // Entrar por gameId
-  async joinById(gameId: string, password = "") {
-    const { data } = await api.put("/api/games/join", { gameId, password });
+  async addBot(gameId: string) {
+    const { data } = await api.put(
+      `/api/games/${gameId}/add-bot`,
+    );
+
     return data;
   },
 
-  // Buscar por código curto e entrar
-  async joinByCode(code: string, password = "") {
-    const { data: game } = await api.get(`/api/games/code/${code}`);
-    return await homeService.joinById(game.gameId, password);
+  async joinById(gameId: string, password = "") {
+    const { data } = await api.put("/api/games/join", {
+      gameId,
+      password,
+    });
+
+    return data;
   },
 
-  // Listar salas públicas pendentes
+  async joinByCode(code: string, password = "") {
+    const { data: game } = await api.get(
+      `/api/games/code/${code}`,
+    );
+
+    return homeService.joinById(
+      game.gameId,
+      password,
+    );
+  },
+
   async listPublicRooms(): Promise<Room[]> {
-    const { data } = await api.get("/api/games/status/pending");
+    const { data } = await api.get(
+      "/api/games/status/pending",
+    );
+
     return data.map((g: any) => ({
       id: g.id,
       name: g.title,
@@ -55,9 +96,11 @@ export const homeService = {
     }));
   },
 
-  // Partida rápida
   async quickJoin() {
-    const { data } = await api.get("/api/games/quick-join");
+    const { data } = await api.get(
+      "/api/games/quick-join",
+    );
+
     return data;
   },
 };
