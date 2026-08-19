@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node --env-file=.env ./server.js",
     "start::watch": "nodemon --env-file=.env ./server.js",
-    "test": "jest",
-    "test::coverage": "jest --coverage"
+    "test": "jest --verbose",
+    "test::coverage": "jest --verbose --coverage"
   },
   "keywords": [],
   "authors": [
