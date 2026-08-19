@@ -224,9 +224,10 @@ export default class GameOrchestrator {
       }
 
       const state = await this.gameStateMapper.toEngineState(game);
+      const stateWithoutChallenge = GameEngine.clearUnoChallenge(state);
 
       const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
-        state,
+        stateWithoutChallenge,
         playerIndex,
         1,
       );
@@ -343,6 +344,73 @@ export default class GameOrchestrator {
       this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
 
       return updated;
+    });
+
+    return await this.runBotTurnIfNeeded(gameId);
+  }
+
+  async sayUno(userId, gameId) {
+    await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+
+      if (!game) {
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        throw new BusinessError("Cannot say UNO in a non-active game");
+      }
+
+      const playerIndex = game.players.findIndex(
+        (player) => player.player.toString() === userId.toString(),
+      );
+      if (playerIndex === -1) {
+        throw new BusinessError("Player is not present this game");
+      }
+
+      const state = await this.gameStateMapper.toEngineState(game);
+      const stateAfterUno = GameEngine.sayUno(state, playerIndex);
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterUno);
+
+      return await this.gameRepository.update(gameId, game, session);
+    });
+
+    return await this.runBotTurnIfNeeded(gameId);
+  }
+
+  async challengeUno(userId, gameId) {
+    const updatedGame = await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+
+      if (!game) {
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        throw new BusinessError("Cannot challenge UNO in a non-active game");
+      }
+
+      const challengerIndex = game.players.findIndex(
+        (player) => player.player.toString() === userId.toString(),
+      );
+      if (challengerIndex === -1) {
+        throw new BusinessError("Player is not present this game");
+      }
+
+      const state = await this.gameStateMapper.toEngineState(game);
+      const targetId = state.unoChallenge?.player;
+      const targetIndex = state.players.findIndex(
+        (player) => player.player.toString() === targetId?.toString(),
+      );
+      const { state: stateAfterChallenge } = GameEngine.challengeUno(
+        state,
+        challengerIndex,
+      );
+
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterChallenge);
+      if (targetIndex !== -1) {
+        game.players[targetIndex].saidUno = false;
+      }
+
+      return await this.gameRepository.update(gameId, game, session);
     });
 
     return await this.runBotTurnIfNeeded(gameId);
@@ -514,6 +582,11 @@ export default class GameOrchestrator {
 
       const remainingCards = stateAfterPlay.players[playerIndex].hand.cards.length;
 
+      if (remainingCards === 1) {
+        stateAfterPlay.unoChallenge = null;
+        stateAfterPlay.players[playerIndex].saidUno = true;
+      }
+
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
 
       // Atualiza saidUno do bot
@@ -565,6 +638,10 @@ export default class GameOrchestrator {
       );
 
       if (!currentPlayer?.isBot) {
+        break;
+      }
+
+      if (game.unoChallengePlayer) {
         break;
       }
 

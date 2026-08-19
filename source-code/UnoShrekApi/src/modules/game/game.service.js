@@ -289,6 +289,14 @@ export default class GameService {
     return await this.orchestrator.play(userId, gameId, cardId, colorChoice);
   }
 
+  async sayUno(userId, gameId) {
+    return await this.orchestrator.sayUno(userId, gameId);
+  }
+
+  async challengeUno(userId, gameId) {
+    return await this.orchestrator.challengeUno(userId, gameId);
+  }
+
   async finishedGame(userId, gameId) {
     const ownerId = userId;
     this.log.info(
