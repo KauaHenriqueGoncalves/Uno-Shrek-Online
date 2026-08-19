@@ -204,12 +204,12 @@ describe("GameController", () => {
 
   describe("joinInGame", () => {
     it("should join the game and return 200", async () => {
-      req = { user: { id: "user1" }, body: { gameId: "game1" } };
+      req = { user: { id: "user1" }, body: { gameId: "game1", password: "12345678" } };
       serviceMock.joinInGame.mockResolvedValue({});
 
       await controller.joinInGame(req, res);
 
-      expect(serviceMock.joinInGame).toHaveBeenCalledWith("user1", "game1");
+      expect(serviceMock.joinInGame).toHaveBeenCalledWith("user1", "game1", "12345678");
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         message: "User joined the game successfully",

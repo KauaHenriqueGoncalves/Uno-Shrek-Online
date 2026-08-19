@@ -85,5 +85,5 @@ export default class AuthController {
     sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ access_token: token });
-}
+  }
 }
