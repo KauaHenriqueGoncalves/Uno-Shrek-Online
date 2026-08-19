@@ -112,7 +112,7 @@ export default class GameService {
     const dataSave = {
       ...validData,
       owner: ownerId,
-      players: [{ player: ownerId, ready: false, score: 0 }],
+      players: [{ player: ownerId, ready: true, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
     this.log.info(
