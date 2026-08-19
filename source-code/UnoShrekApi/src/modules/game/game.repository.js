@@ -39,6 +39,7 @@ export default class GameRepository extends CrudRepository {
       .findOne({ _id: id })
       .populate("owner")
       .populate("currentPlayer")
+      .populate("unoChallengePlayer")
       .populate("players.player")
       .populate("players.hand.cards")
       .populate("players.scorePlayer")

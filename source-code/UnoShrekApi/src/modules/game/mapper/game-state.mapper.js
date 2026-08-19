@@ -16,6 +16,7 @@ export default class GameStateMapper {
    const players = game.players.map((p) => ({
         player: p.player,
         isBot: p.isBot === true,
+        saidUno: p.saidUno === true,
         hand: { cards: (p.hand?.cards ?? []).map(hydrate), },
      }));
     return {
@@ -25,6 +26,9 @@ export default class GameStateMapper {
       currentPlayer: game.currentPlayer,
       direction: game.direction ?? 1,
       activeColor: game.activeColor ?? null,
+      unoChallenge: game.unoChallengePlayer
+        ? { player: game.unoChallengePlayer }
+        : null,
     };
   }
 
@@ -38,6 +42,7 @@ export default class GameStateMapper {
     game.currentPlayer = state.currentPlayer;
     game.direction = state.direction;
     game.activeColor = state.activeColor;
+    game.unoChallengePlayer = state.unoChallenge?.player ?? null;
     game.players = game.players.map((p) => {
       const ep = state.players.find(
         (sp) => sp.player.toString() === p.player.toString(),
@@ -45,6 +50,7 @@ export default class GameStateMapper {
       return {
         ...p,
         isBot: p.isBot === true,
+        saidUno: ep?.saidUno === true,
         hand: ep ? { cards: ep.hand.cards.map(dehydrate) } : { cards: [] },
       };
     });
