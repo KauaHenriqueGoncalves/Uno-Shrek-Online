@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "crypto";
 
 export const GAME_STATUS = {
   PENDING: "pending",
@@ -6,15 +7,24 @@ export const GAME_STATUS = {
   FINISHED: "finished",
 };
 
+function generateCode() {
+  return "URRO-" + crypto.randomBytes(2).toString("hex").toUpperCase();
+}
+
 const gameSchema = new mongoose.Schema(
   {
     title: {
       type: String,
       required: [true, "Title is required"],
     },
+    code: {
+      type: String,
+      unique: true,
+      default: generateCode,
+    },
     password: {
       type: String,
-      required: [true, "Password on game is requered"],
+      default: "",
     },
     status: {
       type: String,
@@ -106,6 +116,11 @@ const gameSchema = new mongoose.Schema(
     },
     activeColor: {
       type: String,
+      default: null,
+    },
+    unoChallengePlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
       default: null,
     },
   },
