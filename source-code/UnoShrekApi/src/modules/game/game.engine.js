@@ -13,11 +13,19 @@ function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function samePlayer(first, second) {
+  return String(first) === String(second);
+}
+
 /**
  * Monta o estado inicial de uma partida: cria o baralho, distribui as mãos, vira a primeira carta do descarte e define o primeiro jogador.
  */
 export function startGameState(playerIds, handSize = 7, deck = createDeck()) {
-  const players = playerIds.map((id) => ({ player: id, hand: { cards: [] } }));
+  const players = playerIds.map((id) => ({
+    player: id,
+    saidUno: false,
+    hand: { cards: [] },
+  }));
   players.forEach((p) => {
     p.hand.cards = deal(deck, handSize);
   });
@@ -26,7 +34,16 @@ export function startGameState(playerIds, handSize = 7, deck = createDeck()) {
   const currentPlayer = players.length > 0 ? players[0].player : null;
   const direction = 1;
   const activeColor = null;
-  return { deck, discard, players, currentPlayer, direction, activeColor };
+  const unoChallenge = null;
+  return {
+    deck,
+    discard,
+    players,
+    currentPlayer,
+    direction,
+    activeColor,
+    unoChallenge,
+  };
 }
 
 /**
@@ -122,8 +139,58 @@ export function applyPlay(state, playerIndex, cardToPlay, colorChoice = null) {
     newIndex = (newIndex + dir + s.players.length) % s.players.length;
   }
   s.currentPlayer = s.players[newIndex].player;
+  s.players[playerIndex].saidUno = false;
+  s.unoChallenge =
+    s.players[playerIndex].hand.cards.length === 1
+      ? { player: s.players[playerIndex].player }
+      : null;
 
   return { state: s, drawnCards, effect };
+}
+
+/** Registra a declaração UNO do jogador que ficou com uma carta. */
+export function sayUno(state, playerIndex) {
+  const s = clone(state);
+  const challenge = s.unoChallenge;
+
+  if (!challenge || !samePlayer(challenge.player, s.players[playerIndex].player)) {
+    throw new Error("Player cannot say UNO");
+  }
+
+  s.players[playerIndex].saidUno = true;
+  s.unoChallenge = null;
+  return s;
+}
+
+/** Resolve um desafio correto e compra uma carta para o jogador sem declaração. */
+export function challengeUno(state, challengerIndex) {
+  const s = clone(state);
+  const challenge = s.unoChallenge;
+
+  if (
+    !challenge ||
+    samePlayer(challenge.player, s.players[challengerIndex].player)
+  ) {
+    throw new Error("Player cannot challenge UNO");
+  }
+
+  const targetIndex = s.players.findIndex(
+    (player) => samePlayer(player.player, challenge.player),
+  );
+
+  if (targetIndex === -1) {
+    throw new Error("UNO challenge target not found");
+  }
+
+  const result = drawFromDeck(s, targetIndex, 1);
+  result.state.unoChallenge = null;
+  return result;
+}
+
+export function clearUnoChallenge(state) {
+  const s = clone(state);
+  s.unoChallenge = null;
+  return s;
 }
 
 export default {
@@ -132,4 +199,7 @@ export default {
   drawFromDeck,
   validatePlay,
   applyPlay,
+  sayUno,
+  challengeUno,
+  clearUnoChallenge,
 };

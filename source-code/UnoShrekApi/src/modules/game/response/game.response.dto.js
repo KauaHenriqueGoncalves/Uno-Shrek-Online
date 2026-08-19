@@ -34,6 +34,7 @@ export default class GameResponseDto {
   static fromDocumentRoom(game) {
     return {
       id: game._id.toString(),
+      code: game.code,
       title: game.title,
       owner: game.owner ? game.owner._id.toString() : null,
       status: game.status,
@@ -45,6 +46,8 @@ export default class GameResponseDto {
         player: p.player._id.toString(),
         username: p.player.username,
         ready: p.ready,
+        isBot: Boolean(p.isBot),
+        saidUno: Boolean(p.saidUno),
         score: p.scorePlayer ? p.scorePlayer.score : 0,
         hand: {
           cards: p.hand.cards.map((c) => this.fromDocumentDeckOnHand(c)),
@@ -54,6 +57,9 @@ export default class GameResponseDto {
       discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
       direction: game.direction,
       activeColor: game.activeColor,
+      unoChallengePlayer: game.unoChallengePlayer
+        ? (game.unoChallengePlayer._id ?? game.unoChallengePlayer).toString()
+        : null,
       createdAt: game.createdAt,
     };
   }
