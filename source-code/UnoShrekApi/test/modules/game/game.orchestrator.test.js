@@ -65,6 +65,7 @@ jest.mock("../../../src/modules/shared/logger/pino-global.logger.js", () => ({
 jest.mock("../../../src/modules/game/game.engine.js", () => ({
   drawFromDeck: jest.fn(),
   applyPlay: jest.fn(),
+  clearUnoChallenge: jest.fn(),
   validatePlay: jest.fn(),
   startGameState: jest.fn(),
 }));
