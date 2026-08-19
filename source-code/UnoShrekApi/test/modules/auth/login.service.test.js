@@ -15,16 +15,27 @@ describe("LoginService", () => {
   let loginService;
   let playerServiceMock;
   let jwtCoderMock;
+  let logMock;
 
   beforeEach(() => {
-    PinoGlobal.getInstance.mockReturnValue({
+    logMock = {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-    });
+    };
+    PinoGlobal.getInstance.mockReturnValue(logMock);
+    
     jwtCoderMock = { sign: jest.fn() };
     JwtCoder.getInstance.mockReturnValue(jwtCoderMock);
-    playerServiceMock = { getByUsername: jest.fn() };
+    
+    playerServiceMock = {
+      getByUsername: jest.fn(),
+      getByGoogleId: jest.fn(),
+      getByEmailSafe: jest.fn(),
+      linkGoogle: jest.fn(),
+      createFromGoogle: jest.fn(),
+    };
+    
     loginService = new LoginService(playerServiceMock);
   });
 
@@ -74,6 +85,144 @@ describe("LoginService", () => {
       await expect(loginService.login(payload)).rejects.toThrow(
         UnauthorizedError,
       );
+      expect(jwtCoderMock.sign).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("googleAuth", () => {
+    const accessToken = "google-access-token";
+    const googleUserData = {
+      sub: "google123",
+      email: "test@example.com",
+      name: "Test User",
+      picture: "https://example.com/picture.jpg",
+    };
+
+    beforeEach(() => {
+      global.fetch = jest.fn();
+    });
+
+    it("should return a token for a new Google user", async () => {
+      const newPlayer = {
+        _id: "new-player-id",
+        username: googleUserData.name,
+        email: googleUserData.email,
+        googleId: googleUserData.sub,
+        picture: googleUserData.picture,
+      };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(googleUserData),
+      });
+      playerServiceMock.getByGoogleId.mockResolvedValue(null);
+      playerServiceMock.getByEmailSafe.mockResolvedValue(null);
+      playerServiceMock.createFromGoogle.mockResolvedValue(newPlayer);
+      jwtCoderMock.sign.mockReturnValue("google-token-123");
+
+      const result = await loginService.googleAuth(accessToken);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      expect(playerServiceMock.getByGoogleId).toHaveBeenCalledWith(
+        googleUserData.sub
+      );
+      expect(playerServiceMock.getByEmailSafe).toHaveBeenCalledWith(
+        googleUserData.email
+      );
+      expect(playerServiceMock.createFromGoogle).toHaveBeenCalledWith({
+        username: googleUserData.name,
+        email: googleUserData.email,
+        googleId: googleUserData.sub,
+        picture: googleUserData.picture,
+      });
+      expect(jwtCoderMock.sign).toHaveBeenCalledWith(newPlayer._id);
+      expect(result).toBe("google-token-123");
+    });
+
+    it("should return a token for an existing Google user", async () => {
+      const existingPlayer = {
+        _id: "existing-player-id",
+        googleId: googleUserData.sub,
+        email: googleUserData.email,
+      };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(googleUserData),
+      });
+      playerServiceMock.getByGoogleId.mockResolvedValue(existingPlayer);
+      jwtCoderMock.sign.mockReturnValue("google-token-456");
+
+      const result = await loginService.googleAuth(accessToken);
+
+      expect(playerServiceMock.getByGoogleId).toHaveBeenCalledWith(
+        googleUserData.sub
+      );
+      expect(playerServiceMock.getByEmailSafe).not.toHaveBeenCalled();
+      expect(jwtCoderMock.sign).toHaveBeenCalledWith(existingPlayer._id);
+      expect(result).toBe("google-token-456");
+    });
+
+    it("should link Google account to existing player with same email", async () => {
+      const existingPlayerByEmail = {
+        _id: "email-player-id",
+        email: googleUserData.email,
+      };
+      const linkedPlayer = {
+        ...existingPlayerByEmail,
+        googleId: googleUserData.sub,
+        picture: googleUserData.picture,
+      };
+
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(googleUserData),
+      });
+      playerServiceMock.getByGoogleId.mockResolvedValue(null);
+      playerServiceMock.getByEmailSafe.mockResolvedValue(existingPlayerByEmail);
+      playerServiceMock.linkGoogle.mockResolvedValue(linkedPlayer);
+      jwtCoderMock.sign.mockReturnValue("google-token-789");
+
+      const result = await loginService.googleAuth(accessToken);
+
+      expect(playerServiceMock.getByGoogleId).toHaveBeenCalledWith(
+        googleUserData.sub
+      );
+      expect(playerServiceMock.getByEmailSafe).toHaveBeenCalledWith(
+        googleUserData.email
+      );
+      expect(playerServiceMock.linkGoogle).toHaveBeenCalledWith(
+        existingPlayerByEmail._id,
+        googleUserData.sub,
+        googleUserData.picture
+      );
+      expect(jwtCoderMock.sign).toHaveBeenCalledWith(linkedPlayer._id);
+      expect(result).toBe("google-token-789");
+    });
+
+    it("should throw UnauthorizedError when Google token is invalid", async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+      });
+
+      await expect(loginService.googleAuth(accessToken)).rejects.toThrow(
+        UnauthorizedError
+      );
+      expect(logMock.warn).toHaveBeenCalled();
+      expect(jwtCoderMock.sign).not.toHaveBeenCalled();
+    });
+
+    it("should throw UnauthorizedError when fetch fails", async () => {
+      global.fetch.mockRejectedValue(new Error("Network error"));
+
+      await expect(loginService.googleAuth(accessToken)).rejects.toThrow(
+        UnauthorizedError
+      );
+      expect(logMock.warn).toHaveBeenCalled();
       expect(jwtCoderMock.sign).not.toHaveBeenCalled();
     });
   });

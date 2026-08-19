@@ -30,12 +30,13 @@ describe("GameService", () => {
 
   describe("create", () => {
     const userId = "user_123";
-    const validGameData = { title: "Sala de Davi", maxPlayers: 4 };
+    const validGameData = { title: "Sala de Davi", maxPlayers: 4, password: "1234567" };
 
     const savedGame = {
       _id: "game_456",
       title: "Sala de Davi",
       owner: userId,
+      password: "1234567",
       status: "pending",
     };
 
@@ -211,6 +212,7 @@ describe("GameService", () => {
       return {
         _id: gameId,
         status: GAME_STATUS.PENDING,
+        password: "123",
         maxPlayers: 4,
         players: [{ player: { toString: () => "owner1" } }],
         ...overrides,
@@ -224,7 +226,7 @@ describe("GameService", () => {
       repositoryMock.update.mockResolvedValue(game);
       mockOrchestrator.createScorePlayerFor.mockResolvedValue({ game });
 
-      const result = await gameService.joinInGame(userId, gameId);
+      const result = await gameService.joinInGame(userId, gameId, "123");
 
       expect(repositoryMock.update).toHaveBeenCalledWith(gameId, game);
       expect(mockOrchestrator.createScorePlayerFor).toHaveBeenCalledWith(
