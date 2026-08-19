@@ -202,6 +202,30 @@ export function registerGameHandlers(socket, io, { gameService }) {
     }
   });
 
+  socket.on(GAME_EVENTS.INPUT.SAY_UNO, async () => {
+    try {
+      const gameId = socket.currentGameId;
+      if (!gameId) throw Error("Dont have a current game");
+      await gameService.sayUno(socket.playerId, gameId);
+      await broadcastRoomGameInfo(io, gameService, gameId);
+    } catch (err) {
+      log.warn({ err }, "socket failed");
+      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
+    }
+  });
+
+  socket.on(GAME_EVENTS.INPUT.CHALLENGE_UNO, async () => {
+    try {
+      const gameId = socket.currentGameId;
+      if (!gameId) throw Error("Dont have a current game");
+      await gameService.challengeUno(socket.playerId, gameId);
+      await broadcastRoomGameInfo(io, gameService, gameId);
+    } catch (err) {
+      log.warn({ err }, "socket failed");
+      socket.emit(GAME_EVENTS.OUTPUT.ERROR, { message: err.message });
+    }
+  });
+
   socket.on(GAME_EVENTS.INPUT.START, async () => {
     try {
       const userId = socket.playerId;
