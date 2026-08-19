@@ -4,11 +4,13 @@ import {
   drawFromDeck,
   validatePlay,
   applyPlay,
+  sayUno,
+  challengeUno,
 } from "../../../src/modules/game/game.engine.js";
 import * as deckModule from "../../../src/modules/game/util/deck.js";
 
-jest.mock("../../../src/modules/game/deck.js", () => {
-  const actual = jest.requireActual("../../../src/modules/game/deck.js");
+jest.mock("../../../src/modules/game/util/deck.js", () => {
+  const actual = jest.requireActual("../../../src/modules/game/util/deck.js");
   return {
     ...actual,
     shuffle: jest.fn((arr) => arr),
@@ -314,6 +316,46 @@ describe("game.engine", () => {
       applyPlay(state, 0, { id: "c1" });
 
       expect(state.players[0].hand.cards).toHaveLength(originalHandLength);
+    });
+
+    it("should open an UNO challenge when one card remains", () => {
+      const state = baseState();
+      state.players[0].hand.cards = [
+        { id: "n1", color: "red", type: "number", value: 5 },
+        { id: "n2", color: "red", type: "number", value: 6 },
+      ];
+
+      const { state: newState } = applyPlay(state, 0, { id: "n1" });
+
+      expect(newState.unoChallenge).toEqual({ player: "p1" });
+      expect(newState.players[0].saidUno).toBe(false);
+    });
+
+    it("should close the UNO challenge when the target says UNO", () => {
+      const state = baseState();
+      state.unoChallenge = { player: "p1" };
+      state.players[0].hand.cards = [
+        { id: "n1", color: "red", type: "number", value: 5 },
+      ];
+
+      const newState = sayUno(state, 0);
+
+      expect(newState.unoChallenge).toBeNull();
+      expect(newState.players[0].saidUno).toBe(true);
+    });
+
+    it("should make a correct challenger draw one card", () => {
+      const state = baseState();
+      state.unoChallenge = { player: "p1" };
+      state.players[0].hand.cards = [
+        { id: "n1", color: "red", type: "number", value: 5 },
+      ];
+
+      const { state: newState, drawn } = challengeUno(state, 1);
+
+      expect(drawn).toHaveLength(1);
+      expect(newState.players[0].hand.cards).toHaveLength(2);
+      expect(newState.unoChallenge).toBeNull();
     });
   });
 });

@@ -9,6 +9,8 @@ const GAME_EVENTS = {
     NOT_READY:         "game::notReady",
     DRAW:              "game::draw",
     PLAY:              "game::play",
+    SAY_UNO:           "game::sayUno",
+    CHALLENGE_UNO:     "game::challengeUno",
     START:             "game::start",
     FINISH:            "game::finish",
   },

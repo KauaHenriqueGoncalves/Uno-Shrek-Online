@@ -103,6 +103,16 @@ export default class GameController {
       asyncHandler(this.play.bind(this)),
     );
     this.routers.put(
+      "/:id/say-uno",
+      authMiddleware,
+      asyncHandler(this.sayUno.bind(this)),
+    );
+    this.routers.put(
+      "/:id/challenge-uno",
+      authMiddleware,
+      asyncHandler(this.challengeUno.bind(this)),
+    );
+    this.routers.put(
       "/:id/score",
       authMiddleware,
       asyncHandler(this.updatePlayerScore.bind(this)),
@@ -254,6 +264,18 @@ export default class GameController {
       colorChoice,
     );
     return res.status(200).json({ message: "Card played", gameId: game._id });
+  }
+
+  async sayUno(req, res) {
+    const userId = req.user && req.user.id;
+    const game = await this.service.sayUno(userId, req.params.id);
+    return res.status(200).json({ message: "UNO declared", gameId: game._id });
+  }
+
+  async challengeUno(req, res) {
+    const userId = req.user && req.user.id;
+    const game = await this.service.challengeUno(userId, req.params.id);
+    return res.status(200).json({ message: "UNO challenged", gameId: game._id });
   }
 
   async finishedGame(req, res) {

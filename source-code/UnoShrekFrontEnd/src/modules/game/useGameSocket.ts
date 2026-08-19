@@ -9,6 +9,8 @@ const GAME_EVENTS = {
     READY: "game::ready",
     NOT_READY: "game::notReady",
     GET_BY_ID_INFO: "game::getByIdInfo",
+    SAY_UNO: "game::sayUno",
+    CHALLENGE_UNO: "game::challengeUno",
   },
   OUTPUT: {
     GAME_INFO: "game::info",
@@ -29,6 +31,7 @@ type GameInfo = {
     username: string;
     ready: boolean;
     isBot: boolean;
+    saidUno: boolean;
   }>;
   maxPlayers: number;
 };
@@ -128,6 +131,14 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     socket?.emit(GAME_EVENTS.INPUT.GET_BY_ID_INFO);
   }, [socket]);
 
+  const sayUno = useCallback(() => {
+    socket?.emit(GAME_EVENTS.INPUT.SAY_UNO);
+  }, [socket]);
+
+  const challengeUno = useCallback(() => {
+    socket?.emit(GAME_EVENTS.INPUT.CHALLENGE_UNO);
+  }, [socket]);
+
   return {
     createRoom,
     joinRoom,
@@ -135,5 +146,7 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     setReady,
     setNotReady,
     getGameInfo,
+    sayUno,
+    challengeUno,
   };
 }

@@ -47,6 +47,7 @@ export default class GameResponseDto {
         username: p.player.username,
         ready: p.ready,
         isBot: Boolean(p.isBot),
+        saidUno: Boolean(p.saidUno),
         score: p.scorePlayer ? p.scorePlayer.score : 0,
         hand: {
           cards: p.hand.cards.map((c) => this.fromDocumentDeckOnHand(c)),
@@ -56,6 +57,9 @@ export default class GameResponseDto {
       discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
       direction: game.direction,
       activeColor: game.activeColor,
+      unoChallengePlayer: game.unoChallengePlayer
+        ? (game.unoChallengePlayer._id ?? game.unoChallengePlayer).toString()
+        : null,
       createdAt: game.createdAt,
     };
   }

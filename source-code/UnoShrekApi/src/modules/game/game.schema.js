@@ -118,6 +118,11 @@ const gameSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    unoChallengePlayer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      default: null,
+    },
   },
   {
     timestamps: true,
