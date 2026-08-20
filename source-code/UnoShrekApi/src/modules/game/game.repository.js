@@ -43,6 +43,7 @@ export default class GameRepository extends CrudRepository {
       .populate("players.player")
       .populate("players.hand.cards")
       .populate("players.scorePlayer")
+      .populate({ path: "histories", populate: [{ path: "player" }, { path: "card" }] })
       .populate("deck")
       .populate("discard")
       .session(session);
