@@ -25,6 +25,9 @@ import GameOrchestrator from "./modules/game/game.orchestrator.js";
 import Friendship from "./modules/friendship/friendship.schema.js";
 import FriendshipService from "./modules/friendship/friendship.service.js";
 import FriendshipController from "./modules/friendship/friendship.controller.js";
+import HistoryService from "./modules/history/history.service.js";
+import HistoryController from "./modules/history/history.controller.js";
+import History from "./modules/history/history.schema.js";
 
 export default class App {
   constructor() {
@@ -78,13 +81,16 @@ export default class App {
     try {
       this.healthController = new HealthController();
 
-      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card);
+      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card, History);
 
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
 
       const friendshipService = new FriendshipService(Friendship, playerService);
       this.friendshipController = new FriendshipController(friendshipService);
+
+      const historyService = new HistoryService(History, playerService);
+      this.historyController = new HistoryController(historyService);
 
       const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
@@ -113,6 +119,7 @@ export default class App {
         loginService,
         tokenService,
         friendshipService,
+        historyService
       };
     } catch (error) {
       this.log.error(
@@ -131,6 +138,7 @@ export default class App {
       this.express.use("/api/cards", this.cardController.routers);
       this.express.use("/api/auth", this.authController.routers);
       this.express.use("/api/friends", this.friendshipController.routers);
+      this.express.use("/api/histories", this.historyController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(

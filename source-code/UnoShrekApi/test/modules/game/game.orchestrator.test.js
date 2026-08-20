@@ -28,6 +28,17 @@ jest.mock("../../../src/modules/player/player.repository.js", () => {
   }));
 });
 
+const mockHistoryRepository = {
+  create: jest.fn(),
+};
+
+jest.mock("../../../src/modules/history/history.repository.js", () => {
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => mockHistoryRepository),
+  };
+});
+
 jest.mock("../../../src/modules/card/card.repository.js", () => {
   return jest.fn().mockImplementation(() => ({
     createMany: jest.fn(),
@@ -92,13 +103,19 @@ describe("GameOrchestrator", () => {
     maxPlayers: 4,
     players: [],
     currentPlayer: null,
+    histories: [],
     ...over,
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    orchestrator = new GameOrchestrator({}, {}, {}, {});
-    jest.spyOn(orchestrator, "wait").mockResolvedValue(undefined);
+    orchestrator = new GameOrchestrator({}, {}, {}, {}, {});
+    mockHistoryRepository.create.mockResolvedValue({
+      _id: "hist123",
+      player: "player123",
+      action: "DRAW_CARD",
+      card: null,
+    });
   });
 
   describe("getFullGame", () => {

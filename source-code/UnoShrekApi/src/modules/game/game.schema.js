@@ -118,6 +118,15 @@ const gameSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    histories: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "History",
+        },
+      ],
+      default: [],
+    },
     unoChallengePlayer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Player",
