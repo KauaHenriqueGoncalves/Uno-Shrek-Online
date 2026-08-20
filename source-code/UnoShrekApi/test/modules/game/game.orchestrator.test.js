@@ -449,6 +449,64 @@ describe("GameOrchestrator", () => {
       expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
     });
 
+    it("resolves with the human's own move before bot turn processing settles", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      let resolveBotTurn;
+      const botTurnPromise = new Promise((resolve) => {
+        resolveBotTurn = resolve;
+      });
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockReturnValue(botTurnPromise);
+
+      const result = await orchestrator.play("player1", "game1", "card1");
+
+      expect(result).toEqual(game);
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+
+      resolveBotTurn(game);
+      await botTurnPromise;
+    });
+
+    it("does not reject the human's move when bot turn processing fails", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      const botError = new Error("bot exploded");
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockRejectedValue(botError);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).resolves.toEqual(game);
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(orchestrator.log.warn).toHaveBeenCalledWith(
+        { err: botError, gameId: "game1" },
+        "Bot turn processing failed",
+      );
+    });
+
     it("throws NotFoundError when the game does not exist", async () => {
       orchestrator.gameRepository.getById.mockResolvedValue(null);
 
