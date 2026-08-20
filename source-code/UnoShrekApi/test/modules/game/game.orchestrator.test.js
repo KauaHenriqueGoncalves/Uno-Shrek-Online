@@ -98,6 +98,7 @@ describe("GameOrchestrator", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     orchestrator = new GameOrchestrator({}, {}, {}, {});
+    jest.spyOn(orchestrator, "wait").mockResolvedValue(undefined);
   });
 
   describe("getFullGame", () => {
@@ -777,6 +778,13 @@ describe("GameOrchestrator", () => {
     });
   });
 
+  describe("wait", () => {
+    it("resolves after the given delay", async () => {
+      const freshOrchestrator = new GameOrchestrator({}, {}, {}, {}, 0);
+      await expect(freshOrchestrator.wait(0)).resolves.toBeUndefined();
+    });
+  });
+
   describe("runBotTurnIfNeeded", () => {
     it("resolves consecutive bot turns until a human player's turn or the game is no longer active", async () => {
       const humanGame = buildGame({
@@ -822,6 +830,64 @@ describe("GameOrchestrator", () => {
       expect(orchestrator.playBotTurn).toHaveBeenCalledTimes(20);
       expect(orchestrator.log.warn).toHaveBeenCalled();
       expect(result).toBe(botGame);
+    });
+
+    it("waits botThinkingDelayMs before each bot turn", async () => {
+      const humanGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "human1" },
+        players: [{ player: { toString: () => "human1" }, isBot: false }],
+      });
+      const botGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+
+      orchestrator.botThinkingDelayMs = 4000;
+      orchestrator.gameRepository.getById.mockResolvedValue(botGame);
+      orchestrator.playBotTurn = jest.fn().mockResolvedValue(humanGame);
+
+      await orchestrator.runBotTurnIfNeeded("game1");
+
+      expect(orchestrator.wait).toHaveBeenCalledWith(4000);
+      expect(orchestrator.wait).toHaveBeenCalledTimes(1);
+      expect(orchestrator.wait.mock.invocationCallOrder[0]).toBeLessThan(
+        orchestrator.playBotTurn.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("emits a botTurn event after each individual bot turn, not only at the end", async () => {
+      const botGameTurn1 = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+      const botGameTurn2 = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+      const humanGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "human1" },
+        players: [{ player: { toString: () => "human1" }, isBot: false }],
+      });
+
+      orchestrator.gameRepository.getById.mockResolvedValue(botGameTurn1);
+      orchestrator.playBotTurn = jest
+        .fn()
+        .mockResolvedValueOnce(botGameTurn2)
+        .mockResolvedValueOnce(humanGame);
+
+      const listener = jest.fn();
+      orchestrator.on("botTurn", listener);
+
+      await orchestrator.runBotTurnIfNeeded("game1");
+
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(listener).toHaveBeenNthCalledWith(1, botGameTurn2);
+      expect(listener).toHaveBeenNthCalledWith(2, humanGame);
     });
   });
 });
