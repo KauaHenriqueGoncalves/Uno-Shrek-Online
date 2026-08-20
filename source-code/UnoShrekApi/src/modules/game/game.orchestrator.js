@@ -8,6 +8,7 @@ import { GAME_STATUS } from "./game.schema.js";
 import ScorePlayerRepository from "../score/score-player.repository.js";
 import PlayerRepository from "../player/player.repository.js";
 import CardRepository from "../card/card.repository.js";
+import HistoryRepository from "../history/history.repository.js";
 import { createDeck } from "./util/deck.js";
 import TransactionRunner from "../shared/mongoose/transaction-runner.js";
 import GameStateMapper from "./mapper/game-state.mapper.js";
@@ -21,6 +22,7 @@ export default class GameOrchestrator extends EventEmitter {
     scoreSchema,
     playerSchema,
     cardSchema,
+    historySchema,
     botThinkingDelayMs = 2500,
   ) {
     super();
@@ -28,6 +30,7 @@ export default class GameOrchestrator extends EventEmitter {
     this.scoreRepository = new ScorePlayerRepository(scoreSchema);
     this.playerRepository = new PlayerRepository(playerSchema);
     this.cardRepository = new CardRepository(cardSchema);
+    this.historyRepository = new HistoryRepository(historySchema);
     this.gameStateMapper = new GameStateMapper(cardSchema);
     this.transaction = new TransactionRunner();
     this.log = PinoGlobal.getInstance();
@@ -37,6 +40,15 @@ export default class GameOrchestrator extends EventEmitter {
 
   wait(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async _registerHistory(game, playerId, action, cardId = null, session = null) {
+    const history = await this.historyRepository.create(
+      { player: playerId, action, card: cardId },
+      session,
+    );
+    game.histories.push(history._id);
+    return history;
   }
 
   async getFullGame(gameId, session = null) {
@@ -247,6 +259,13 @@ export default class GameOrchestrator extends EventEmitter {
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+      await this._registerHistory(
+        game,
+        userId,
+        "draw",
+        drawn[0]?.id ?? null,
+        session,
+      );
       const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
       return updated;
@@ -337,6 +356,13 @@ export default class GameOrchestrator extends EventEmitter {
         `Turn passed after play. [gameId=${gameId}] [from=${userId}] [to=${stateAfterPlay.currentPlayer}]`,
       );
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
+      await this._registerHistory(
+        game, 
+        userId, 
+        "play", 
+        playedCard.id, 
+        session
+      );
       const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
       return updated;
