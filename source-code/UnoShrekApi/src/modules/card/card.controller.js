@@ -1,5 +1,6 @@
 import { Router } from "express";
 import CardResponseDto from "./response/card.response.dto.js";
+import cacheMiddleware from "../shared/middleware/cache.middleware.js";
 import asyncHandler from "../shared/utils/async-handler.js";
 
 export default class CardController {
@@ -11,8 +12,8 @@ export default class CardController {
 
   registerRoutes() {
     this.routers.get("/", asyncHandler(this.getAll.bind(this)));
-    this.routers.get("/:id", asyncHandler(this.getById.bind(this)));
-    this.routers.get("/:id/details", asyncHandler(this.getByIdDetails.bind(this)));
+    this.routers.get("/:id", cacheMiddleware, asyncHandler(this.getById.bind(this)));
+    this.routers.get("/:id/details", cacheMiddleware, asyncHandler(this.getByIdDetails.bind(this)));
     this.routers.post("/", asyncHandler(this.create.bind(this)));
     this.routers.put("/:id", asyncHandler(this.update.bind(this)));
     this.routers.delete("/:id", asyncHandler(this.deleteById.bind(this)));
