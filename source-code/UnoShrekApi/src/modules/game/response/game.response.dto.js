@@ -1,3 +1,5 @@
+import HistoryResponseDto from "../../history/response/history.response.dto.js";
+
 export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();
@@ -57,6 +59,7 @@ export default class GameResponseDto {
       discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
       direction: game.direction,
       activeColor: game.activeColor,
+      histories: HistoryResponseDto.fromDocumentListDetails(game.histories),
       unoChallengePlayer: game.unoChallengePlayer
         ? (game.unoChallengePlayer._id ?? game.unoChallengePlayer).toString()
         : null,
