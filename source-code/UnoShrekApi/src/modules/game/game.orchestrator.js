@@ -191,7 +191,7 @@ export default class GameOrchestrator extends EventEmitter {
   }
 
   async draw(userId, gameId) {
-    await this.transaction.run(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       this.log.info(
         `Player wants to draw a card. [playerId=${userId}] [gameId=${gameId}]`,
       );
@@ -247,11 +247,15 @@ export default class GameOrchestrator extends EventEmitter {
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
-      await this.gameRepository.update(gameId, game, session);
+      const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
+      return updated;
     });
 
-    return await this.runBotTurnIfNeeded(gameId);
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async play(userId, gameId, cardId, colorChoice = null) {
@@ -337,11 +341,15 @@ export default class GameOrchestrator extends EventEmitter {
       this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
       return updated;
     });
-    return await this.runBotTurnIfNeeded(gameId);
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async sayUno(userId, gameId) {
-    await this.transaction.run(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       const game = await this.gameRepository.getById(gameId, session);
 
       if (!game) {
@@ -365,7 +373,10 @@ export default class GameOrchestrator extends EventEmitter {
       return await this.gameRepository.update(gameId, game, session);
     });
 
-    return await this.runBotTurnIfNeeded(gameId);
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async challengeUno(userId, gameId) {
@@ -404,11 +415,14 @@ export default class GameOrchestrator extends EventEmitter {
       return await this.gameRepository.update(gameId, game, session);
     });
 
-    return await this.runBotTurnIfNeeded(gameId);
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async start(ownerId, gameId) {
-    await this.transaction.run(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       const game = await this.gameRepository.getById(gameId, session);
       this.log.info(
         `owner want to start the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
@@ -483,10 +497,15 @@ export default class GameOrchestrator extends EventEmitter {
         },
         "Game status transition",
       );
-      await this.gameRepository.update(gameId, game, session);
+      const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
+      return updated;
     });
-    return await this.runBotTurnIfNeeded(gameId);
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async playBotTurn(gameId) {
