@@ -466,6 +466,64 @@ describe("GameOrchestrator", () => {
       expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
     });
 
+    it("resolves with the human's own move before bot turn processing settles", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      let resolveBotTurn;
+      const botTurnPromise = new Promise((resolve) => {
+        resolveBotTurn = resolve;
+      });
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockReturnValue(botTurnPromise);
+
+      const result = await orchestrator.play("player1", "game1", "card1");
+
+      expect(result).toEqual(game);
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+
+      resolveBotTurn(game);
+      await botTurnPromise;
+    });
+
+    it("does not reject the human's move when bot turn processing fails", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      const botError = new Error("bot exploded");
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockRejectedValue(botError);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).resolves.toEqual(game);
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(orchestrator.log.warn).toHaveBeenCalledWith(
+        { err: botError, gameId: "game1" },
+        "Bot turn processing failed",
+      );
+    });
+
     it("throws NotFoundError when the game does not exist", async () => {
       orchestrator.gameRepository.getById.mockResolvedValue(null);
 
@@ -795,6 +853,13 @@ describe("GameOrchestrator", () => {
     });
   });
 
+  describe("wait", () => {
+    it("resolves after the given delay", async () => {
+      const freshOrchestrator = new GameOrchestrator({}, {}, {}, {}, 0);
+      await expect(freshOrchestrator.wait(0)).resolves.toBeUndefined();
+    });
+  });
+
   describe("runBotTurnIfNeeded", () => {
     it("resolves consecutive bot turns until a human player's turn or the game is no longer active", async () => {
       const humanGame = buildGame({
@@ -840,6 +905,64 @@ describe("GameOrchestrator", () => {
       expect(orchestrator.playBotTurn).toHaveBeenCalledTimes(20);
       expect(orchestrator.log.warn).toHaveBeenCalled();
       expect(result).toBe(botGame);
+    });
+
+    it("waits botThinkingDelayMs before each bot turn", async () => {
+      const humanGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "human1" },
+        players: [{ player: { toString: () => "human1" }, isBot: false }],
+      });
+      const botGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+
+      orchestrator.botThinkingDelayMs = 4000;
+      orchestrator.gameRepository.getById.mockResolvedValue(botGame);
+      orchestrator.playBotTurn = jest.fn().mockResolvedValue(humanGame);
+
+      await orchestrator.runBotTurnIfNeeded("game1");
+
+      expect(orchestrator.wait).toHaveBeenCalledWith(4000);
+      expect(orchestrator.wait).toHaveBeenCalledTimes(1);
+      expect(orchestrator.wait.mock.invocationCallOrder[0]).toBeLessThan(
+        orchestrator.playBotTurn.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("emits a botTurn event after each individual bot turn, not only at the end", async () => {
+      const botGameTurn1 = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+      const botGameTurn2 = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+      const humanGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "human1" },
+        players: [{ player: { toString: () => "human1" }, isBot: false }],
+      });
+
+      orchestrator.gameRepository.getById.mockResolvedValue(botGameTurn1);
+      orchestrator.playBotTurn = jest
+        .fn()
+        .mockResolvedValueOnce(botGameTurn2)
+        .mockResolvedValueOnce(humanGame);
+
+      const listener = jest.fn();
+      orchestrator.on("botTurn", listener);
+
+      await orchestrator.runBotTurnIfNeeded("game1");
+
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(listener).toHaveBeenNthCalledWith(1, botGameTurn2);
+      expect(listener).toHaveBeenNthCalledWith(2, humanGame);
     });
   });
 });
