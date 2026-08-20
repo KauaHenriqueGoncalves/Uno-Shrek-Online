@@ -1,3 +1,4 @@
+import { EventEmitter } from "events";
 import GameRepository from "./game.repository.js";
 import GameEngine from "./game.engine.js";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
@@ -14,8 +15,15 @@ import UnoBot from "./bot/uno.bot.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-export default class GameOrchestrator {
-  constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
+export default class GameOrchestrator extends EventEmitter {
+  constructor(
+    gameSchema,
+    scoreSchema,
+    playerSchema,
+    cardSchema,
+    botThinkingDelayMs = 2500,
+  ) {
+    super();
     this.gameRepository = new GameRepository(gameSchema);
     this.scoreRepository = new ScorePlayerRepository(scoreSchema);
     this.playerRepository = new PlayerRepository(playerSchema);
@@ -24,6 +32,11 @@ export default class GameOrchestrator {
     this.transaction = new TransactionRunner();
     this.log = PinoGlobal.getInstance();
     this.bot = new UnoBot();
+    this.botThinkingDelayMs = botThinkingDelayMs;
+  }
+
+  wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async getFullGame(gameId, session = null) {
@@ -610,8 +623,10 @@ export default class GameOrchestrator {
         { gameId, playerId: currentPlayerId, turn: botTurns + 1 },
         "Starting bot turn",
       );
+      await this.wait(this.botThinkingDelayMs);
       game = await this.playBotTurn(gameId);
       botTurns++;
+      this.emit("botTurn", game);
     }
     if (botTurns >= MAX_BOT_TURNS) {
       this.log.warn(
