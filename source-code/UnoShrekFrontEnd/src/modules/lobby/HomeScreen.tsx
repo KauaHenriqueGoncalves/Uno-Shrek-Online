@@ -45,6 +45,7 @@ export function HomeScreen() {
        * Nesse momento, saímos da WaitingRoom e vamos para /game.
        */
       if (game.status === "active") {
+        sessionStorage.setItem("currentGameId", game.id);
         navigate({
           to: "/game",
         });
