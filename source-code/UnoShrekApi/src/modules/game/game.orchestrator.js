@@ -41,6 +41,106 @@ export default class GameOrchestrator extends EventEmitter {
   wait(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+  //---------------------------------------------------------
+  //-----------------------HELPERS---------------------------Lembrar de usar eles depois aq dentro
+  //---------------------------------------------------------
+
+  _sameId(first, second) {
+    return String(first) === String(second);
+  }
+
+  _findPlayerIndex(game, playerId) {
+    return game.players.findIndex((player) =>
+      this._sameId(player.player, playerId),
+    );
+  }
+
+  _getPlayerIndexOrThrow(game, playerId) {
+    const playerIndex = this._findPlayerIndex(game, playerId);
+
+    if (playerIndex === -1) {
+      this.log.warn(
+        `Player is not present in game. [playerId=${playerId}] [gameId=${game._id}]`,
+      );
+
+    throw new BusinessError("Player is not present this game");
+    }
+
+    return playerIndex;
+  }
+
+  _ensureGameStatus(game, expectedStatus, message) {
+    if (game.status !== expectedStatus) {
+      this.log.warn(
+        `Invalid game status. [gameId=${game._id}] [status=${game.status}]`,
+      );
+
+      throw new BusinessError(message);
+    }
+  }
+
+  _ensurePlayerTurn(game, playerId) {
+    if (
+      game.currentPlayer &&
+      !this._sameId(game.currentPlayer, playerId)
+    ) {
+        this.log.warn(
+        `Not player's turn. [playerId=${playerId}] [gameId=${game._id}] [currentPlayer=${game.currentPlayer}]`,
+      );
+
+      throw new BusinessError("It's not your turn");
+    }
+  }
+
+  async _getGameOrThrow(gameId, session = null) {
+    const game = await this.gameRepository.getById(gameId, session);
+
+    if (!game) {
+      this.log.warn(`Game not found. [gameId=${gameId}]`);
+      throw new NotFoundError("Game not found");
+    }
+
+    return game;
+  }
+
+  async _getActiveGameAndPlayer(gameId, playerId, session = null) {
+    const game = await this._getGameOrThrow(gameId, session);
+
+    this._ensureGameStatus(
+      game,
+      GAME_STATUS.ACTIVE,
+      "Game is not active",
+    );
+
+    const playerIndex = this._getPlayerIndexOrThrow(
+      game,
+      playerId,
+    );
+
+    return {
+      game,
+      playerIndex,
+    };
+  }
+
+  _saveEngineState(gameId, game, state, session = null) {
+    this.gameStateMapper.applyEngineStateToGame(game, state);
+
+    return this.gameRepository.update(
+      gameId,
+      game,
+      session,
+    );
+  }
+
+  _runBotTurnInBackground(gameId) {
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn(
+        { err, gameId },
+        "Bot turn processing failed",
+      );
+    });
+  }
 
   async _registerHistory(game, playerId, action, cardId = null, session = null) {
     const history = await this.historyRepository.create(
@@ -50,6 +150,8 @@ export default class GameOrchestrator extends EventEmitter {
     game.histories.push(history._id);
     return history;
   }
+
+  /////////////////////////////////////////////////////////////////////////////////////////////
 
   async getFullGame(gameId, session = null) {
     this.log.info(`Fetching full game. [gameId=${gameId}]`);
