@@ -193,6 +193,19 @@ export function clearUnoChallenge(state) {
   return s;
 }
 
+/**
+ * Verifica se algum jogador ficou sem cartas.
+ * Retorna o player id do vencedor ou null se o jogo continua.
+ */
+export function checkWinner(state) {
+  const winner = state.players.find(
+    (p) => p.hand.cards.length === 0
+  );
+  return winner ? winner.player : null;
+}
+
+
+
 export default {
   startGameState,
   refillDeckIfNeeded,
@@ -202,4 +215,5 @@ export default {
   sayUno,
   challengeUno,
   clearUnoChallenge,
+  checkWinner,
 };
