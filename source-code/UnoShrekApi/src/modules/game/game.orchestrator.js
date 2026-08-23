@@ -356,6 +356,17 @@ export default class GameOrchestrator extends EventEmitter {
         `Turn passed after play. [gameId=${gameId}] [from=${userId}] [to=${stateAfterPlay.currentPlayer}]`,
       );
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
+
+      const winnerId = GameEngine.checkWinner(stateAfterPlay);
+          if (winnerId) {
+          this.log.info(
+          { gameId, winnerId },
+          "Player won the game",
+          );
+          game.status = GAME_STATUS.FINISHED;
+          game.winner = winnerId;
+          }
+
       await this._registerHistory(
         game, 
         userId, 
@@ -608,6 +619,17 @@ export default class GameOrchestrator extends EventEmitter {
       }
 
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
+
+      const winnerId = GameEngine.checkWinner(stateAfterPlay);
+      if (winnerId) {
+          this.log.info(
+          { gameId, winnerId: winnerId.toString() },
+          "Bot won the game",
+          );
+          game.status = GAME_STATUS.FINISHED;
+          game.winner = winnerId;
+        }
+
       // Atualiza saidUno do bot
       game.players[playerIndex].saidUno = remainingCards === 1;
       if (remainingCards === 1) {
