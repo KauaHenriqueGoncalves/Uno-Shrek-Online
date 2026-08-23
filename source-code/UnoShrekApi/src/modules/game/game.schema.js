@@ -132,6 +132,11 @@ const gameSchema = new mongoose.Schema(
       ref: "Player",
       default: null,
     },
+    winner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Player",
+      default: null,
+    },
   },
   {
     timestamps: true,
