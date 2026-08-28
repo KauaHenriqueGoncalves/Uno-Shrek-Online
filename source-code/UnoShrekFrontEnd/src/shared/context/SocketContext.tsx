@@ -39,10 +39,17 @@ export function SocketProvider({
       return;
     }
 
-    const socketUrl = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3000";
+    // Em dev, o socket conecta na mesma origem (sem host) e usa
+    // o prefixo customizado, que é redirecionado pelo proxy do Vite
+    // até a API. Em prod, não há proxy: conecta direto na URL do
+    // backend, sem prefixo (usa o path padrão do socket.io).
+    const isProd = import.meta.env.VITE_PROFILE === "prod";
 
-    const socketInstance = io(socketUrl, {
-      path: "/socket.io",
+    const socketUrl = isProd ? import.meta.env.VITE_BACKEND_URL : undefined;
+    const socketPath = isProd ? import.meta.env.VITE_SOCKET_PREFIX : undefined;
+
+    const socketInstance = io({
+      path: socketPath,
       auth: { token },
       query: { accesstoken: token },
       extraHeaders: { accesstoken: token },
