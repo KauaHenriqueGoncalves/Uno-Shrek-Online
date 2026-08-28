@@ -9,4 +9,4 @@ A real-time multiplayer UNO game with theme shrek developed as a capstone projec
 
 - **`presentation/`**: game images and demonstrations
 - **`source-code/`**: project source code (contains its own `README.md`)
-- **`docs/`**: general project documentation (architecture, API, data modeling, etc.)
+- **`documents/`**: general project documentation (architecture, API, data modeling, etc.)
