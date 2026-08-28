@@ -6,7 +6,7 @@ The project follows a Controller/Socket → Service → Repository → DTO patte
 
 ```mermaid
 flowchart LR 
-    Client[HTTP Client or Socket] --> Ctrl[Controller] 
+    Client[HTTP Client] --> Ctrl[Controller or Socket] 
     Ctrl --> DTOIn[DTO input - Zod] 
     DTOIn --> Ctrl 
     Ctrl --> Svc[Service] 
