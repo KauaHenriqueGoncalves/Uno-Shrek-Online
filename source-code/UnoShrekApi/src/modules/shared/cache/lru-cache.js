@@ -1,8 +1,11 @@
+import PinoGlobal from "../logger/pino-global.logger.js";
+
 export default class LruCache {
   constructor({ max = 50, maxAge = 30000 } = {}) {
     this.max = max;
     this.maxAge = maxAge;
     this.map = new Map(); // key -> { value, expiresAt }
+    this.log = PinoGlobal.getInstance();
   }
 
   _isExpired(entry) {
@@ -30,7 +33,7 @@ export default class LruCache {
     else if (this.map.size >= this.max) {
       const oldestKey = this.map.keys().next().value;
       this.map.delete(oldestKey);
-      log.debug({ evictedKey: oldestKey }, "[cache] remover item for LUR");
+      this.log.debug({ evictedKey: oldestKey }, "[cache] remover item for LUR");
     }
     this.map.set(key, {
       value,

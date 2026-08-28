@@ -8,6 +8,8 @@ export default {
     "src/**/*.js",
     "!src/*.js",
     "!src/**/*.test.js",
+    "!src/modules/**/*.controller.js",
+    "!src/modules/**/*.repository.js",
     "!src/modules/**/*.schema.js",
     "!src/modules/**/dto/**",
     "!src/modules/**/response/**",
@@ -15,7 +17,7 @@ export default {
     "!src/modules/sockets/*.js",
     "!src/modules/sockets/events/**",
     "!src/modules/shared/database/**",
-    "!src/modules/shared/erros/**",
+    "!src/modules/shared/errors/*.js",
     "!src/modules/shared/logger/**",
   ],
 };
