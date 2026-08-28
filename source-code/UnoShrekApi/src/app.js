@@ -28,6 +28,10 @@ import FriendshipController from "./modules/friendship/friendship.controller.js"
 import HistoryService from "./modules/history/history.service.js";
 import HistoryController from "./modules/history/history.controller.js";
 import History from "./modules/history/history.schema.js";
+import TrackingService from "./modules/tracking/tracking.service.js";
+import TrackingController from "./modules/tracking/tracking.controller.js";
+import Tracking from "./modules/tracking/tracking.schema.js";
+import trackingMiddleware from "./modules/shared/middleware/tracking.middleware.js";
 
 export default class App {
   constructor() {
@@ -59,6 +63,7 @@ export default class App {
           credentials: true,
         }),
       );
+      this.express.use(trackingMiddleware);
       this.log.info("Middlewares configured.");
     } catch (error) {
       this.log.error({ err: error }, "Somethings is wrong in the middleware.");
@@ -92,6 +97,9 @@ export default class App {
       const historyService = new HistoryService(History, playerService);
       this.historyController = new HistoryController(historyService);
 
+      const trackingService = new TrackingService(Tracking);
+      this.trackingController = new TrackingController(trackingService);
+
       const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
 
@@ -119,7 +127,8 @@ export default class App {
         loginService,
         tokenService,
         friendshipService,
-        historyService
+        historyService,
+        trackingService,
       };
     } catch (error) {
       this.log.error(
@@ -139,6 +148,7 @@ export default class App {
       this.express.use("/api/auth", this.authController.routers);
       this.express.use("/api/friends", this.friendshipController.routers);
       this.express.use("/api/histories", this.historyController.routers);
+      this.express.use("/api/stats", this.trackingController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
