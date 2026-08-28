@@ -1,4 +1,4 @@
-# Data Modeling - UnoShrekApi
+# Data Modeling
 
 ## Main Entities
 

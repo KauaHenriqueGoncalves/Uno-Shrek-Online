@@ -1,4 +1,4 @@
-# Source Code - UnoShrekApi
+# Source Code
 
 Project source code, divided into backend, frontend, and orchestration via Docker Compose.
 
