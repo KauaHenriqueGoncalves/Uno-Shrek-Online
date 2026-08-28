@@ -1,6 +1,7 @@
 <h1>
     <img src="./apresentation/assests/logo-urro.png" width="50">
-    &nbsp;&nbsp;Urro
+    &nbsp;&nbsp;URRO&nbsp;&nbsp;&nbsp;
+    <img src="./apresentation/assests/logo-urro.png" width="50">
 </h1>
 
 A real-time multiplayer UNO game with theme shrek developed as a capstone project. It features authentication, match management, a friends system, and real-time communication between players.
