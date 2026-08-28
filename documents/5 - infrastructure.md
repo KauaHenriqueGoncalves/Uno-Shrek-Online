@@ -5,7 +5,7 @@
 The application is made publicly available via an Ngrok tunnel, which exposes only the front-end (Vite.js). The front-end acts as a single entry point: client REST requests and socket connections pass through it via a reverse proxy before reaching the API.
 
 <h1>
-<img src="./../apresentation//assests/infra.png" width="700">
+<img src="./../apresentation/assests/infra.png" width="700">
 </h1>
 
 ### Why Ngrok?
