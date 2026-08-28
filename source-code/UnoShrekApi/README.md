@@ -1,4 +1,4 @@
-# UnoShrek API
+# UnoShrek API (DOCUMENTAION DEPRECATED)
 
 - [Link da documentação no Postman ](https://documenter.getpostman.com/view/46440768/2sBY4Qreda)
 
