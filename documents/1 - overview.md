@@ -29,7 +29,7 @@ The project follows a well-defined layered pattern, applied to both HTTP routes 
 
 ```mermaid
 flowchart LR
-    A[Cliente] --> B[Controller]
+    A[Cliente] --> B[Controller / Socket]
     B --> C[Service]
     C --> D[Repository]
     D --> E[(MongoDB)]
