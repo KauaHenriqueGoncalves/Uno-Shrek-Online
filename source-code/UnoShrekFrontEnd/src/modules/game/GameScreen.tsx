@@ -81,7 +81,34 @@ export function GameScreen() {
     );
   }, [game]);
 
-  
+  if (!game) {
+  return (
+    <main
+      className="relative min-h-screen overflow-hidden"
+      style={{
+        backgroundImage: `url(${background})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
+
+          <div className="text-center">
+            <h2 className="font-display text-2xl text-[#3D291F]">
+              CARREGANDO PARTIDA
+            </h2>
+
+            <p className="mt-2 font-bold text-[#8A7A63]">
+              Aguarde enquanto preparamos a mesa...
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
 
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) {
