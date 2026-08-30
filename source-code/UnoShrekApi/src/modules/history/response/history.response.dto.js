@@ -20,7 +20,6 @@ export default class HistoryResponseDto {
   }
 
   static fromDocumentDetails(history) {
-    console.log(history)
     return {
       id: history._id.toString(),
       action: history.action,
