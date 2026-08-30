@@ -8,11 +8,13 @@ import urroButton from "../../../assets/urro-button.svg";
 import { CardBack, PlayingCard } from "./PlayingCard";
 import { OpponentSeat, type Opponent } from "./OpponentSeat";
 import { MovesLogPanel } from "./MovesLogPanel";
+import { ColorPickerModal } from "../../shared/components/ColorPickerModal";
 
 import {
   useGameSocket,
   type GamePlayer,
   type GameInfo,
+  type GameCard,
 } from "./useGameSocket";
 
 import { useAuth } from "../../shared/context/AuthContext";
@@ -23,15 +25,12 @@ export function GameScreen() {
   const [movesOpen, setMovesOpen] = useState(false);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [selectedWildCard, setSelectedWildCard] = useState<string | null>(null);
 
   const gameId = sessionStorage.getItem("currentGameId");
 
-  const {
-    getGameInfo,
-    drawCard,
-    playCard,
-    sayUno,
-  } = useGameSocket({
+  const { getGameInfo, drawCard, playCard, sayUno } = useGameSocket({
     onGameInfo: (gameData) => {
       console.log("[GAME SCREEN] Game updated:", gameData);
 
@@ -60,11 +59,7 @@ export function GameScreen() {
       return null;
     }
 
-    return (
-      game.players.find(
-        (player) => player.player === user.id,
-      ) ?? null
-    );
+    return game.players.find((player) => player.player === user.id) ?? null;
   }, [game, user]);
 
   const opponents = useMemo(() => {
@@ -72,9 +67,7 @@ export function GameScreen() {
       return [];
     }
 
-    return game.players.filter(
-      (player) => player.player !== myPlayer.player,
-    );
+    return game.players.filter((player) => player.player !== myPlayer.player);
   }, [game, myPlayer]);
 
   const currentPlayer = useMemo(() => {
@@ -83,9 +76,8 @@ export function GameScreen() {
     }
 
     return (
-      game.players.find(
-        (player) => player.player === game.currentPlayer,
-      ) ?? null
+      game.players.find((player) => player.player === game.currentPlayer) ??
+      null
     );
   }, [game]);
 
@@ -97,15 +89,21 @@ export function GameScreen() {
     return game.discard[game.discard.length - 1];
   }, [game]);
 
-  const isMyTurn =
-    myPlayer?.player === game?.currentPlayer;
+  const isMyTurn = myPlayer?.player === game?.currentPlayer;
 
-  const clockwise =
-    game?.direction !== -1;
+  const clockwise = game?.direction !== -1;
+  const handleCardClick = (card: GameCard) => {
+    if (card.type === "wild" || card.type === "wild_draw_four") {
+      setSelectedWildCard(card.id);
+      setColorPickerOpen(true);
 
-  function convertOpponent(
-    player?: GamePlayer,
-  ): Opponent | null {
+      return;
+    }
+
+    playCard(card.id);
+  };
+
+  function convertOpponent(player?: GamePlayer): Opponent | null {
     if (!player) {
       return null;
     }
@@ -144,15 +142,11 @@ export function GameScreen() {
       <header className="relative z-10 flex items-start justify-between p-4">
         {/* O backend atual não envia tempo da partida */}
         <div className="rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-5 py-2">
-          <span className="font-display text-xl text-[#3D291F]">
-            --:--
-          </span>
+          <span className="font-display text-xl text-[#3D291F]">--:--</span>
         </div>
 
         <div className="mt-1 rounded-full border-[3px] border-[#3D291F] bg-[#FFF200] px-5 py-1.5 font-display text-base text-[#3D291F]">
-          {currentPlayer
-            ? `Vez de ${currentPlayer.username}`
-            : "Aguardando..."}
+          {currentPlayer ? `Vez de ${currentPlayer.username}` : "Aguardando..."}
         </div>
 
         <button
@@ -175,9 +169,7 @@ export function GameScreen() {
       <div className="relative z-10 flex flex-1 items-center justify-between px-4">
         {/* JOGADOR DA ESQUERDA */}
         <div className="w-[120px]">
-          {leftPlayer && (
-            <OpponentSeat player={leftPlayer} />
-          )}
+          {leftPlayer && <OpponentSeat player={leftPlayer} />}
         </div>
 
         {/* CENTRO DA MESA */}
@@ -204,10 +196,7 @@ export function GameScreen() {
 
           {/* MONTE + DESCARTE */}
           <div className="relative flex items-center gap-5">
-            <CardBack
-              onClick={drawCard}
-              disabled={!isMyTurn}
-            />
+            <CardBack onClick={drawCard} disabled={!isMyTurn} />
 
             {discardCard && (
               <PlayingCard
@@ -221,18 +210,14 @@ export function GameScreen() {
 
         {/* JOGADOR DA DIREITA */}
         <div className="flex w-[120px] justify-end">
-          {rightPlayer && (
-            <OpponentSeat player={rightPlayer} />
-          )}
+          {rightPlayer && <OpponentSeat player={rightPlayer} />}
         </div>
       </div>
 
       {/* JOGADOR DO TOPO */}
       <div className="pointer-events-none absolute left-0 right-0 top-16 z-10 flex justify-center">
         <div className="pointer-events-auto">
-          {topPlayer && (
-            <OpponentSeat player={topPlayer} />
-          )}
+          {topPlayer && <OpponentSeat player={topPlayer} />}
         </div>
       </div>
 
@@ -260,11 +245,7 @@ export function GameScreen() {
                 border-[3px]
                 border-[#3D291F]
                 bg-[#A9C938]
-                ${
-                  isMyTurn
-                    ? "shadow-[0_0_18px_6px_#ED1C24]"
-                    : ""
-                }
+                ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}
               `}
             />
 
@@ -294,18 +275,11 @@ export function GameScreen() {
         <button
           type="button"
           onClick={sayUno}
-          disabled={
-            !isMyTurn ||
-            myPlayer?.hand.cards.length !== 1
-          }
+          disabled={!isMyTurn || myPlayer?.hand.cards.length !== 1}
           aria-label="Gritar URRO"
           className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <img
-            src={urroButton}
-            alt="URRO"
-            className="h-[120px] w-[120px]"
-          />
+          <img src={urroButton} alt="URRO" className="h-[120px] w-[120px]" />
         </button>
       </div>
 
@@ -316,7 +290,7 @@ export function GameScreen() {
             <PlayingCard
               key={card.id}
               card={card}
-              onClick={() => playCard(card.id)}
+              onClick={() => handleCardClick(card)}
               disabled={!isMyTurn}
             />
           ))}
@@ -325,9 +299,18 @@ export function GameScreen() {
 
       {/* PAINEL DE JOGADAS */}
       {movesOpen && (
-        <MovesLogPanel
-          onClose={() => setMovesOpen(false)}
-          moves={[]}
+        <MovesLogPanel onClose={() => setMovesOpen(false)} moves={[]} />
+      )}
+
+      {/* MODAL PARA ESCOLHER A COR */}
+      {colorPickerOpen && selectedWildCard && (
+        <ColorPickerModal
+          onSelect={(color) => {
+            playCard(selectedWildCard, color);
+
+            setColorPickerOpen(false);
+            setSelectedWildCard(null);
+          }}
         />
       )}
     </main>
