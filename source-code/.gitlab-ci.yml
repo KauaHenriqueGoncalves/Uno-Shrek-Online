@@ -1,0 +1,20 @@
+stages:
+ - test
+
+integration:
+ stage: test
+ image: node:22.16.0-alpine
+ rules:
+  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+ variables:
+  npm_config_cache: ".npm-cache"
+ cache:
+  key:
+   files:
+    - source-code/UnoShrekApi/package-lock.json
+  paths:
+   - source-code/UnoShrekApi/.npm-cache
+ script:
+  - cd source-code/UnoShrekApi
+  - npm ci
+  - npm run test
