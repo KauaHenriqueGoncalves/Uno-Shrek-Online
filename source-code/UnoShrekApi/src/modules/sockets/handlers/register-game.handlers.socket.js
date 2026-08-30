@@ -68,25 +68,18 @@ export function registerGameHandlers(socket, io, { gameService }) {
  socket.on(GAME_EVENTS.INPUT.JOIN, async ({ gameId, password = "" }) => {
   try {
     const userId = socket.playerId;
-
     log.info(
       `Player joining on game on socket. [playerId=${userId}] [socketId=${socket.id}] [gameId=${gameId}]`,
     );
-
-    // Busca a sala antes de tentar entrar.
     const existingGame = await gameService.getById(gameId);
-
     const alreadyInGame = existingGame.players.some(
       (p) => p.player.toString() === userId,
     );
-
     let game;
-
     if (alreadyInGame) {
       log.info(
         `Player already belongs to game, attaching socket. [playerId=${userId}] [socketId=${socket.id}] [gameId=${gameId}]`,
       );
-
       game = existingGame;
     } else {
       game = await gameService.joinInGame(
@@ -95,24 +88,16 @@ export function registerGameHandlers(socket, io, { gameService }) {
         password,
       );
     }
-
-    // Associa o socket à sala.
     socket.join(gameId);
     socket.currentGameId = gameId;
-
     log.info(
       `Information about player on game saved in socket. [socketId=${socket.id}] [currentGameIdSocket=${socket.currentGameId}]`,
     );
-
     io.to(gameId).emit(GAME_EVENTS.OUTPUT.JOINED, {message: "Player joined",});
-
     await broadcastRoomGameInfo(io,gameService,gameId,);
-
     await broadcastAllGamesByStatus(io,gameService,GAME_STATUS.PENDING,);
-
   } catch (err) {
     log.warn({ err }, "socket failed");
-
     socket.emit(GAME_EVENTS.OUTPUT.ERROR, {message: err.message,});
   }
 });

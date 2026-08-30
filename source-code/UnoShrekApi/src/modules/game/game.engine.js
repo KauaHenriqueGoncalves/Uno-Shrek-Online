@@ -204,8 +204,6 @@ export function checkWinner(state) {
   return winner ? winner.player : null;
 }
 
-
-
 export default {
   startGameState,
   refillDeckIfNeeded,
