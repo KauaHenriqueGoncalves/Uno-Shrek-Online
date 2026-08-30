@@ -81,6 +81,8 @@ export function GameScreen() {
     );
   }, [game]);
 
+  
+
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) {
       return null;
@@ -92,6 +94,34 @@ export function GameScreen() {
   const isMyTurn = myPlayer?.player === game?.currentPlayer;
 
   const clockwise = game?.direction !== -1;
+
+  const activeColorConfig = {
+    red: {
+      label: "VERMELHO",
+      color: "#E23E3E",
+    },
+
+    green: {
+      label: "VERDE",
+      color: "#91BE38",
+    },
+
+    blue: {
+      label: "AZUL",
+      color: "#18A5D6",
+    },
+
+    yellow: {
+      label: "AMARELO",
+      color: "#FFC107",
+    },
+  };
+
+  const currentColor =
+    game?.activeColor && game.activeColor !== "wild"
+      ? activeColorConfig[game.activeColor]
+      : null;
+
   const handleCardClick = (card: GameCard) => {
     if (card.type === "wild" || card.type === "wild_draw_four") {
       setSelectedWildCard(card.id);
@@ -193,7 +223,35 @@ export function GameScreen() {
               }
             `}
           />
+          {/* COR ATUAL */}
+          {currentColor && (
+            <div className="absolute top-50 left-1/2 z-20 -translate-x-1/2">
+              <div className="flex flex-col items-center">
+                {/* Texto */}
+                <div className="mb-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-1 shadow-[0_3px_0_#3D291F]">
+                  <span className="font-display text-sm text-[#3D291F]">
+                    COR ATUAL
+                  </span>
+                </div>
 
+                {/* Cor */}
+                <div className="flex items-center gap-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-2 shadow-[0_4px_0_#3D291F]">
+                  {/* Bolinha da cor */}
+                  <div
+                    className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]"
+                    style={{
+                      backgroundColor: currentColor.color,
+                    }}
+                  />
+
+                  {/* Nome */}
+                  <span className="font-display text-sm text-[#3D291F]">
+                    {currentColor.label}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
           {/* MONTE + DESCARTE */}
           <div className="relative flex items-center gap-5">
             <CardBack onClick={drawCard} disabled={!isMyTurn} />
