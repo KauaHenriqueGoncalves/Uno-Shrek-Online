@@ -6,13 +6,18 @@ Project source code, divided into backend, frontend, and orchestration via Docke
 
 - **`UnoShrekApi/`**: REST API + Socket.io (Node.js, Express, MongoDB)
 - **`UnoShrekFrontEnd/`**: Game client application
-- **`docker-compose.yml`**: Orchestrates the services required to run the project locally
+- **`docker-compose.yaml`**: Orchestrates the services required to run the project locally
+- **`ngrok.yaml`**: configure the tunnel that will point
 
 ## Configuration
 
 Each application (`UnoShrekApi/` and `UnoShrekFrontEnd/`) has its own `.env.example` file. Before running either of them, you must navigate to the respective directory and create a `.env` file based on the `.env.example` template.
 
 ```bash
+cd ./
+cp .env.example .env
+# fill in the required variables
+
 cd UnoShrekApi
 cp .env.example .env
 # fill in the required variables
