@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
-      allowedHosts: ['overderisive-klara-punctually.ngrok-free.dev'],
+      allowedHosts: ['tartness-sixfold-return.ngrok-free.dev'], // caso necessário, troque o host! OBS: caso já tenha subido o container, apague a imagem!
 
       proxy: {
         [env.VITE_API_PREFIX]: {
