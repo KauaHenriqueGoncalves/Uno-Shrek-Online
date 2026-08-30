@@ -25,6 +25,7 @@ export function GameScreen() {
   const [movesOpen, setMovesOpen] = useState(false);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [selectedWildCard, setSelectedWildCard] = useState<string | null>(null);
 
@@ -36,12 +37,14 @@ export function GameScreen() {
 
       setGame(gameData);
       setError(null);
+      setActionLoading(false);
     },
 
     onError: (message) => {
       console.error("[GAME SCREEN] Error:", message);
 
       setError(message);
+      setActionLoading(false);
     },
   });
 
@@ -82,33 +85,33 @@ export function GameScreen() {
   }, [game]);
 
   if (!game) {
-  return (
-    <main
-      className="relative min-h-screen overflow-hidden"
-      style={{
-        backgroundImage: `url(${background})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
-        <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
+    return (
+      <main
+        className="relative min-h-screen overflow-hidden"
+        style={{
+          backgroundImage: `url(${background})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
+          <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
 
-          <div className="text-center">
-            <h2 className="font-display text-2xl text-[#3D291F]">
-              CARREGANDO PARTIDA
-            </h2>
+            <div className="text-center">
+              <h2 className="font-display text-2xl text-[#3D291F]">
+                CARREGANDO PARTIDA
+              </h2>
 
-            <p className="mt-2 font-bold text-[#8A7A63]">
-              Aguarde enquanto preparamos a mesa...
-            </p>
+              <p className="mt-2 font-bold text-[#8A7A63]">
+                Aguarde enquanto preparamos a mesa...
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
-  );
-}
+      </main>
+    );
+  }
 
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) {
@@ -121,6 +124,24 @@ export function GameScreen() {
   const isMyTurn = myPlayer?.player === game?.currentPlayer;
 
   const clockwise = game?.direction !== -1;
+
+  const handleDrawCard = () => {
+    if (actionLoading || !isMyTurn) {
+      return;
+    }
+
+    const handleSayUno = () => {
+      if (actionLoading) {
+        return;
+      }
+
+      setActionLoading(true);
+      sayUno();
+    };
+
+    setActionLoading(true);
+    drawCard();
+  };
 
   const activeColorConfig = {
     red: {
@@ -150,6 +171,10 @@ export function GameScreen() {
       : null;
 
   const handleCardClick = (card: GameCard) => {
+    if (actionLoading || !isMyTurn) {
+      return;
+    }
+
     if (card.type === "wild" || card.type === "wild_draw_four") {
       setSelectedWildCard(card.id);
       setColorPickerOpen(true);
@@ -157,6 +182,7 @@ export function GameScreen() {
       return;
     }
 
+    setActionLoading(true);
     playCard(card.id);
   };
 
@@ -391,6 +417,12 @@ export function GameScreen() {
       {colorPickerOpen && selectedWildCard && (
         <ColorPickerModal
           onSelect={(color) => {
+            if (!selectedWildCard || actionLoading) {
+              return;
+            }
+
+            setActionLoading(true);
+
             playCard(selectedWildCard, color);
 
             setColorPickerOpen(false);
