@@ -2,6 +2,7 @@ import PinoGlobal from "../../shared/logger/pino-global.logger.js";
 import GameResponseDto from "../../game/response/game.response.dto.js";
 import GAME_EVENTS from "../events/game.events.js";
 import { GAME_STATUS } from "../../game/game.schema.js";
+import { cancelDisconnectTimer } from "./player-inactivity.handlers.js";
 
 const log = PinoGlobal.getInstance();
 
@@ -90,6 +91,9 @@ export function registerGameHandlers(socket, io, { gameService }) {
     }
     socket.join(gameId);
     socket.currentGameId = gameId;
+
+    cancelDisconnectTimer(gameId, userId);
+    
     log.info(
       `Information about player on game saved in socket. [socketId=${socket.id}] [currentGameIdSocket=${socket.currentGameId}]`,
     );

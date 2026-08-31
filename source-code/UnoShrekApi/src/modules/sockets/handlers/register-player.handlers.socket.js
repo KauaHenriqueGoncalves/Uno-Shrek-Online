@@ -4,6 +4,9 @@ import { GAME_STATUS } from "../../game/game.schema.js";
 import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.socket.js";
 import { onlinePlayers, removeOnlinePlayer } from "./online-players.handlers.js";
 import PlayerResponseDto from "../../player/response/player.response.dto.js";
+import { startDisconnectTimer } from "./player-inactivity.handlers.js";
+import GAME_EVENTS from "../events/game.events.js";
+
 
 const log = PinoGlobal.getInstance();
 
@@ -39,27 +42,43 @@ export function registerPlayerHandlers(socket, io, { playerService, gameService 
     }
   });
 
-  socket.on("disconnect", async () => {
-    log.info(
-      `Player desconect. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
-    );
-    removeOnlinePlayer(socket.playerId, socket.id)
-    broadcastOnlineCount(socket, io, playerService);
-    if (!socket.currentGameId) return;
-    try {
-      const userId = socket.playerId;
-      const gameId = socket.currentGameId;
-      log.info(
-        `Removing player from game on disconnect. [playerId=${socket.playerId}] [gameId=${gameId}]`,
-      );
-      const game = await gameService.leaveGame(userId, gameId);
-      await broadcastRoomGameInfo(io, gameService, gameId);
-      await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
-    } catch (err) {
-      log.warn({ err }, "failed to remove player from game on disconnect");
-    }
+startDisconnectTimer(gameId, userId, async () => {
+  log.info(
+    `Player remained disconnected after timeout. [playerId=${userId}] [gameId=${gameId}]`,
+  );
+
+  const game = await gameService.getById(gameId);
+
+  const hasOnlineHumanPlayer = game.players.some((gamePlayer) => {
+    const playerId = gamePlayer.player.toString();
+
+    return onlinePlayers.has(playerId);
   });
-}
+
+  if (!hasOnlineHumanPlayer) {
+    log.info(
+      `No human players online. Finishing game due to inactivity. [gameId=${gameId}]`,
+    );
+
+    await gameService.finishGameByInactivity(gameId);
+
+    io.to(gameId).emit(GAME_EVENTS.OUTPUT.FINISHED, {
+    message: "Game finished due to inactivity",
+    });
+
+    await broadcastAllGamesByStatus(
+      io,
+      gameService,
+      GAME_STATUS.PENDING,
+      );
+
+      return;
+    }
+
+  log.info(
+    `Game still has online human players. [gameId=${gameId}]`,
+  );
+});
 
 export async function broadcastOnlineCount(socket, io, playerService) {
   const onlineCount = onlinePlayers.size;
