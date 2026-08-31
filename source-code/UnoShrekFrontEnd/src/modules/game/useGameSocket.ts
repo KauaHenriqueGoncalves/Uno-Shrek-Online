@@ -25,20 +25,10 @@ const GAME_EVENTS = {
   },
 };
 
-export type CardColor =
-  | "red"
-  | "green"
-  | "blue"
-  | "yellow"
-  | "wild";
+export type CardColor = "red" | "green" | "blue" | "yellow" | "wild";
 
 export type CardType =
-  | "number"
-  | "skip"
-  | "reverse"
-  | "draw_two"
-  | "wild"
-  | "wild_draw_four";
+  "number" | "skip" | "reverse" | "draw_two" | "wild" | "wild_draw_four";
 
 export type GameCard = {
   id: string;
@@ -60,6 +50,20 @@ export type GamePlayer = {
   };
 };
 
+export type HistoryItem = {
+  id: string;
+  player: string;
+  username: string;
+  action: "play" | "draw" | "sayUno";
+  card: {
+    id: string;
+    type: string;
+    color: string;
+    value: string | null;
+  } | null;
+  createdAt: string;
+};
+
 export type GameInfo = {
   id: string;
   title: string;
@@ -67,6 +71,8 @@ export type GameInfo = {
   status: string;
 
   owner: string;
+
+  histories: HistoryItem[];
 
   currentPlayer: string | null;
 
@@ -95,9 +101,7 @@ type UseGameSocketOptions = {
   onError?: (message: string) => void;
 };
 
-export function useGameSocket(
-  options: UseGameSocketOptions = {},
-) {
+export function useGameSocket(options: UseGameSocketOptions = {}) {
   const { socket } = useSocket();
 
   const optionsRef = useRef(options);
@@ -112,186 +116,110 @@ export function useGameSocket(
     }
 
     function handleGameInfo(game: GameInfo) {
-      console.log(
-        "[GAME SOCKET] GAME INFO:",
-        game,
-      );
+      console.log("[GAME SOCKET] GAME INFO:", game);
 
       optionsRef.current.onGameInfo?.(game);
     }
 
     function handleJoined() {
-      console.log(
-        "[GAME SOCKET] JOINED",
-      );
+      console.log("[GAME SOCKET] JOINED");
 
       optionsRef.current.onJoined?.();
     }
 
     function handleLeaved() {
-      console.log(
-        "[GAME SOCKET] LEAVED",
-      );
+      console.log("[GAME SOCKET] LEAVED");
 
       optionsRef.current.onLeaved?.();
     }
 
-    function handleError(
-      data: { message: string },
-    ) {
-      console.error(
-        "[GAME SOCKET] ERROR:",
-        data.message,
-      );
+    function handleError(data: { message: string }) {
+      console.error("[GAME SOCKET] ERROR:", data.message);
 
-      optionsRef.current.onError?.(
-        data.message,
-      );
+      optionsRef.current.onError?.(data.message);
     }
 
-    socket.on(
-      GAME_EVENTS.OUTPUT.GAME_INFO,
-      handleGameInfo,
-    );
+    socket.on(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
 
-    socket.on(
-      GAME_EVENTS.OUTPUT.JOINED,
-      handleJoined,
-    );
+    socket.on(GAME_EVENTS.OUTPUT.JOINED, handleJoined);
 
-    socket.on(
-      GAME_EVENTS.OUTPUT.LEAVED,
-      handleLeaved,
-    );
+    socket.on(GAME_EVENTS.OUTPUT.LEAVED, handleLeaved);
 
-    socket.on(
-      GAME_EVENTS.OUTPUT.ERROR,
-      handleError,
-    );
+    socket.on(GAME_EVENTS.OUTPUT.ERROR, handleError);
 
     return () => {
-      socket.off(
-        GAME_EVENTS.OUTPUT.GAME_INFO,
-        handleGameInfo,
-      );
+      socket.off(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
 
-      socket.off(
-        GAME_EVENTS.OUTPUT.JOINED,
-        handleJoined,
-      );
+      socket.off(GAME_EVENTS.OUTPUT.JOINED, handleJoined);
 
-      socket.off(
-        GAME_EVENTS.OUTPUT.LEAVED,
-        handleLeaved,
-      );
+      socket.off(GAME_EVENTS.OUTPUT.LEAVED, handleLeaved);
 
-      socket.off(
-        GAME_EVENTS.OUTPUT.ERROR,
-        handleError,
-      );
+      socket.off(GAME_EVENTS.OUTPUT.ERROR, handleError);
     };
   }, [socket]);
 
   const createRoom = useCallback(
-    (data: {
-      title: string;
-      maxPlayers: number;
-      password: string;
-    }) => {
-      socket?.emit(
-        GAME_EVENTS.INPUT.CREATE,
-        data,
-      );
+    (data: { title: string; maxPlayers: number; password: string }) => {
+      socket?.emit(GAME_EVENTS.INPUT.CREATE, data);
     },
     [socket],
   );
 
   const joinRoom = useCallback(
-    (
-      gameId: string,
-      password = "",
-    ) => {
-      socket?.emit(
-        GAME_EVENTS.INPUT.JOIN,
-        {
-          gameId,
-          password,
-        },
-      );
+    (gameId: string, password = "") => {
+      socket?.emit(GAME_EVENTS.INPUT.JOIN, {
+        gameId,
+        password,
+      });
     },
     [socket],
   );
 
   const leaveRoom = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.LEAVE,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.LEAVE);
   }, [socket]);
 
   const setReady = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.READY,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.READY);
   }, [socket]);
 
   const setNotReady = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.NOT_READY,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.NOT_READY);
   }, [socket]);
 
   const getGameInfo = useCallback(
-  (gameId: string) => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.GET_BY_ID_INFO,
-      { gameId },
-    );
-  },
-  [socket],
-);
+    (gameId: string) => {
+      socket?.emit(GAME_EVENTS.INPUT.GET_BY_ID_INFO, { gameId });
+    },
+    [socket],
+  );
 
   const startGame = useCallback(() => {
     console.log("[GAME SOCKET] START");
-    socket?.emit(
-      GAME_EVENTS.INPUT.START,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.START);
   }, [socket]);
 
   const drawCard = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.DRAW,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.DRAW);
   }, [socket]);
 
   const playCard = useCallback(
-    (
-      cardId: string,
-      colorChoice?: CardColor,
-    ) => {
-      socket?.emit(
-        GAME_EVENTS.INPUT.PLAY,
-        {
-          cardId,
-          colorChoice,
-        },
-      );
+    (cardId: string, colorChoice?: CardColor) => {
+      socket?.emit(GAME_EVENTS.INPUT.PLAY, {
+        cardId,
+        colorChoice,
+      });
     },
     [socket],
   );
 
   const sayUno = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.SAY_UNO,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.SAY_UNO);
   }, [socket]);
 
   const challengeUno = useCallback(() => {
-    socket?.emit(
-      GAME_EVENTS.INPUT.CHALLENGE_UNO,
-    );
+    socket?.emit(GAME_EVENTS.INPUT.CHALLENGE_UNO);
   }, [socket]);
-
- 
 
   return {
     createRoom,
@@ -310,7 +238,5 @@ export function useGameSocket(
 
     sayUno,
     challengeUno,
-
-   
   };
 }
