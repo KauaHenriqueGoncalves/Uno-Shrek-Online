@@ -62,7 +62,9 @@ export function GameScreen() {
       return null;
     }
 
-    return game.players.find((player) => player.player === user.id) ?? null;
+    return (
+      game.players.find((player) => player.player === user.id) ?? null
+    );
   }, [game, user]);
 
   const opponents = useMemo(() => {
@@ -70,7 +72,9 @@ export function GameScreen() {
       return [];
     }
 
-    return game.players.filter((player) => player.player !== myPlayer.player);
+    return game.players.filter(
+      (player) => player.player !== myPlayer.player,
+    );
   }, [game, myPlayer]);
 
   const currentPlayer = useMemo(() => {
@@ -79,11 +83,118 @@ export function GameScreen() {
     }
 
     return (
-      game.players.find((player) => player.player === game.currentPlayer) ??
-      null
+      game.players.find(
+        (player) => player.player === game.currentPlayer,
+      ) ?? null
     );
   }, [game]);
 
+  const discardCard = useMemo(() => {
+    if (!game?.discard?.length) {
+      return null;
+    }
+
+    return game.discard[game.discard.length - 1];
+  }, [game]);
+
+  const isMyTurn = myPlayer?.player === game?.currentPlayer;
+
+  const clockwise = game?.direction !== -1;
+
+  const activeColorConfig = {
+    red: {
+      label: "VERMELHO",
+      color: "#E23E3E",
+    },
+
+    green: {
+      label: "VERDE",
+      color: "#91BE38",
+    },
+
+    blue: {
+      label: "AZUL",
+      color: "#18A5D6",
+    },
+
+    yellow: {
+      label: "AMARELO",
+      color: "#FFC107",
+    },
+  };
+
+  const currentColor =
+    game?.activeColor && game.activeColor !== "wild"
+      ? activeColorConfig[
+          game.activeColor as keyof typeof activeColorConfig
+        ]
+      : null;
+
+  const handleDrawCard = () => {
+    if (actionLoading || !isMyTurn) {
+      return;
+    }
+
+    setActionLoading(true);
+    drawCard();
+  };
+
+  const handleCardClick = (card: GameCard) => {
+    if (actionLoading || !isMyTurn) {
+      return;
+    }
+
+    if (card.type === "wild" || card.type === "wild_draw_four") {
+      setSelectedWildCard(card.id);
+      setColorPickerOpen(true);
+
+      return;
+    }
+
+    setActionLoading(true);
+    playCard(card.id);
+  };
+
+  const handleSayUno = () => {
+    if (actionLoading || !isMyTurn) {
+      return;
+    }
+
+    if (myPlayer?.hand.cards.length !== 1) {
+      return;
+    }
+
+    setActionLoading(true);
+    sayUno();
+  };
+
+  function convertOpponent(player?: GamePlayer): Opponent | null {
+    if (!player) {
+      return null;
+    }
+
+    return {
+      id: player.player,
+      name: player.username,
+      cards: player.hand.cards.length,
+      active: player.player === game?.currentPlayer,
+    };
+  }
+
+  /*
+   * Distribuição visual:
+   *
+   * opponents[0] -> topo
+   * opponents[1] -> esquerda
+   * opponents[2] -> direita
+   */
+  const topPlayer = convertOpponent(opponents[0]);
+  const leftPlayer = convertOpponent(opponents[1]);
+  const rightPlayer = convertOpponent(opponents[2]);
+
+  /*
+   * Loading da partida
+   */
   if (!game) {
     return (
       <main
@@ -113,103 +224,6 @@ export function GameScreen() {
     );
   }
 
-  const discardCard = useMemo(() => {
-    if (!game?.discard?.length) {
-      return null;
-    }
-
-    return game.discard[game.discard.length - 1];
-  }, [game]);
-
-  const isMyTurn = myPlayer?.player === game?.currentPlayer;
-
-  const clockwise = game?.direction !== -1;
-
-  const handleDrawCard = () => {
-    if (actionLoading || !isMyTurn) {
-      return;
-    }
-
-    const handleSayUno = () => {
-      if (actionLoading) {
-        return;
-      }
-
-      setActionLoading(true);
-      sayUno();
-    };
-
-    setActionLoading(true);
-    drawCard();
-  };
-
-  const activeColorConfig = {
-    red: {
-      label: "VERMELHO",
-      color: "#E23E3E",
-    },
-
-    green: {
-      label: "VERDE",
-      color: "#91BE38",
-    },
-
-    blue: {
-      label: "AZUL",
-      color: "#18A5D6",
-    },
-
-    yellow: {
-      label: "AMARELO",
-      color: "#FFC107",
-    },
-  };
-
-  const currentColor =
-    game?.activeColor && game.activeColor !== "wild"
-      ? activeColorConfig[game.activeColor]
-      : null;
-
-  const handleCardClick = (card: GameCard) => {
-    if (actionLoading || !isMyTurn) {
-      return;
-    }
-
-    if (card.type === "wild" || card.type === "wild_draw_four") {
-      setSelectedWildCard(card.id);
-      setColorPickerOpen(true);
-
-      return;
-    }
-
-    setActionLoading(true);
-    playCard(card.id);
-  };
-
-  function convertOpponent(player?: GamePlayer): Opponent | null {
-    if (!player) {
-      return null;
-    }
-
-    return {
-      id: player.player,
-      name: player.username,
-      cards: player.hand.cards.length,
-      active: player.player === game?.currentPlayer,
-    };
-  }
-
-  /*
-   * Distribuição visual:
-   *
-   * opponents[0] -> topo
-   * opponents[1] -> esquerda
-   * opponents[2] -> direita
-   */
-  const topPlayer = convertOpponent(opponents[0]);
-  const leftPlayer = convertOpponent(opponents[1]);
-  const rightPlayer = convertOpponent(opponents[2]);
-
   return (
     <main className="relative flex h-screen w-full flex-col overflow-hidden">
       {/* BACKGROUND */}
@@ -225,11 +239,15 @@ export function GameScreen() {
       <header className="relative z-10 flex items-start justify-between p-4">
         {/* O backend atual não envia tempo da partida */}
         <div className="rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-5 py-2">
-          <span className="font-display text-xl text-[#3D291F]">--:--</span>
+          <span className="font-display text-xl text-[#3D291F]">
+            --:--
+          </span>
         </div>
 
         <div className="mt-1 rounded-full border-[3px] border-[#3D291F] bg-[#FFF200] px-5 py-1.5 font-display text-base text-[#3D291F]">
-          {currentPlayer ? `Vez de ${currentPlayer.username}` : "Aguardando..."}
+          {currentPlayer
+            ? `Vez de ${currentPlayer.username}`
+            : "Aguardando..."}
         </div>
 
         <button
@@ -276,9 +294,10 @@ export function GameScreen() {
               }
             `}
           />
+
           {/* COR ATUAL */}
           {currentColor && (
-            <div className="absolute top-50 left-1/2 z-20 -translate-x-1/2">
+            <div className="absolute left-1/2 top-50 z-20 -translate-x-1/2">
               <div className="flex flex-col items-center">
                 {/* Texto */}
                 <div className="mb-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-1 shadow-[0_3px_0_#3D291F]">
@@ -305,9 +324,13 @@ export function GameScreen() {
               </div>
             </div>
           )}
+
           {/* MONTE + DESCARTE */}
           <div className="relative flex items-center gap-5">
-            <CardBack onClick={drawCard} disabled={!isMyTurn} />
+            <CardBack
+              onClick={handleDrawCard}
+              disabled={!isMyTurn || actionLoading}
+            />
 
             {discardCard && (
               <PlayingCard
@@ -356,7 +379,11 @@ export function GameScreen() {
                 border-[3px]
                 border-[#3D291F]
                 bg-[#A9C938]
-                ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}
+                ${
+                  isMyTurn
+                    ? "shadow-[0_0_18px_6px_#ED1C24]"
+                    : ""
+                }
               `}
             />
 
@@ -385,12 +412,20 @@ export function GameScreen() {
         {/* BOTÃO URRO */}
         <button
           type="button"
-          onClick={sayUno}
-          disabled={!isMyTurn || myPlayer?.hand.cards.length !== 1}
+          onClick={handleSayUno}
+          disabled={
+            !isMyTurn ||
+            myPlayer?.hand.cards.length !== 1 ||
+            actionLoading
+          }
           aria-label="Gritar URRO"
           className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <img src={urroButton} alt="URRO" className="h-[120px] w-[120px]" />
+          <img
+            src={urroButton}
+            alt="URRO"
+            className="h-[120px] w-[120px]"
+          />
         </button>
       </div>
 
@@ -402,7 +437,7 @@ export function GameScreen() {
               key={card.id}
               card={card}
               onClick={() => handleCardClick(card)}
-              disabled={!isMyTurn}
+              disabled={!isMyTurn || actionLoading}
             />
           ))}
         </div>
@@ -410,7 +445,10 @@ export function GameScreen() {
 
       {/* PAINEL DE JOGADAS */}
       {movesOpen && (
-        <MovesLogPanel onClose={() => setMovesOpen(false)} moves={[]} />
+        <MovesLogPanel
+          onClose={() => setMovesOpen(false)}
+          moves={[]}
+        />
       )}
 
       {/* MODAL PARA ESCOLHER A COR */}
