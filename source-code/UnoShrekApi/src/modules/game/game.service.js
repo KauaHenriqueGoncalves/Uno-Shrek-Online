@@ -118,10 +118,11 @@ export default class GameService {
     this.log.info(
       `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}] [code=${game.code}]`,
     );
-    const { game: gameWithScore } = await this.orchestrator.createScorePlayerFor(
-      ownerId,
-      game._id.toString(),
-    );
+    const { game: gameWithScore } =
+      await this.orchestrator.createScorePlayerFor(
+        ownerId,
+        game._id.toString(),
+      );
     return gameWithScore;
   }
 
@@ -260,7 +261,7 @@ export default class GameService {
     this.log.info(
       `Updating player score. [playerId=${playerId}] [gameId=${gameId}] [score=${score}]`,
     );
-     const updatedGame = await this.orchestrator.updateScore(
+    const updatedGame = await this.orchestrator.updateScore(
       playerId,
       gameId,
       score,
@@ -320,6 +321,26 @@ export default class GameService {
     game.status = GAME_STATUS.FINISHED;
     const gameUpdated = await this.gameRepository.update(gameId, game);
     this.log.info(`Game finished. [ownerId=${ownerId}] [gameId=${gameId}]`);
+    return gameUpdated;
+  }
+
+  async finishGameByInactivity(gameId) {
+    this.log.info(`Finishing game due to inactivity. [gameId=${gameId}]`);
+
+    const game = await this.getById(gameId);
+
+    if (game.status === GAME_STATUS.FINISHED) {
+      this.log.info(`Game already finished. [gameId=${gameId}]`);
+
+      return game;
+    }
+
+    game.status = GAME_STATUS.FINISHED;
+
+    const gameUpdated = await this.gameRepository.update(gameId, game);
+
+    this.log.info(`Game finished due to inactivity. [gameId=${gameId}]`);
+
     return gameUpdated;
   }
 
