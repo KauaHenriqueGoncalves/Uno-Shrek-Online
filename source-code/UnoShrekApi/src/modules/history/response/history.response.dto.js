@@ -19,20 +19,20 @@ export default class HistoryResponseDto {
     };
   }
 
-  static fromDocumentDetails(history) {
-    return {
-      id: history._id.toString(),
-      action: history.action,
-      player: history.player
-        ? {
-            id: history.player._id.toString(),
-            username: history.player.username,
-          }
-        : null,
-      card: history.card ? this.fromDocumentCard(history.card) : null,
-      createdAt: history.createdAt,
-    };
-  }
+ static fromDocumentDetails(history) {
+  return {
+    id: history._id.toString(),
+    action: history.action,
+    player: history.player
+      ? (history.player._id ?? history.player).toString()
+      : null,
+    username: history.player?.username    
+      ?? history.player?.name           
+      ?? "Bot",                          
+    card: history.card ? this.fromDocumentCard(history.card) : null,
+    createdAt: history.createdAt,
+  };
+}
 
   static fromDocumentCard(card) {
     return {
