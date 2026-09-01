@@ -21,7 +21,7 @@ export function registerGameHandlers(socket, io, { gameService }) {
     }
   });
 
-  socket.on(GAME_EVENTS.INPUT.GET_BY_ID_INFO, async ({ gameId }) => {
+  socket.on(GAME_EVENTS.INPUT.GET_BY_ID_INFO, async ({ gameId } = {}) => {
     try {
       const userId = socket.playerId;
 
