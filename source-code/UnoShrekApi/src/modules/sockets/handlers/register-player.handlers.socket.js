@@ -1,9 +1,11 @@
 import PinoGlobal from "../../shared/logger/pino-global.logger.js";
 import PLAYER_EVENTS from "../events/player.events.js";
+import GAME_EVENTS from "../events/game.events.js";
 import { GAME_STATUS } from "../../game/game.schema.js";
-import { broadcastRoomGameInfo, broadcastAllGamesByStatus } from "./register-game.handlers.socket.js";
+import { broadcastRoomGameInfo, broadcastAllGamesByStatus} from "./register-game.handlers.socket.js";
 import { onlinePlayers, removeOnlinePlayer } from "./online-players.handlers.js";
 import PlayerResponseDto from "../../player/response/player.response.dto.js";
+import { startDisconnectTimer, cancelDisconnectTimer} from "./player-inactivity.handlers.js";
 
 const log = PinoGlobal.getInstance();
 
@@ -40,63 +42,101 @@ export function registerPlayerHandlers(socket, io, { playerService, gameService 
   });
 
   socket.on("disconnect", async () => {
+    const userId  = socket.playerId;
+    const gameId  = socket.currentGameId;
+
     log.info(
-      `Player desconect. [playerId=${socket.playerId}] [socketId=${socket.id}]`,
+      `Player disconnected. [playerId=${userId}] [socketId=${socket.id}] [gameId=${gameId}]`,
     );
-    removeOnlinePlayer(socket.playerId, socket.id)
+
+    removeOnlinePlayer(userId, socket.id);
     broadcastOnlineCount(socket, io, playerService);
-    if (!socket.currentGameId) return;
-    try {
-      const userId = socket.playerId;
-      const gameId = socket.currentGameId;
+
+    // Se não estava em nenhuma partida, nada mais a fazer
+    if (!gameId) return;
+
+    // Inicia o timer de 60s, se o jogador reconectar, cancela
+    startDisconnectTimer(gameId, userId, async () => {
       log.info(
-        `Removing player from game on disconnect. [playerId=${socket.playerId}] [gameId=${gameId}]`,
+        `Player remained disconnected after timeout. [playerId=${userId}] [gameId=${gameId}]`,
       );
-      const game = await gameService.leaveGame(userId, gameId);
-      await broadcastRoomGameInfo(io, gameService, gameId);
-      await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
-    } catch (err) {
-      log.warn({ err }, "failed to remove player from game on disconnect");
-    }
+
+      try {
+        const game = await gameService.getById(gameId);
+
+        // Jogo já encerrado
+        if (game.status === GAME_STATUS.FINISHED) return;
+
+        // Verifica se ainda há algum humano online na partida
+        const hasOnlineHumanPlayer = game.players.some((p) =>
+          onlinePlayers.has(p.player.toString()),
+        );
+
+        if (!hasOnlineHumanPlayer) {
+          log.info(
+            `No human players online. Finishing game due to inactivity. [gameId=${gameId}]`,
+          );
+
+          await gameService.finishGameByInactivity(gameId);
+
+          io.to(gameId).emit(GAME_EVENTS.OUTPUT.FINISHED, {
+            message: "Game finished due to inactivity",
+          });
+
+          await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
+          return;
+        }
+
+        // Ainda há humanos, apenas remove o jogador desconectado da sala
+        log.info(
+          `Game still has online human players, removing disconnected player. [playerId=${userId}] [gameId=${gameId}]`,
+        );
+
+        await gameService.leaveGame(userId, gameId);
+        await broadcastRoomGameInfo(io, gameService, gameId);
+        await broadcastAllGamesByStatus(io, gameService, GAME_STATUS.PENDING);
+      } catch (err) {
+        log.warn({ err }, "Failed to process disconnect timeout");
+      }
+    });
   });
 }
 
+
 export async function broadcastOnlineCount(socket, io, playerService) {
-  const onlineCount = onlinePlayers.size;
-  log.info(`Broadcasting online count. [onlineCount=${onlineCount}]`);
+  const onlineCount    = onlinePlayers.size;
   const playersOnlineIds = [...onlinePlayers.keys()];
-  if (playersOnlineIds.size === 0) {
-    log.info(`No one online. [onlinePlayers=${onlineCount}]`);
+
+  log.info(`Broadcasting online count. [onlineCount=${onlineCount}]`);
+
+  if (playersOnlineIds.length === 0) {
+    io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, { onlineCount, players: [] });
     return;
   }
+
   const players = await playerService.getAllByIds(playersOnlineIds);
-  io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, { 
-    onlineCount, 
-    players: PlayerResponseDto.fromDocumentViewSimpleList(players) 
+  io.emit(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, {
+    onlineCount,
+    players: PlayerResponseDto.fromDocumentViewSimpleList(players),
   });
 }
 
 export async function broadcastRoomMessage(io, socket, playerService, playerId, gameId, message) {
   try {
     message = message.trim();
-    if (!playerId) {
-      throw Error("PlayerId cannot be empty to send message");
-    }
-    if (!message || message.length === 0) {
-      throw Error("Message cannot be empty to send message");
-    }
-    if (message.length >= 500) {
-      throw Error("Message is very long");
-    }
+    if (!playerId)                    throw new Error("PlayerId cannot be empty");
+    if (!message || message.length === 0) throw new Error("Message cannot be empty");
+    if (message.length >= 500)        throw new Error("Message is too long");
+
     const player = await playerService.getById(playerId);
     log.info(
-      `Broadcasting sending message. [playerId=${playerId}] [username=${player.username}] [gameId=${gameId}] [message=${message}]`,
+      `Broadcasting message. [playerId=${playerId}] [username=${player.username}] [gameId=${gameId}]`,
     );
-    const emited = {
+
+    io.to(gameId).emit(PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT, {
       username: player.username,
-      message: message,
-    };
-    io.to(gameId).emit(PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT, emited);
+      message,
+    });
   } catch (err) {
     log.warn({ err }, "socket failed");
     socket.emit(PLAYER_EVENTS.OUTPUT.ERROR, { message: err.message });
