@@ -29,6 +29,11 @@ export function SocketProvider({
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+
+    console.log("[SOCKET CONTEXT] Effect executado", {
+    token,
+    hasSocket: !!socketRef.current,
+  });
     if (!token) {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -60,14 +65,29 @@ export function SocketProvider({
     setSocket(socketInstance);
 
     socketInstance.on("connect", () => {
+      console.log("[SOCKET CONTEXT] Socket conectado", socketInstance.id);
       setConnected(true);
     });
 
-    socketInstance.on("disconnect", () => {
+    socketInstance.on("disconnect", (reason) => {
+      console.log(
+    "[SOCKET CONTEXT] Socket desconectado",
+    socketInstance.id,
+    "Motivo:",
+    reason
+  );
       setConnected(false);
     });
 
     return () => {
+
+      console.log(
+    "[SOCKET CONTEXT] CLEANUP EXECUTADO - desconectando socket",
+    socketInstance.id,
+    "Token:",
+    token
+  );
+
       socketInstance.disconnect();
       if (socketRef.current === socketInstance) {
         socketRef.current = null;
