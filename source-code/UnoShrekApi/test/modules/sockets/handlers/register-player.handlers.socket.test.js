@@ -22,6 +22,7 @@ jest.mock(
 
 let mockOnlinePlayers;
 const mockRemoveOnlinePlayer = jest.fn();
+
 jest.mock(
   "../../../../src/modules/sockets/handlers/online-players.handlers.js",
   () => ({
@@ -35,6 +36,7 @@ jest.mock(
 
 const mockBroadcastRoomGameInfo = jest.fn();
 const mockBroadcastAllGamesByStatus = jest.fn();
+
 jest.mock(
   "../../../../src/modules/sockets/handlers/register-game.handlers.socket.js",
   () => ({
@@ -102,7 +104,6 @@ describe("player.handlers.socket", () => {
 
       registerPlayerHandlers(socket, io, { playerService, gameService });
 
-      // broadcastOnlineCount runs async; flush microtasks.
       await Promise.resolve();
       await Promise.resolve();
 
@@ -176,6 +177,7 @@ describe("player.handlers.socket", () => {
           "player-1",
           "socket-1",
         );
+
         expect(io.emit).toHaveBeenCalledWith(
           PLAYER_EVENTS.OUTPUT.ONLINE_COUNT,
           expect.any(Object),
@@ -194,38 +196,26 @@ describe("player.handlers.socket", () => {
         expect(mockBroadcastAllGamesByStatus).not.toHaveBeenCalled();
       });
 
-      test("removes the player from the game and broadcasts updates when a current game exists", async () => {
+      test("does not immediately remove the player from the game when a current game exists", async () => {
         socket.currentGameId = "game-1";
-        gameService.leaveGame.mockResolvedValue({});
 
         registerPlayerHandlers(socket, io, { playerService, gameService });
 
         await getHandler("disconnect")();
 
-        expect(gameService.leaveGame).toHaveBeenCalledWith(
-          "player-1",
-          "game-1",
-        );
-        expect(mockBroadcastRoomGameInfo).toHaveBeenCalledWith(
-          io,
-          gameService,
-          "game-1",
-        );
-        expect(mockBroadcastAllGamesByStatus).toHaveBeenCalledWith(
-          io,
-          gameService,
-          GAME_STATUS.PENDING,
-        );
+        expect(gameService.leaveGame).not.toHaveBeenCalled();
+        expect(mockBroadcastRoomGameInfo).not.toHaveBeenCalled();
+        expect(mockBroadcastAllGamesByStatus).not.toHaveBeenCalled();
       });
 
-      test("swallows errors thrown while removing the player from the game", async () => {
+      test("does not throw when disconnect handling is executed", async () => {
         socket.currentGameId = "game-1";
-        gameService.leaveGame.mockRejectedValue(new Error("boom"));
 
         registerPlayerHandlers(socket, io, { playerService, gameService });
 
-        await expect(getHandler("disconnect")()).resolves.not.toThrow();
-        expect(mockBroadcastRoomGameInfo).not.toHaveBeenCalled();
+        await expect(
+          getHandler("disconnect")(),
+        ).resolves.not.toThrow();
       });
     });
   });
@@ -233,6 +223,7 @@ describe("player.handlers.socket", () => {
   describe("broadcastOnlineCount", () => {
     test("fetches online players and emits count with player list", async () => {
       mockOnlinePlayers.set("player-1", new Set(["socket-1"]));
+
       playerService.getAllByIds.mockResolvedValue([
         { id: "player-1", username: "shrek" },
       ]);
@@ -240,24 +231,28 @@ describe("player.handlers.socket", () => {
       await broadcastOnlineCount(socket, io, playerService);
 
       expect(playerService.getAllByIds).toHaveBeenCalledWith(["player-1"]);
-      expect(io.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, {
-        onlineCount: 1,
-        players: [{ id: "player-1", username: "shrek" }],
-      });
+
+      expect(io.emit).toHaveBeenCalledWith(
+        PLAYER_EVENTS.OUTPUT.ONLINE_COUNT,
+        {
+          onlineCount: 1,
+          players: [{ id: "player-1", username: "shrek" }],
+        },
+      );
     });
 
-    // NOTE: this documents current behavior, not necessarily intended behavior.
-    // `playersOnlineIds` is an array, so `.size` is always undefined and the
-    // "no one online" early-return branch never triggers. Worth a bugfix:
-    // it should check `playersOnlineIds.length === 0` instead.
-    test("still calls the service even when no one is online (documents current bug)", async () => {
+    test("does not call the service when no one is online", async () => {
       await broadcastOnlineCount(socket, io, playerService);
 
-      expect(playerService.getAllByIds).toHaveBeenCalledWith([]);
-      expect(io.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ONLINE_COUNT, {
-        onlineCount: 0,
-        players: [],
-      });
+      expect(playerService.getAllByIds).not.toHaveBeenCalled();
+
+      expect(io.emit).toHaveBeenCalledWith(
+        PLAYER_EVENTS.OUTPUT.ONLINE_COUNT,
+        {
+          onlineCount: 0,
+          players: [],
+        },
+      );
     });
   });
 
@@ -275,6 +270,7 @@ describe("player.handlers.socket", () => {
       );
 
       expect(io.to).toHaveBeenCalledWith("game-1");
+
       expect(io.emit).toHaveBeenCalledWith(
         PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT,
         {
@@ -295,8 +291,9 @@ describe("player.handlers.socket", () => {
       );
 
       expect(playerService.getById).not.toHaveBeenCalled();
+
       expect(socket.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ERROR, {
-        message: "PlayerId cannot be empty to send message",
+        message: "PlayerId cannot be empty",
       });
     });
 
@@ -311,8 +308,9 @@ describe("player.handlers.socket", () => {
       );
 
       expect(playerService.getById).not.toHaveBeenCalled();
+
       expect(socket.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ERROR, {
-        message: "Message cannot be empty to send message",
+        message: "Message cannot be empty",
       });
     });
 
@@ -329,8 +327,9 @@ describe("player.handlers.socket", () => {
       );
 
       expect(playerService.getById).not.toHaveBeenCalled();
+
       expect(socket.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ERROR, {
-        message: "Message is very long",
+        message: "Message is too long",
       });
     });
 
@@ -347,6 +346,7 @@ describe("player.handlers.socket", () => {
       );
 
       expect(io.emit).not.toHaveBeenCalled();
+
       expect(socket.emit).toHaveBeenCalledWith(PLAYER_EVENTS.OUTPUT.ERROR, {
         message: "Player not found",
       });

@@ -9,6 +9,12 @@ import { CardBack, PlayingCard } from "./PlayingCard";
 import { OpponentSeat, type Opponent } from "./OpponentSeat";
 import { MovesLogPanel, type MoveLogItem } from "./MovesLogPanel";
 import { ColorPickerModal } from "../../shared/components/ColorPickerModal";
+import { ReconnectionBanner } from "../../shared/components/ReconnectionBanner";
+import { GameOverBanner } from "../../shared/components/Gameoverbanner";
+
+import { useReconnection } from "../../shared/hooks/useReconnection";
+import { useSocket } from "../../shared/context/SocketContext";
+import { useNavigate } from "@tanstack/react-router";
 
 import {
   useGameSocket,
@@ -20,31 +26,31 @@ import {
 
 import { useAuth } from "../../shared/context/AuthContext";
 
-//  Helpers
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const COLOR_LABEL: Record<string, string> = {
-  red: "Vermelho",
-  blue: "Azul",
-  green: "Verde",
+  red:    "Vermelho",
+  blue:   "Azul",
+  green:  "Verde",
   yellow: "Amarelo",
-  wild: "Coringa",
+  wild:   "Coringa",
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  skip: "Pular",
-  reverse: "Inverter",
-  draw_two: "+2",
-  wild: "Coringa",
+  skip:           "Pular",
+  reverse:        "Inverter",
+  draw_two:       "+2",
+  wild:           "Coringa",
   wild_draw_four: "+4",
 };
 
 function formatAction(h: HistoryItem): string {
-  if (h.action === "draw") return "Comprou uma carta";
+  if (h.action === "draw")   return "Comprou uma carta";
   if (h.action === "sayUno") return "Disse URRO! 🎉";
 
   if (h.action === "play" && h.card) {
     const color = COLOR_LABEL[h.card.color] ?? h.card.color;
-    const type =
+    const type  =
       h.card.type === "number"
         ? String(h.card.value ?? "")
         : (TYPE_LABEL[h.card.type] ?? h.card.type);
@@ -54,20 +60,37 @@ function formatAction(h: HistoryItem): string {
   return h.action;
 }
 
-// Component
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function GameScreen() {
-  const { user } = useAuth();
+  const { user }       = useAuth();
+  const { socket }     = useSocket();
+  const navigate       = useNavigate();
+  const reconnection   = useReconnection();
 
-  const [movesOpen, setMovesOpen] = useState(false);
-  const [game, setGame] = useState<GameInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [selectedWildCard, setSelectedWildCard] = useState<string | null>(null);
+  const [movesOpen, setMovesOpen]                   = useState(false);
+  const [game, setGame]                             = useState<GameInfo | null>(null);
+  const [error, setError]                           = useState<string | null>(null);
+  const [actionLoading, setActionLoading]           = useState(false);
+  const [colorPickerOpen, setColorPickerOpen]       = useState(false);
+  const [selectedWildCard, setSelectedWildCard]     = useState<string | null>(null);
+  const [gameFinishedByInactivity, setGameFinishedByInactivity] = useState(false);
 
   const gameId = sessionStorage.getItem("currentGameId");
 
+  // ── Socket: game::finished (inatividade) ─────────────────────────────────
+  useEffect(() => {
+    if (!socket) return;
+
+    function handleFinished() {
+      setGameFinishedByInactivity(true);
+    }
+
+    socket.on("game::finished", handleFinished);
+    return () => { socket.off("game::finished", handleFinished); };
+  }, [socket]);
+
+  // ── Game socket ───────────────────────────────────────────────────────────
   const { getGameInfo, drawCard, playCard, sayUno } = useGameSocket({
     onGameInfo: (gameData) => {
       setGame(gameData);
@@ -81,14 +104,11 @@ export function GameScreen() {
   });
 
   useEffect(() => {
-    if (!gameId) {
-      setError("Partida não encontrada.");
-      return;
-    }
+    if (!gameId) { setError("Partida não encontrada."); return; }
     getGameInfo(gameId);
   }, [gameId, getGameInfo]);
 
-  //  Derivados
+  // ── Derivados ─────────────────────────────────────────────────────────────
 
   const myPlayer = useMemo(() => {
     if (!game || !user) return null;
@@ -96,29 +116,16 @@ export function GameScreen() {
   }, [game, user]);
 
   const relativeOpponents = useMemo(() => {
-    if (!game || !myPlayer) {
-      return [];
+    if (!game || !myPlayer) return [];
+
+    const myIndex = game.players.findIndex((p) => p.player === myPlayer.player);
+    if (myIndex === -1) return [];
+
+    const ordered: GamePlayer[] = [];
+    for (let offset = 1; offset < game.players.length; offset++) {
+      ordered.push(game.players[(myIndex + offset) % game.players.length]);
     }
-
-    const players = game.players;
-
-    const myIndex = players.findIndex(
-      (player) => player.player === myPlayer.player,
-    );
-
-    if (myIndex === -1) {
-      return [];
-    }
-
-    const orderedOpponents: GamePlayer[] = [];
-
-    for (let offset = 1; offset < players.length; offset++) {
-      const index = (myIndex + offset) % players.length;
-
-      orderedOpponents.push(players[index]);
-    }
-
-    return orderedOpponents;
+    return ordered;
   }, [game, myPlayer]);
 
   const currentPlayer = useMemo(() => {
@@ -131,27 +138,26 @@ export function GameScreen() {
     return game.discard[game.discard.length - 1];
   }, [game]);
 
-  // Histórico
+  // ── Histórico ─────────────────────────────────────────────────────────────
   const moves = useMemo<MoveLogItem[]>(() => {
     if (!game?.histories?.length) return [];
-    // mais recente primeiro
     return [...game.histories].reverse().map((h) => ({
-      id: h.id,
+      id:     h.id,
       player: h.username,
-      text: formatAction(h),
+      text:   formatAction(h),
     }));
   }, [game?.histories]);
 
-  //  Flags
+  // ── Flags ─────────────────────────────────────────────────────────────────
 
-  const isMyTurn = myPlayer?.player === game?.currentPlayer;
+  const isMyTurn  = myPlayer?.player === game?.currentPlayer;
   const clockwise = game?.direction !== -1;
 
   const activeColorConfig = {
-    red: { label: "VERMELHO", color: "#E23E3E" },
-    green: { label: "VERDE", color: "#91BE38" },
-    blue: { label: "AZUL", color: "#18A5D6" },
-    yellow: { label: "AMARELO", color: "#FFC107" },
+    red:    { label: "VERMELHO", color: "#E23E3E" },
+    green:  { label: "VERDE",    color: "#91BE38" },
+    blue:   { label: "AZUL",     color: "#18A5D6" },
+    yellow: { label: "AMARELO",  color: "#FFC107" },
   };
 
   const currentColor =
@@ -159,7 +165,32 @@ export function GameScreen() {
       ? activeColorConfig[game.activeColor as keyof typeof activeColorConfig]
       : null;
 
-  // Handlers
+  // ── Posições dos adversários ──────────────────────────────────────────────
+
+  function convertOpponent(player?: GamePlayer): Opponent | null {
+    if (!player) return null;
+    return {
+      id:     player.player,
+      name:   player.username,
+      cards:  player.hand.cards.length,
+      active: player.player === game?.currentPlayer,
+    };
+  }
+
+  const opponentPositions = useMemo(() => {
+    const positions = { top: null as Opponent | null, left: null as Opponent | null, right: null as Opponent | null };
+    const converted = relativeOpponents.map((p) => convertOpponent(p));
+
+    if (converted.length === 1) positions.top   = converted[0];                                              // 2 jogadores
+    if (converted.length === 2) { positions.left = converted[0]; positions.right = converted[1]; }           // 3 jogadores
+    if (converted.length === 3) { positions.top  = converted[0]; positions.left  = converted[1]; positions.right = converted[2]; } // 4 jogadores
+
+    return positions;
+  }, [relativeOpponents, game]);
+
+  const { top: topPlayer, left: leftPlayer, right: rightPlayer } = opponentPositions;
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleDrawCard = () => {
     if (actionLoading || !isMyTurn) return;
@@ -185,80 +216,20 @@ export function GameScreen() {
     sayUno();
   };
 
-  function convertOpponent(player?: GamePlayer): Opponent | null {
-    if (!player) return null;
-    return {
-      id: player.player,
-      name: player.username,
-      cards: player.hand.cards.length,
-      active: player.player === game?.currentPlayer,
-    };
-  }
-
-  const opponentPositions = useMemo(() => {
-    const positions: {
-      top: Opponent | null;
-      left: Opponent | null;
-      right: Opponent | null;
-    } = {
-      top: null,
-      left: null,
-      right: null,
-    };
-
-    const convertedOpponents = relativeOpponents.map((player) =>
-      convertOpponent(player),
-    );
-
-    // Partida com 2 jogadores
-    if (convertedOpponents.length === 1) {
-      positions.top = convertedOpponents[0];
-    }
-
-    // Partida com 3 jogadores
-    if (convertedOpponents.length === 2) {
-      positions.left = convertedOpponents[0];
-      positions.right = convertedOpponents[1];
-    }
-
-    // Partida com 4 jogadores
-    if (convertedOpponents.length === 3) {
-      positions.top = convertedOpponents[0];
-      positions.left = convertedOpponents[1];
-      positions.right = convertedOpponents[2];
-    }
-
-    return positions;
-  }, [relativeOpponents, game]);
-
-  const {
-    top: topPlayer,
-    left: leftPlayer,
-    right: rightPlayer,
-  } = opponentPositions;
-
-  // Loading
+  // ── Loading ───────────────────────────────────────────────────────────────
 
   if (!game) {
     return (
       <main
         className="relative min-h-screen overflow-hidden"
-        style={{
-          backgroundImage: `url(${background})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+        style={{ backgroundImage: `url(${background})`, backgroundSize: "cover", backgroundPosition: "center" }}
       >
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
           <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
             <div className="text-center">
-              <h2 className="font-display text-2xl text-[#3D291F]">
-                CARREGANDO PARTIDA
-              </h2>
-              <p className="mt-2 font-bold text-[#8A7A63]">
-                Aguarde enquanto preparamos a mesa...
-              </p>
+              <h2 className="font-display text-2xl text-[#3D291F]">CARREGANDO PARTIDA</h2>
+              <p className="mt-2 font-bold text-[#8A7A63]">Aguarde enquanto preparamos a mesa...</p>
             </div>
           </div>
         </div>
@@ -266,15 +237,11 @@ export function GameScreen() {
     );
   }
 
-  // Render
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <main className="relative flex h-screen w-full flex-col overflow-hidden">
-      <img
-        src={background}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-      />
+      <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-black/45" />
 
       {/* HEADER */}
@@ -305,65 +272,40 @@ export function GameScreen() {
 
       {/* JOGADORES LATERAIS + MESA */}
       <div className="relative z-10 flex flex-1 items-center justify-between px-4">
-        {/* JOGADOR DA ESQUERDA */}
-        <div
-          className={`w-[120px] transition-all ${
-            game.players.length === 3 ? "-translate-y-16" : ""
-          }`}
-        >
+        <div className={`w-[120px] transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}>
           {leftPlayer && <OpponentSeat player={leftPlayer} />}
         </div>
 
         <div className="relative flex items-center justify-center">
-          <div
-            className={`
+          <div className={`
             absolute h-[320px] w-[320px] rounded-full border-[6px] border-dashed border-[#FAEFDD]/80
             sm:h-[380px] sm:w-[380px]
             ${clockwise ? "animate-[spin_18s_linear_infinite]" : "animate-[spin_18s_linear_infinite_reverse]"}
-          `}
-          />
+          `} />
 
           {currentColor && (
             <div className="absolute left-1/2 top-50 z-20 -translate-x-1/2">
               <div className="flex flex-col items-center">
                 <div className="mb-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-1 shadow-[0_3px_0_#3D291F]">
-                  <span className="font-display text-sm text-[#3D291F]">
-                    COR ATUAL
-                  </span>
+                  <span className="font-display text-sm text-[#3D291F]">COR ATUAL</span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-2 shadow-[0_4px_0_#3D291F]">
-                  <div
-                    className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]"
-                    style={{ backgroundColor: currentColor.color }}
-                  />
-                  <span className="font-display text-sm text-[#3D291F]">
-                    {currentColor.label}
-                  </span>
+                  <div className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]" style={{ backgroundColor: currentColor.color }} />
+                  <span className="font-display text-sm text-[#3D291F]">{currentColor.label}</span>
                 </div>
               </div>
             </div>
           )}
 
           <div className="relative flex items-center gap-5">
-            <CardBack
-              onClick={handleDrawCard}
-              disabled={!isMyTurn || actionLoading}
-            />
+            <CardBack onClick={handleDrawCard} disabled={!isMyTurn || actionLoading} />
             {discardCard && (
-              <PlayingCard
-                card={discardCard}
-                className="rotate-6 hover:translate-y-0"
-                disabled
-              />
+              <PlayingCard card={discardCard} className="rotate-6 hover:translate-y-0" disabled />
             )}
           </div>
         </div>
 
-        <div
-          className={`flex w-[120px] justify-end transition-all ${
-            game.players.length === 3 ? "-translate-y-16" : ""
-          }`}
-        >
+        <div className={`flex w-[120px] justify-end transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}>
           {rightPlayer && <OpponentSeat player={rightPlayer} />}
         </div>
       </div>
@@ -384,9 +326,7 @@ export function GameScreen() {
       >
         <span className="text-xl font-bold">❯</span>
         {moves.length > 0 && (
-          <span className="text-[9px] font-black leading-none">
-            {moves.length}
-          </span>
+          <span className="text-[9px] font-black leading-none">{moves.length}</span>
         )}
       </button>
 
@@ -394,34 +334,21 @@ export function GameScreen() {
       <div className="relative z-20 flex items-end justify-between px-6 pb-4">
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center gap-1">
-            <div
-              className={`h-14 w-14 rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`}
-            />
+            <div className={`h-14 w-14 rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`} />
             <span className="max-w-[140px] truncate rounded-full bg-[#4A3525] px-3 py-0.5 text-xs font-bold text-white">
               {myPlayer?.username ?? user?.username ?? "Você"}
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {}}
-            aria-label="Enviar emote"
-            className="transition active:translate-y-1"
-          >
-            <img
-              src={emoteButton}
-              alt="Enviar emote"
-              className="h-[62px] w-[62px]"
-            />
+          <button type="button" onClick={() => {}} aria-label="Enviar emote" className="transition active:translate-y-1">
+            <img src={emoteButton} alt="Enviar emote" className="h-[62px] w-[62px]" />
           </button>
         </div>
 
         <button
           type="button"
           onClick={handleSayUno}
-          disabled={
-            !isMyTurn || myPlayer?.hand.cards.length !== 1 || actionLoading
-          }
+          disabled={!isMyTurn || myPlayer?.hand.cards.length !== 1 || actionLoading}
           aria-label="Gritar URRO"
           className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -460,6 +387,22 @@ export function GameScreen() {
           }}
         />
       )}
+
+      {/* BANNER DE RECONEXÃO — aparece quando perde conexão */}
+      {reconnection.status === "reconnecting" && (
+        <ReconnectionBanner secondsLeft={reconnection.secondsLeft} />
+      )}
+
+      {/* BANNER DE JOGO ENCERRADO — tempo esgotado ou servidor encerrou */}
+      {(reconnection.status === "failed" || gameFinishedByInactivity) && (
+  <GameOverBanner
+    onLeave={() =>
+      navigate({
+        to: "/home",
+      })
+    }
+  />
+)}
     </main>
   );
 }
