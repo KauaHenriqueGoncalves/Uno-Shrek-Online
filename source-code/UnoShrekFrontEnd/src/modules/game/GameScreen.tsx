@@ -91,7 +91,7 @@ export function GameScreen() {
   }, [socket]);
 
   // ── Game socket ───────────────────────────────────────────────────────────
-  const { getGameInfo, drawCard, playCard, sayUno } = useGameSocket({
+  const { getGameInfo, drawCard, playCard, sayUno, challengeUno } = useGameSocket({
     onGameInfo: (gameData) => {
       setGame(gameData);
       setError(null);
@@ -151,6 +151,16 @@ export function GameScreen() {
   // ── Flags ─────────────────────────────────────────────────────────────────
 
   const isMyTurn  = myPlayer?.player === game?.currentPlayer;
+  const canSayUno = Boolean(
+    myPlayer &&
+      myPlayer.hand.cards.length === 1 &&
+      game?.unoChallengePlayer === myPlayer.player,
+  );
+  const canChallengeUno = Boolean(
+    myPlayer &&
+      game?.unoChallengePlayer &&
+      game.unoChallengePlayer !== myPlayer.player,
+  );
   const clockwise = game?.direction !== -1;
 
   const activeColorConfig = {
@@ -210,10 +220,15 @@ export function GameScreen() {
   };
 
   const handleSayUno = () => {
-    if (actionLoading || !isMyTurn) return;
-    if (myPlayer?.hand.cards.length !== 1) return;
+    if (actionLoading || !canSayUno) return;
     setActionLoading(true);
     sayUno();
+  };
+
+  const handleChallengeUno = () => {
+    if (actionLoading || !canChallengeUno) return;
+    setActionLoading(true);
+    challengeUno();
   };
 
   // ── Loading ───────────────────────────────────────────────────────────────
@@ -345,15 +360,31 @@ export function GameScreen() {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSayUno}
-          disabled={!isMyTurn || myPlayer?.hand.cards.length !== 1 || actionLoading}
-          aria-label="Gritar URRO"
-          className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <img src={urroButton} alt="URRO" className="h-[120px] w-[120px]" />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleChallengeUno}
+            disabled={!canChallengeUno || actionLoading}
+            aria-label="Contra URRO"
+            className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full border-[4px] border-[#3D291F] bg-[#ED1C24] shadow-[0_6px_0_#3D291F]">
+              <span className="font-display text-[16px] leading-none tracking-[0.12em] text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                CONTRA
+              </span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSayUno}
+            disabled={!canSayUno || actionLoading}
+            aria-label="Gritar URRO"
+            className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <img src={urroButton} alt="URRO" className="h-[120px] w-[120px]" />
+          </button>
+        </div>
       </div>
 
       {/* MÃO DO JOGADOR */}
