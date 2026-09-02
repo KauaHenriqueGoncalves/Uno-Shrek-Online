@@ -609,8 +609,8 @@ export default class GameOrchestrator extends EventEmitter {
       const remainingCards = stateAfterPlay.players[playerIndex].hand.cards.length;
 
       if (remainingCards === 1) {
-        stateAfterPlay.unoChallenge = null;
-        stateAfterPlay.players[playerIndex].saidUno = true;
+        stateAfterPlay.unoChallenge = { player: stateAfterPlay.players[playerIndex].player };
+        stateAfterPlay.players[playerIndex].saidUno = false;
       }
 
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
@@ -625,13 +625,16 @@ export default class GameOrchestrator extends EventEmitter {
           game.winner = winnerId;
         }
 
-      // Atualiza saidUno do bot
-      game.players[playerIndex].saidUno = remainingCards === 1;
+      // Mantém o desafio pendente quando o bot termina com uma carta.
+      game.players[playerIndex].saidUno = false;
       if (remainingCards === 1) {
+        game.unoChallengePlayer = currentPlayerId;
         this.log.info(
           { gameId, playerId: currentPlayerId },
-          "BOT DECLARED URROOOOOOOOOO",
+          "BOT HAS ONE CARD LEFT - UNO challenge is pending",
         );
+      } else {
+        game.unoChallengePlayer = null;
       }
       const updatedGame = await this.gameRepository.update(
         gameId,

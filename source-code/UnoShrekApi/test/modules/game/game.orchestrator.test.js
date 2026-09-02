@@ -818,7 +818,7 @@ describe("GameOrchestrator", () => {
       );
     });
 
-    it("sets saidUno to true when the bot ends its turn with exactly one card", async () => {
+    it("keeps the UNO challenge pending when the bot ends its turn with exactly one card", async () => {
       const game = buildActiveGameWithBot();
       orchestrator.gameRepository.getById.mockResolvedValue(game);
       orchestrator.gameRepository.update.mockResolvedValue(game);
@@ -832,7 +832,8 @@ describe("GameOrchestrator", () => {
       GameEngine.validatePlay.mockReturnValue(true);
       GameEngine.applyPlay.mockReturnValue({
         state: {
-          players: [{ hand: { cards: [{ id: "onlyCard" }] } }],
+          players: [{ player: "bot1", hand: { cards: [{ id: "onlyCard" }] }, saidUno: false }],
+          unoChallenge: { player: "bot1" },
         },
         drawnCards: [],
         effect: "none",
@@ -840,7 +841,8 @@ describe("GameOrchestrator", () => {
 
       await orchestrator.playBotTurn("game1");
 
-      expect(game.players[0].saidUno).toBe(true);
+      expect(game.players[0].saidUno).toBe(false);
+      expect(game.unoChallengePlayer).toBe("bot1");
     });
   });
 
