@@ -6,6 +6,7 @@ import { CreatePlayerRequestDto } from "./dto/create-player.request.dto.js";
 import { UpdatePlayerRequestDto } from "./dto/update.player.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 import JwtCoder from "../shared/jwt/jwt-coder.js";
+import { assignDefaultAvatar } from "./player.schema.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -84,9 +85,11 @@ export default class PlayerService {
       throw new BusinessError("Username already exists");
     }
     const hashedPassword = await bcrypt.hash(validData.password, SALT_ROUNDS);
+    const avatar = assignDefaultAvatar(validData.picture);
     const player = await this.playerRepository.create({
       ...validData,
       password: hashedPassword,
+      ...avatar,
     });
     this.log.info(
       { playerId: player._id.toString(), email: player.email },
@@ -147,7 +150,8 @@ export default class PlayerService {
 
   async linkGoogle(id, googleId, picture) {
     this.log.info(`Linking Google to player. [playerId=${id}]`);
-    return await this.playerRepository.update(id, { googleId, picture });
+    const avatar = assignDefaultAvatar(picture);
+    return await this.playerRepository.update(id, { googleId, ...avatar });
   }
 
   async createFromGoogle({ username, email, googleId, picture }) {
@@ -155,14 +159,15 @@ export default class PlayerService {
     const baseUsername = username.replace(/\s+/g, "_").toLowerCase();
     const isExist = await this.playerRepository.getByUsername(baseUsername);
     const finalUsername = isExist ? `${baseUsername}_${Date.now()}` : baseUsername;
+    const avatar = assignDefaultAvatar(picture);
 
   return await this.playerRepository.create({
     username: finalUsername,
     email,
     googleId,
-    picture,
+    ...avatar,
     age: 18,
-    password: crypto.randomUUID(), 
+    password: crypto.randomUUID(),
   });
 }
 }

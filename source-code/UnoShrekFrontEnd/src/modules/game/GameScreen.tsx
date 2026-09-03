@@ -15,6 +15,7 @@ import { GameOverBanner } from "../../shared/components/Gameoverbanner";
 import { useReconnection } from "../../shared/hooks/useReconnection";
 import { useSocket } from "../../shared/context/SocketContext";
 import { useNavigate } from "@tanstack/react-router";
+import { resolveAvatar } from "../../shared/utils/avatar";
 
 import {
   useGameSocket,
@@ -115,6 +116,8 @@ export function GameScreen() {
     return game.players.find((p) => p.player === user.id) ?? null;
   }, [game, user]);
 
+  const myAvatar = resolveAvatar(myPlayer?.picture, myPlayer?.avatarKey);
+
   const relativeOpponents = useMemo(() => {
     if (!game || !myPlayer) return [];
 
@@ -182,6 +185,7 @@ export function GameScreen() {
     return {
       id:     player.player,
       name:   player.username,
+      avatar: resolveAvatar(player.picture, player.avatarKey),
       cards:  player.hand.cards.length,
       active: player.player === game?.currentPlayer,
     };
@@ -349,7 +353,16 @@ export function GameScreen() {
       <div className="relative z-20 flex items-end justify-between px-6 pb-4">
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center gap-1">
-            <div className={`h-14 w-14 rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`} />
+            <div className={`h-14 w-14 overflow-hidden rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`}>
+              {myAvatar && (
+                <img
+                  src={myAvatar}
+                  alt={myPlayer?.username ?? user?.username ?? "Você"}
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
             <span className="max-w-[140px] truncate rounded-full bg-[#4A3525] px-3 py-0.5 text-xs font-bold text-white">
               {myPlayer?.username ?? user?.username ?? "Você"}
             </span>
