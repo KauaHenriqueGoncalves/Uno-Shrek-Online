@@ -35,6 +35,7 @@ export function OpponentSeat({
           <img
             src={player.avatar}
             alt={player.name}
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover"
           />
         )}

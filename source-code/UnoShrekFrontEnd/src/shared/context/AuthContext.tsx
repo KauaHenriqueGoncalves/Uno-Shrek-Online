@@ -6,7 +6,8 @@ type Player = {
   username: string;
   email: string;
   age: number;
-  picture?: string;
+  picture?: string | null;
+  avatarKey?: string | null;
 };
 
 type AuthContextType = {

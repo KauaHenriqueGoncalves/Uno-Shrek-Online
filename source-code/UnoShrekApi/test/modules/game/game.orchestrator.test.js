@@ -1,6 +1,7 @@
 import GameOrchestrator from "../../../src/modules/game/game.orchestrator.js";
 import GameEngine from "../../../src/modules/game/game.engine.js";
 import { GAME_STATUS } from "../../../src/modules/game/game.schema.js";
+import { AVATAR_KEYS } from "../../../src/modules/player/player.schema.js";
 import { BusinessError } from "../../../src/modules/shared/errors/business.error.js";
 import { NotFoundError } from "../../../src/modules/shared/errors/not-found.error.js";
 import { createDeck } from "../../../src/modules/game/util/deck.js";
@@ -275,6 +276,21 @@ describe("GameOrchestrator", () => {
         null,
       );
       expect(result).toBe(createdPlayer);
+    });
+
+    it("assigns a random default avatarKey and no picture", async () => {
+      crypto.randomUUID.mockReturnValue("abcdefgh-1234");
+      bcrypt.hash.mockResolvedValue("hashed-pass");
+      orchestrator.playerRepository.create.mockResolvedValue({
+        _id: "bot1",
+        username: "ShrekBot_abcdefgh",
+      });
+
+      await orchestrator.createBotPlayer("game1");
+
+      const createdData = orchestrator.playerRepository.create.mock.calls[0][0];
+      expect(createdData.picture).toBeNull();
+      expect(AVATAR_KEYS).toContain(createdData.avatarKey);
     });
   });
 
