@@ -11,10 +11,12 @@ import { api } from "../../shared/services/api";
 import { WaitingRoomModal, WaitingPlayer } from "./WaitingRoomModal";
 import axios from "axios";
 import { useNavigate } from "@tanstack/react-router";
+import { resolveAvatar } from "../../shared/utils/avatar";
 
 export function HomeScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const avatarSrc = resolveAvatar(user?.picture, user?.avatarKey);
 
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [joinRoomOpen, setJoinRoomOpen] = useState(false);
@@ -64,6 +66,8 @@ export function HomeScreen() {
         ready: p.ready,
         host: p.player === game.owner,
         you: p.player === me,
+        picture: p.picture,
+        avatarKey: p.avatarKey,
       }));
 
       setWaitingGame({
@@ -232,7 +236,16 @@ export function HomeScreen() {
       {/* HEADER */}
       <header className="relative flex items-start justify-between p-6">
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16 rounded-full border-4 border-[#9CCB45] bg-[#F4EBD9] shadow-[0_4px_0_#3D291F]" />
+          <div className="h-16 w-16 overflow-hidden rounded-full border-4 border-[#9CCB45] bg-[#F4EBD9] shadow-[0_4px_0_#3D291F]">
+            {avatarSrc && (
+              <img
+                src={avatarSrc}
+                alt={user?.username ?? "Avatar"}
+                referrerPolicy="no-referrer"
+                className="h-full w-full rounded-full object-cover"
+              />
+            )}
+          </div>
 
           <div>
             <p className="font-display text-xl text-white drop-shadow-[0_2px_0_#3D291F]">

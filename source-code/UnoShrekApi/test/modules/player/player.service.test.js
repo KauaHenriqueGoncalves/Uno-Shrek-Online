@@ -2,6 +2,7 @@ import { jest } from "@jest/globals";
 import bcrypt from "bcryptjs";
 import PlayerService from "../../../src/modules/player/player.service.js";
 import PlayerRepository from "../../../src/modules/player/player.repository.js";
+import { AVATAR_KEYS } from "../../../src/modules/player/player.schema.js";
 import { BusinessError } from "../../../src/modules/shared/errors/business.error.js";
 import { NotFoundError } from "../../../src/modules/shared/errors/not-found.error.js";
 
@@ -192,6 +193,99 @@ describe("PlayerService", () => {
       await expect(playerService.create(baseValidData)).rejects.toThrow(
         BusinessError,
       );
+    });
+
+    test("should assign a random default avatarKey and no picture for a traditional signup", async () => {
+      jest
+        .spyOn(PlayerRepository.prototype, "getByEmail")
+        .mockResolvedValue(null);
+      jest
+        .spyOn(PlayerRepository.prototype, "getByUsername")
+        .mockResolvedValue(null);
+      jest.spyOn(bcrypt, "hash").mockResolvedValue("senha_criptografada");
+      const createSpy = jest
+        .spyOn(PlayerRepository.prototype, "create")
+        .mockResolvedValue({ _id: "12345", ...baseValidData });
+
+      await playerService.create(baseValidData);
+
+      const createdData = createSpy.mock.calls[0][0];
+      expect(createdData.picture).toBeNull();
+      expect(AVATAR_KEYS).toContain(createdData.avatarKey);
+    });
+  });
+
+  describe("createFromGoogle", () => {
+    const googleData = {
+      username: "Test User",
+      email: "test@example.com",
+      googleId: "google123",
+    };
+
+    test("should keep the Google picture and leave avatarKey null when picture is provided", async () => {
+      jest
+        .spyOn(PlayerRepository.prototype, "getByUsername")
+        .mockResolvedValue(null);
+      const createSpy = jest
+        .spyOn(PlayerRepository.prototype, "create")
+        .mockResolvedValue({ _id: "1" });
+
+      await playerService.createFromGoogle({
+        ...googleData,
+        picture: "https://example.com/picture.jpg",
+      });
+
+      const createdData = createSpy.mock.calls[0][0];
+      expect(createdData.picture).toBe("https://example.com/picture.jpg");
+      expect(createdData.avatarKey).toBeNull();
+    });
+
+    test("should assign a random default avatarKey when Google account has no picture", async () => {
+      jest
+        .spyOn(PlayerRepository.prototype, "getByUsername")
+        .mockResolvedValue(null);
+      const createSpy = jest
+        .spyOn(PlayerRepository.prototype, "create")
+        .mockResolvedValue({ _id: "1" });
+
+      await playerService.createFromGoogle({ ...googleData, picture: undefined });
+
+      const createdData = createSpy.mock.calls[0][0];
+      expect(createdData.picture).toBeNull();
+      expect(AVATAR_KEYS).toContain(createdData.avatarKey);
+    });
+  });
+
+  describe("linkGoogle", () => {
+    const playerId = "12345";
+    const googleId = "google123";
+
+    test("should keep the Google picture and leave avatarKey null when picture is provided", async () => {
+      const updateSpy = jest
+        .spyOn(PlayerRepository.prototype, "update")
+        .mockResolvedValue({ _id: playerId });
+
+      await playerService.linkGoogle(
+        playerId,
+        googleId,
+        "https://example.com/picture.jpg",
+      );
+
+      const updatedData = updateSpy.mock.calls[0][1];
+      expect(updatedData.picture).toBe("https://example.com/picture.jpg");
+      expect(updatedData.avatarKey).toBeNull();
+    });
+
+    test("should assign a random default avatarKey when Google account has no picture", async () => {
+      const updateSpy = jest
+        .spyOn(PlayerRepository.prototype, "update")
+        .mockResolvedValue({ _id: playerId });
+
+      await playerService.linkGoogle(playerId, googleId, undefined);
+
+      const updatedData = updateSpy.mock.calls[0][1];
+      expect(updatedData.picture).toBeNull();
+      expect(AVATAR_KEYS).toContain(updatedData.avatarKey);
     });
   });
 
