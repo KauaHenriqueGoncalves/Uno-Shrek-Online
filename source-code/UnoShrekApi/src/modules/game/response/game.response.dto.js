@@ -50,6 +50,8 @@ export default class GameResponseDto {
       players: game.players.map((p) => ({
         player: p.player._id.toString(),
         username: p.player.username,
+        picture: p.player.picture ?? null,
+        avatarKey: p.player.avatarKey ?? null,
         ready: p.ready,
         isBot: Boolean(p.isBot),
         saidUno: Boolean(p.saidUno),

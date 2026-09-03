@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+export const AVATAR_KEYS = ["shrek", "fiona", "donkey", "puss"];
+
+export function assignDefaultAvatar(picture) {
+  if (picture) {
+    return { picture, avatarKey: null };
+  }
+  const avatarKey = AVATAR_KEYS[Math.floor(Math.random() * AVATAR_KEYS.length)];
+  return { picture: null, avatarKey };
+}
+
 const playerSchema = new mongoose.Schema(
   {
     username: {
@@ -30,6 +40,12 @@ const playerSchema = new mongoose.Schema(
       required: false,
       default: null,
 },
+    avatarKey: {
+      type: String,
+      required: false,
+      enum: [...AVATAR_KEYS, null],
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -40,6 +40,8 @@ export type GameCard = {
 export type GamePlayer = {
   player: string;
   username: string;
+  picture?: string | null;
+  avatarKey?: string | null;
   ready: boolean;
   isBot: boolean;
   saidUno: boolean;

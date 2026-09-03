@@ -4,6 +4,8 @@ export default class PlayerResponseDto {
     this.username = player.username;
     this.age = player.age;
     this.email = player.email;
+    this.picture = player.picture ?? null;
+    this.avatarKey = player.avatarKey ?? null;
     this.createdAt = player.createdAt;
   }
 
