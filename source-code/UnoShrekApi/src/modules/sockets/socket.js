@@ -5,6 +5,7 @@ import {
   registerGameHandlers,
   broadcastRoomGameInfo,
 } from "./handlers/register-game.handlers.socket.js";
+import { registerEmojiHandlers } from "./handlers/register-emoji.handlers.socket.js";
 import { registerPlayerHandlers } from "./handlers/register-player.handlers.socket.js";
 import { registerFriendHandlers } from "./handlers/register-friend.handlers.socket.js";
 import { addOnlinePlayer } from "./handlers/online-players.handlers.js";
@@ -36,6 +37,7 @@ export default function initSocket(httpServer, { gameService, playerService, fri
     try {
       addOnlinePlayer(socket.playerId, socket.id);
       registerGameHandlers(socket, io, { gameService });
+      registerEmojiHandlers(socket, io);
       registerPlayerHandlers(socket, io, { playerService, gameService });
       registerFriendHandlers(socket, io, { friendshipService, playerService, gameService });
     } catch (err) {
