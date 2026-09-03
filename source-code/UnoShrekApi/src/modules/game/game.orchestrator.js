@@ -7,6 +7,7 @@ import { NotFoundError } from "../shared/errors/not-found.error.js";
 import { GAME_STATUS } from "./game.schema.js";
 import ScorePlayerRepository from "../score/score-player.repository.js";
 import PlayerRepository from "../player/player.repository.js";
+import { assignDefaultAvatar } from "../player/player.schema.js";
 import CardRepository from "../card/card.repository.js";
 import HistoryRepository from "../history/history.repository.js";
 import { createDeck } from "./util/deck.js";
@@ -144,7 +145,7 @@ export default class GameOrchestrator extends EventEmitter {
     const email = `${username}@urro.local`;
     const password = await bcrypt.hash(crypto.randomUUID(), 10);
     const botPlayer = await this.playerRepository.create(
-      { username, age: 18, email, password },
+      { username, age: 18, email, password, ...assignDefaultAvatar(null) },
       session,
     );
     this.log.info(

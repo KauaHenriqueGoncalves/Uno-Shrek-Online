@@ -1,7 +1,17 @@
 import { Check, Clock, Crown } from "lucide-react";
 import { GummyButton } from "../../shared/components/GummyButton";
+import { resolveAvatar } from "../../shared/utils/avatar";
 
-export type WaitingPlayer = { id: string; name: string; level: number; ready: boolean; host?: boolean; you?: boolean };
+export type WaitingPlayer = {
+  id: string;
+  name: string;
+  level: number;
+  ready: boolean;
+  host?: boolean;
+  you?: boolean;
+  picture?: string | null;
+  avatarKey?: string | null;
+};
 
 type Props = {
   role: "host" | "guest";
@@ -31,8 +41,21 @@ export function WaitingRoomModal({ role, code, capacity = 4, players, onLeave, o
         <div className="my-5 h-[2px] rounded-full bg-[#3D291F]/15" />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {slots.map((player, index) =>
-            player ? (
+          {slots.map((player, index) => {
+            if (!player) {
+              return (
+                <div
+                  key={`empty-${index}`}
+                  className="flex h-[72px] items-center justify-center rounded-2xl border-[3px] border-dashed border-[#3D291F]/30 bg-[#3D291F]/5 text-sm font-bold text-[#8A7A63]"
+                >
+                  Aguardando...
+                </div>
+              );
+            }
+
+            const avatar = resolveAvatar(player.picture, player.avatarKey);
+
+            return (
               <div
                 key={player.id}
                 className={`relative flex items-center gap-3 rounded-2xl border-[3px] border-[#3D291F] px-3 py-3 ${
@@ -42,7 +65,16 @@ export function WaitingRoomModal({ role, code, capacity = 4, players, onLeave, o
                 {player.host && (
                   <Crown size={18} className="absolute -top-3 left-4 fill-[#FFC93C] text-[#3D291F]" />
                 )}
-                <div className="h-12 w-12 shrink-0 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD]" />
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD]">
+                  {avatar && (
+                    <img
+                      src={avatar}
+                      alt={player.name}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold text-[#3D291F]">
                     {player.name}
@@ -58,15 +90,8 @@ export function WaitingRoomModal({ role, code, capacity = 4, players, onLeave, o
                   {player.ready ? <Check size={16} strokeWidth={4} /> : <Clock size={16} />}
                 </span>
               </div>
-            ) : (
-              <div
-                key={`empty-${index}`}
-                className="flex h-[72px] items-center justify-center rounded-2xl border-[3px] border-dashed border-[#3D291F]/30 bg-[#3D291F]/5 text-sm font-bold text-[#8A7A63]"
-              >
-                Aguardando...
-              </div>
-            ),
-          )}
+            );
+          })}
         </div>
 
         <div className="my-5 h-[2px] rounded-full bg-[#3D291F]/15" />
