@@ -137,6 +137,10 @@ const gameSchema = new mongoose.Schema(
       ref: "Player",
       default: null,
     },
+    startedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

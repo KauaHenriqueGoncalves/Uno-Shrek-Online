@@ -11,6 +11,7 @@ import { MovesLogPanel, type MoveLogItem } from "./MovesLogPanel";
 import { ColorPickerModal } from "../../shared/components/ColorPickerModal";
 import { ReconnectionBanner } from "../../shared/components/ReconnectionBanner";
 import { GameOverBanner } from "../../shared/components/Gameoverbanner";
+import { SettingsModal } from "../../shared/components/SettingsModal";
 
 import { useReconnection } from "../../shared/hooks/useReconnection";
 import { useSocket } from "../../shared/context/SocketContext";
@@ -30,28 +31,28 @@ import { useAuth } from "../../shared/context/AuthContext";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const COLOR_LABEL: Record<string, string> = {
-  red:    "Vermelho",
-  blue:   "Azul",
-  green:  "Verde",
+  red: "Vermelho",
+  blue: "Azul",
+  green: "Verde",
   yellow: "Amarelo",
-  wild:   "Coringa",
+  wild: "Coringa",
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  skip:           "Pular",
-  reverse:        "Inverter",
-  draw_two:       "+2",
-  wild:           "Coringa",
+  skip: "Pular",
+  reverse: "Inverter",
+  draw_two: "+2",
+  wild: "Coringa",
   wild_draw_four: "+4",
 };
 
 function formatAction(h: HistoryItem): string {
-  if (h.action === "draw")   return "Comprou uma carta";
+  if (h.action === "draw") return "Comprou uma carta";
   if (h.action === "sayUno") return "Disse URRO! 🎉";
 
   if (h.action === "play" && h.card) {
     const color = COLOR_LABEL[h.card.color] ?? h.card.color;
-    const type  =
+    const type =
       h.card.type === "number"
         ? String(h.card.value ?? "")
         : (TYPE_LABEL[h.card.type] ?? h.card.type);
@@ -64,20 +65,32 @@ function formatAction(h: HistoryItem): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function GameScreen() {
-  const { user }       = useAuth();
-  const { socket }     = useSocket();
-  const navigate       = useNavigate();
-  const reconnection   = useReconnection();
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const navigate = useNavigate();
+  const reconnection = useReconnection();
 
-  const [movesOpen, setMovesOpen]                   = useState(false);
-  const [game, setGame]                             = useState<GameInfo | null>(null);
-  const [error, setError]                           = useState<string | null>(null);
-  const [actionLoading, setActionLoading]           = useState(false);
-  const [colorPickerOpen, setColorPickerOpen]       = useState(false);
-  const [selectedWildCard, setSelectedWildCard]     = useState<string | null>(null);
-  const [gameFinishedByInactivity, setGameFinishedByInactivity] = useState(false);
+  const [movesOpen, setMovesOpen] = useState(false);
+  const [game, setGame] = useState<GameInfo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [selectedWildCard, setSelectedWildCard] = useState<string | null>(null);
+  const [gameFinishedByInactivity, setGameFinishedByInactivity] =
+    useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const gameId = sessionStorage.getItem("currentGameId");
+
+  const handleLeaveGame = () => {
+    leaveRoom();
+    sessionStorage.removeItem("currentGameId");
+
+    navigate({
+      to: "/home",
+    });
+  };
 
   // ── Socket: game::finished (inatividade) ─────────────────────────────────
   useEffect(() => {
@@ -88,24 +101,30 @@ export function GameScreen() {
     }
 
     socket.on("game::finished", handleFinished);
-    return () => { socket.off("game::finished", handleFinished); };
+    return () => {
+      socket.off("game::finished", handleFinished);
+    };
   }, [socket]);
 
   // ── Game socket ───────────────────────────────────────────────────────────
-  const { getGameInfo, drawCard, playCard, sayUno, challengeUno } = useGameSocket({
-    onGameInfo: (gameData) => {
-      setGame(gameData);
-      setError(null);
-      setActionLoading(false);
-    },
-    onError: (message) => {
-      setError(message);
-      setActionLoading(false);
-    },
-  });
+  const { getGameInfo, drawCard, playCard, sayUno, challengeUno, leaveRoom } =
+    useGameSocket({
+      onGameInfo: (gameData) => {
+        setGame(gameData);
+        setError(null);
+        setActionLoading(false);
+      },
+      onError: (message) => {
+        setError(message);
+        setActionLoading(false);
+      },
+    });
 
   useEffect(() => {
-    if (!gameId) { setError("Partida não encontrada."); return; }
+    if (!gameId) {
+      setError("Partida não encontrada.");
+      return;
+    }
     getGameInfo(gameId);
   }, [gameId, getGameInfo]);
 
@@ -117,6 +136,27 @@ export function GameScreen() {
   }, [game, user]);
 
   const myAvatar = resolveAvatar(myPlayer?.picture, myPlayer?.avatarKey);
+
+  const winner = useMemo(
+    () =>
+      game?.status === "finished" && game.winner
+        ? (() => {
+            const winnerPlayer = game.players.find(
+              (player) => player.player === game.winner,
+            );
+            return winnerPlayer
+              ? {
+                  username: winnerPlayer.username,
+                  avatar: resolveAvatar(
+                    winnerPlayer.picture,
+                    winnerPlayer.avatarKey,
+                  ),
+                }
+              : null;
+          })()
+        : null,
+    [game],
+  );
 
   const relativeOpponents = useMemo(() => {
     if (!game || !myPlayer) return [];
@@ -136,6 +176,27 @@ export function GameScreen() {
     return game.players.find((p) => p.player === game.currentPlayer) ?? null;
   }, [game]);
 
+  useEffect(() => {
+    const startedAtValue = game?.startedAt;
+    if (!startedAtValue) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      const startedAt = Date.parse(startedAtValue);
+      setElapsedSeconds(
+        Number.isNaN(startedAt)
+          ? 0
+          : Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      );
+    };
+
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [game?.startedAt]);
+
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) return null;
     return game.discard[game.discard.length - 1];
@@ -145,32 +206,36 @@ export function GameScreen() {
   const moves = useMemo<MoveLogItem[]>(() => {
     if (!game?.histories?.length) return [];
     return [...game.histories].reverse().map((h) => ({
-      id:     h.id,
+      id: h.id,
       player: h.username,
-      text:   formatAction(h),
+      text: formatAction(h),
     }));
   }, [game?.histories]);
 
   // ── Flags ─────────────────────────────────────────────────────────────────
 
-  const isMyTurn  = myPlayer?.player === game?.currentPlayer;
+  const isMyTurn = myPlayer?.player === game?.currentPlayer;
   const canSayUno = Boolean(
     myPlayer &&
-      myPlayer.hand.cards.length === 1 &&
-      game?.unoChallengePlayer === myPlayer.player,
+    myPlayer.hand.cards.length === 1 &&
+    game?.unoChallengePlayer === myPlayer.player,
   );
   const canChallengeUno = Boolean(
     myPlayer &&
-      game?.unoChallengePlayer &&
-      game.unoChallengePlayer !== myPlayer.player,
+    game?.unoChallengePlayer &&
+    game.unoChallengePlayer !== myPlayer.player,
   );
   const clockwise = game?.direction !== -1;
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  const elapsedDisplay = `${String(elapsedMinutes).padStart(2, "0")}:${String(
+    elapsedSeconds % 60,
+  ).padStart(2, "0")}`;
 
   const activeColorConfig = {
-    red:    { label: "VERMELHO", color: "#E23E3E" },
-    green:  { label: "VERDE",    color: "#91BE38" },
-    blue:   { label: "AZUL",     color: "#18A5D6" },
-    yellow: { label: "AMARELO",  color: "#FFC107" },
+    red: { label: "VERMELHO", color: "#E23E3E" },
+    green: { label: "VERDE", color: "#91BE38" },
+    blue: { label: "AZUL", color: "#18A5D6" },
+    yellow: { label: "AMARELO", color: "#FFC107" },
   };
 
   const currentColor =
@@ -183,26 +248,41 @@ export function GameScreen() {
   function convertOpponent(player?: GamePlayer): Opponent | null {
     if (!player) return null;
     return {
-      id:     player.player,
-      name:   player.username,
+      id: player.player,
+      name: player.username,
       avatar: resolveAvatar(player.picture, player.avatarKey),
-      cards:  player.hand.cards.length,
+      cards: player.hand.cards.length,
       active: player.player === game?.currentPlayer,
     };
   }
 
   const opponentPositions = useMemo(() => {
-    const positions = { top: null as Opponent | null, left: null as Opponent | null, right: null as Opponent | null };
+    const positions = {
+      top: null as Opponent | null,
+      left: null as Opponent | null,
+      right: null as Opponent | null,
+    };
     const converted = relativeOpponents.map((p) => convertOpponent(p));
 
-    if (converted.length === 1) positions.top   = converted[0];                                              // 2 jogadores
-    if (converted.length === 2) { positions.left = converted[0]; positions.right = converted[1]; }           // 3 jogadores
-    if (converted.length === 3) { positions.top  = converted[0]; positions.left  = converted[1]; positions.right = converted[2]; } // 4 jogadores
+    if (converted.length === 1) positions.top = converted[0]; // 2 jogadores
+    if (converted.length === 2) {
+      positions.left = converted[0];
+      positions.right = converted[1];
+    } // 3 jogadores
+    if (converted.length === 3) {
+      positions.top = converted[0];
+      positions.left = converted[1];
+      positions.right = converted[2];
+    } // 4 jogadores
 
     return positions;
   }, [relativeOpponents, game]);
 
-  const { top: topPlayer, left: leftPlayer, right: rightPlayer } = opponentPositions;
+  const {
+    top: topPlayer,
+    left: leftPlayer,
+    right: rightPlayer,
+  } = opponentPositions;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -241,14 +321,22 @@ export function GameScreen() {
     return (
       <main
         className="relative min-h-screen overflow-hidden"
-        style={{ backgroundImage: `url(${background})`, backgroundSize: "cover", backgroundPosition: "center" }}
+        style={{
+          backgroundImage: `url(${background})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
       >
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
           <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
             <div className="text-center">
-              <h2 className="font-display text-2xl text-[#3D291F]">CARREGANDO PARTIDA</h2>
-              <p className="mt-2 font-bold text-[#8A7A63]">Aguarde enquanto preparamos a mesa...</p>
+              <h2 className="font-display text-2xl text-[#3D291F]">
+                CARREGANDO PARTIDA
+              </h2>
+              <p className="mt-2 font-bold text-[#8A7A63]">
+                Aguarde enquanto preparamos a mesa...
+              </p>
             </div>
           </div>
         </div>
@@ -260,13 +348,19 @@ export function GameScreen() {
 
   return (
     <main className="relative flex h-screen w-full flex-col overflow-hidden">
-      <img src={background} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img
+        src={background}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+      />
       <div className="absolute inset-0 bg-black/45" />
 
       {/* HEADER */}
       <header className="relative z-10 flex items-start justify-between p-4">
         <div className="rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-5 py-2">
-          <span className="font-display text-xl text-[#3D291F]">--:--</span>
+          <span className="font-display text-xl text-[#3D291F]">
+            {elapsedDisplay}
+          </span>
         </div>
 
         <div className="mt-1 rounded-full border-[3px] border-[#3D291F] bg-[#FFF200] px-5 py-1.5 font-display text-base text-[#3D291F]">
@@ -275,7 +369,9 @@ export function GameScreen() {
 
         <button
           type="button"
+          onClick={() => setSettingsOpen(true)}
           aria-label="Configurações"
+          title="Configurações"
           className="flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-[#4A3525] bg-[#A9C938] text-[#3D291F] shadow-[0_4px_0_#3D291F] active:translate-y-1"
         >
           <Settings size={22} />
@@ -291,40 +387,60 @@ export function GameScreen() {
 
       {/* JOGADORES LATERAIS + MESA */}
       <div className="relative z-10 flex flex-1 items-center justify-between px-4">
-        <div className={`w-[120px] transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}>
+        <div
+          className={`w-[120px] transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}
+        >
           {leftPlayer && <OpponentSeat player={leftPlayer} />}
         </div>
 
         <div className="relative flex items-center justify-center">
-          <div className={`
+          <div
+            className={`
             absolute h-[320px] w-[320px] rounded-full border-[6px] border-dashed border-[#FAEFDD]/80
             sm:h-[380px] sm:w-[380px]
             ${clockwise ? "animate-[spin_18s_linear_infinite]" : "animate-[spin_18s_linear_infinite_reverse]"}
-          `} />
+          `}
+          />
 
           {currentColor && (
             <div className="absolute left-1/2 top-50 z-20 -translate-x-1/2">
               <div className="flex flex-col items-center">
                 <div className="mb-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-1 shadow-[0_3px_0_#3D291F]">
-                  <span className="font-display text-sm text-[#3D291F]">COR ATUAL</span>
+                  <span className="font-display text-sm text-[#3D291F]">
+                    COR ATUAL
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-2 shadow-[0_4px_0_#3D291F]">
-                  <div className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]" style={{ backgroundColor: currentColor.color }} />
-                  <span className="font-display text-sm text-[#3D291F]">{currentColor.label}</span>
+                  <div
+                    className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]"
+                    style={{ backgroundColor: currentColor.color }}
+                  />
+                  <span className="font-display text-sm text-[#3D291F]">
+                    {currentColor.label}
+                  </span>
                 </div>
               </div>
             </div>
           )}
 
           <div className="relative flex items-center gap-5">
-            <CardBack onClick={handleDrawCard} disabled={!isMyTurn || actionLoading} />
+            <CardBack
+              onClick={handleDrawCard}
+              disabled={!isMyTurn || actionLoading}
+            />
             {discardCard && (
-              <PlayingCard card={discardCard} className="rotate-6 hover:translate-y-0" disabled />
+              <PlayingCard
+                card={discardCard}
+                className="rotate-6 hover:translate-y-0"
+                disabled
+              />
             )}
           </div>
         </div>
 
-        <div className={`flex w-[120px] justify-end transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}>
+        <div
+          className={`flex w-[120px] justify-end transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}
+        >
           {rightPlayer && <OpponentSeat player={rightPlayer} />}
         </div>
       </div>
@@ -345,7 +461,9 @@ export function GameScreen() {
       >
         <span className="text-xl font-bold">❯</span>
         {moves.length > 0 && (
-          <span className="text-[9px] font-black leading-none">{moves.length}</span>
+          <span className="text-[9px] font-black leading-none">
+            {moves.length}
+          </span>
         )}
       </button>
 
@@ -353,7 +471,9 @@ export function GameScreen() {
       <div className="relative z-20 flex items-end justify-between px-6 pb-4">
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center gap-1">
-            <div className={`h-14 w-14 overflow-hidden rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`}>
+            <div
+              className={`h-14 w-14 overflow-hidden rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`}
+            >
               {myAvatar && (
                 <img
                   src={myAvatar}
@@ -368,8 +488,17 @@ export function GameScreen() {
             </span>
           </div>
 
-          <button type="button" onClick={() => {}} aria-label="Enviar emote" className="transition active:translate-y-1">
-            <img src={emoteButton} alt="Enviar emote" className="h-[62px] w-[62px]" />
+          <button
+            type="button"
+            onClick={() => {}}
+            aria-label="Enviar emote"
+            className="transition active:translate-y-1"
+          >
+            <img
+              src={emoteButton}
+              alt="Enviar emote"
+              className="h-[62px] w-[62px]"
+            />
           </button>
         </div>
 
@@ -381,11 +510,45 @@ export function GameScreen() {
             aria-label="Contra URRO"
             className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full border-[4px] border-[#3D291F] bg-[#ED1C24] shadow-[0_6px_0_#3D291F]">
-              <span className="font-display text-[16px] leading-none tracking-[0.12em] text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-[120px] w-[120px]"
+              role="img"
+              aria-label="Contra"
+            >
+              <defs>
+                <linearGradient id="redBtn" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#F25C54" />
+                  <stop offset="100%" stopColor="#E23E3E" />
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="90" r="64" fill="#3D291F" />
+              <circle
+                cx="80"
+                cy="80"
+                r="64"
+                fill="url(#redBtn)"
+                stroke="#3D291F"
+                strokeWidth="6"
+              />
+              <ellipse cx="80" cy="38" rx="40" ry="12" fill="#FFFFFF" fillOpacity="0.3" />
+              <text
+                x="80"
+                y="88"
+                fontFamily="'Titan One', 'Arial Black', sans-serif"
+                fontWeight="900"
+                fontSize="22"
+                fill="#FFFFFF"
+                textAnchor="middle"
+                letterSpacing="1"
+              >
                 CONTRA
-              </span>
-            </div>
+              </text>
+            </svg>
           </button>
 
           <button
@@ -419,6 +582,14 @@ export function GameScreen() {
         <MovesLogPanel onClose={() => setMovesOpen(false)} moves={moves} />
       )}
 
+      {settingsOpen && (
+        <SettingsModal
+          exitLabel="SAIR DA PARTIDA"
+          onExit={handleLeaveGame}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
       {/* MODAL DE COR */}
       {colorPickerOpen && selectedWildCard && (
         <ColorPickerModal
@@ -438,15 +609,16 @@ export function GameScreen() {
       )}
 
       {/* BANNER DE JOGO ENCERRADO — tempo esgotado ou servidor encerrou */}
-      {(reconnection.status === "failed" || gameFinishedByInactivity) && (
-  <GameOverBanner
-    onLeave={() =>
-      navigate({
-        to: "/home",
-      })
-    }
-  />
-)}
+      {(reconnection.status === "failed" || gameFinishedByInactivity || winner) && (
+        <GameOverBanner
+          winner={winner}
+          onLeave={() =>
+            navigate({
+              to: "/home",
+            })
+          }
+        />
+      )}
     </main>
   );
 }
