@@ -461,11 +461,45 @@ export function GameScreen() {
             aria-label="Contra URRO"
             className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full border-[4px] border-[#3D291F] bg-[#ED1C24] shadow-[0_6px_0_#3D291F]">
-              <span className="font-display text-[16px] leading-none tracking-[0.12em] text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+            <svg
+              width="160"
+              height="160"
+              viewBox="0 0 160 160"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-[120px] w-[120px]"
+              role="img"
+              aria-label="Contra"
+            >
+              <defs>
+                <linearGradient id="redBtn" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#F25C54" />
+                  <stop offset="100%" stopColor="#E23E3E" />
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="90" r="64" fill="#3D291F" />
+              <circle
+                cx="80"
+                cy="80"
+                r="64"
+                fill="url(#redBtn)"
+                stroke="#3D291F"
+                strokeWidth="6"
+              />
+              <ellipse cx="80" cy="38" rx="40" ry="12" fill="#FFFFFF" fillOpacity="0.3" />
+              <text
+                x="80"
+                y="88"
+                fontFamily="'Titan One', 'Arial Black', sans-serif"
+                fontWeight="900"
+                fontSize="22"
+                fill="#FFFFFF"
+                textAnchor="middle"
+                letterSpacing="1"
+              >
                 CONTRA
-              </span>
-            </div>
+              </text>
+            </svg>
           </button>
 
           <button
