@@ -79,6 +79,7 @@ export function GameScreen() {
   const [gameFinishedByInactivity, setGameFinishedByInactivity] =
     useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const gameId = sessionStorage.getItem("currentGameId");
 
@@ -175,6 +176,27 @@ export function GameScreen() {
     return game.players.find((p) => p.player === game.currentPlayer) ?? null;
   }, [game]);
 
+  useEffect(() => {
+    const startedAtValue = game?.startedAt;
+    if (!startedAtValue) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const updateElapsed = () => {
+      const startedAt = Date.parse(startedAtValue);
+      setElapsedSeconds(
+        Number.isNaN(startedAt)
+          ? 0
+          : Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      );
+    };
+
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [game?.startedAt]);
+
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) return null;
     return game.discard[game.discard.length - 1];
@@ -204,6 +226,10 @@ export function GameScreen() {
     game.unoChallengePlayer !== myPlayer.player,
   );
   const clockwise = game?.direction !== -1;
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  const elapsedDisplay = `${String(elapsedMinutes).padStart(2, "0")}:${String(
+    elapsedSeconds % 60,
+  ).padStart(2, "0")}`;
 
   const activeColorConfig = {
     red: { label: "VERMELHO", color: "#E23E3E" },
@@ -332,7 +358,9 @@ export function GameScreen() {
       {/* HEADER */}
       <header className="relative z-10 flex items-start justify-between p-4">
         <div className="rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-5 py-2">
-          <span className="font-display text-xl text-[#3D291F]">--:--</span>
+          <span className="font-display text-xl text-[#3D291F]">
+            {elapsedDisplay}
+          </span>
         </div>
 
         <div className="mt-1 rounded-full border-[3px] border-[#3D291F] bg-[#FFF200] px-5 py-1.5 font-display text-base text-[#3D291F]">

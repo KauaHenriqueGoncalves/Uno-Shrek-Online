@@ -71,6 +71,7 @@ export type GameInfo = {
   title: string;
   code: string;
   status: string;
+  startedAt: string | null;
 
   owner: string;
   winner: string | null;
