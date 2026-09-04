@@ -18,7 +18,6 @@ import { useSocket } from "../../shared/context/SocketContext";
 import { useNavigate } from "@tanstack/react-router";
 import { resolveAvatar } from "../../shared/utils/avatar";
 
-
 import {
   useGameSocket,
   type GamePlayer,
@@ -83,6 +82,15 @@ export function GameScreen() {
 
   const gameId = sessionStorage.getItem("currentGameId");
 
+  const handleLeaveGame = () => {
+    leaveRoom();
+    sessionStorage.removeItem("currentGameId");
+
+    navigate({
+      to: "/home",
+    });
+  };
+
   // ── Socket: game::finished (inatividade) ─────────────────────────────────
   useEffect(() => {
     if (!socket) return;
@@ -98,7 +106,7 @@ export function GameScreen() {
   }, [socket]);
 
   // ── Game socket ───────────────────────────────────────────────────────────
-  const { getGameInfo, drawCard, playCard, sayUno, challengeUno } =
+  const { getGameInfo, drawCard, playCard, sayUno, challengeUno, leaveRoom } =
     useGameSocket({
       onGameInfo: (gameData) => {
         setGame(gameData);
@@ -314,6 +322,7 @@ export function GameScreen() {
           type="button"
           onClick={() => setSettingsOpen(true)}
           aria-label="Configurações"
+          title="Configurações"
           className="flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-[#4A3525] bg-[#A9C938] text-[#3D291F] shadow-[0_4px_0_#3D291F] active:translate-y-1"
         >
           <Settings size={22} />
@@ -492,13 +501,9 @@ export function GameScreen() {
 
       {settingsOpen && (
         <SettingsModal
+          exitLabel="SAIR DA PARTIDA"
+          onExit={handleLeaveGame}
           onClose={() => setSettingsOpen(false)}
-          onLeave={() => {
-            setSettingsOpen(false);
-            navigate({
-              to: "/home",
-            });
-          }}
         />
       )}
 
