@@ -520,6 +520,9 @@ export default class GameOrchestrator extends EventEmitter {
       );
       this.gameStateMapper.applyEngineStateToGame(game, engineState);
       game.status = GAME_STATUS.ACTIVE;
+      if (!game.startedAt) {
+        game.startedAt = new Date();
+      }
       this.log.info(
         {
           ownerId,
