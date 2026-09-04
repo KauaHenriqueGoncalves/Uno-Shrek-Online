@@ -136,6 +136,27 @@ export function GameScreen() {
 
   const myAvatar = resolveAvatar(myPlayer?.picture, myPlayer?.avatarKey);
 
+  const winner = useMemo(
+    () =>
+      game?.status === "finished" && game.winner
+        ? (() => {
+            const winnerPlayer = game.players.find(
+              (player) => player.player === game.winner,
+            );
+            return winnerPlayer
+              ? {
+                  username: winnerPlayer.username,
+                  avatar: resolveAvatar(
+                    winnerPlayer.picture,
+                    winnerPlayer.avatarKey,
+                  ),
+                }
+              : null;
+          })()
+        : null,
+    [game],
+  );
+
   const relativeOpponents = useMemo(() => {
     if (!game || !myPlayer) return [];
 
@@ -560,8 +581,9 @@ export function GameScreen() {
       )}
 
       {/* BANNER DE JOGO ENCERRADO — tempo esgotado ou servidor encerrou */}
-      {(reconnection.status === "failed" || gameFinishedByInactivity) && (
+      {(reconnection.status === "failed" || gameFinishedByInactivity || winner) && (
         <GameOverBanner
+          winner={winner}
           onLeave={() =>
             navigate({
               to: "/home",

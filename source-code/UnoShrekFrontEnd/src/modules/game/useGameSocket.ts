@@ -73,6 +73,7 @@ export type GameInfo = {
   status: string;
 
   owner: string;
+  winner: string | null;
 
   histories: HistoryItem[];
 
