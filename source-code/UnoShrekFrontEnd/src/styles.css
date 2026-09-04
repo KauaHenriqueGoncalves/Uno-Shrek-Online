@@ -8,11 +8,11 @@
 @theme {
   --font-display: "Titan One", system-ui, sans-serif;
   --font-sans: "Nunito", system-ui, sans-serif;
-  --color-shrek: #9ccb45;
-  --color-ink: #1f150f;
-  --color-parchment: #2e3b25;
+  --color-shrek: oklch(0.79 0.15 122);
+  --color-ink: oklch(0.32 0.04 60);
+  --color-parchment: oklch(0.97 0.03 95);
   --color-urro-red: oklch(0.58 0.23 28);
-  --color-urro-yellow: #fff200;
+  --color-urro-yellow: oklch(0.94 0.19 105);
 }
 
 /*
@@ -215,4 +215,88 @@
 
 .dark .auth-screen [class~="border-ink\/40"] {
   border-color: rgb(31 21 15 / 40%);
+}
+
+@keyframes winner-modal-in {
+  0% {
+    opacity: 0;
+    transform: perspective(900px) rotateX(18deg) scale(0.55);
+  }
+  65% {
+    opacity: 1;
+    transform: perspective(900px) rotateX(-3deg) scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(900px) rotateX(0) scale(1);
+  }
+}
+
+@keyframes winner-burst-left {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scaleX(0.1);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-42vw) scaleX(1);
+  }
+}
+
+@keyframes winner-burst-right {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scaleX(0.1);
+  }
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(42vw) scaleX(1);
+  }
+}
+
+.winner-modal {
+  animation: winner-modal-in 700ms cubic-bezier(0.2, 0.85, 0.25, 1.15) both;
+  transform-origin: center center;
+}
+
+.winner-ribbon,
+.winner-crown {
+  animation: winner-modal-in 700ms 120ms cubic-bezier(0.2, 0.85, 0.25, 1.15) both;
+}
+
+.winner-burst {
+  position: absolute;
+  top: 0;
+  height: 6px;
+  width: 42vw;
+  max-width: 360px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fff200, #9ccb45, #e23e3e);
+  transform-origin: center;
+}
+
+.winner-burst-left {
+  right: 50%;
+  animation: winner-burst-left 900ms 100ms ease-out both;
+}
+
+.winner-burst-right {
+  left: 50%;
+  animation: winner-burst-right 900ms 100ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .winner-modal,
+  .winner-ribbon,
+  .winner-crown,
+  .winner-burst-left,
+  .winner-burst-right {
+    animation: none;
+  }
 }
