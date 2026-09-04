@@ -16,8 +16,20 @@ import { SettingsModal } from "../../shared/components/SettingsModal";
 
 export function HomeScreen() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const avatarSrc = resolveAvatar(user?.picture, user?.avatarKey);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+
+      navigate({
+        to: "/",
+      });
+    } catch (error) {
+      console.error("Erro ao sair da conta:", error);
+    }
+  };
 
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [joinRoomOpen, setJoinRoomOpen] = useState(false);
@@ -348,10 +360,7 @@ export function HomeScreen() {
       {settingsOpen && (
         <SettingsModal
           exitLabel="SAIR"
-          onExit={() => {
-            // Será conectado depois ao logout
-            setSettingsOpen(false);
-          }}
+          onExit={handleLogout}
           onClose={() => setSettingsOpen(false)}
         />
       )}
