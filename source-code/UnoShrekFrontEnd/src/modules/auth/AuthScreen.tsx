@@ -90,7 +90,7 @@ export function AuthScreen() {
   });
 
   return (
-    <main className="grid min-h-screen grid-cols-1 bg-parchment md:grid-cols-2">
+    <main className="auth-screen grid min-h-screen grid-cols-1 bg-parchment md:grid-cols-2">
       <img
         src={sideArt}
         alt="Personagens do pântano reunidos no jogo URRO"

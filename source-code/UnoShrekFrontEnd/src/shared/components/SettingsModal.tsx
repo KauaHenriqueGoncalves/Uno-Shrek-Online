@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSettings } from "../context/SettingsContext";
 import { GummyButton } from "./GummyButton";
 
 type ToggleKey = "effects" | "music" | "dark" | "colorblind" | "reduceMotion";
@@ -37,15 +38,20 @@ export function SettingsModal({
   onExit,
   onClose,
 }: Props) {
-  const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({
+  const { darkMode, toggleDarkMode } = useSettings();
+
+  const [toggles, setToggles] = useState<
+    Record<Exclude<ToggleKey, "dark">, boolean>
+  >({
     effects: true,
     music: true,
-    dark: false,
     colorblind: false,
     reduceMotion: false,
   });
 
-  const toggle = (key: ToggleKey) => {
+  const toggle = (
+    key: Exclude<ToggleKey, "dark">,
+  ) => {
     setToggles((prev) => {
       const next = {
         ...prev,
@@ -62,6 +68,24 @@ export function SettingsModal({
 
       return next;
     });
+  };
+
+  const handleToggle = (key: ToggleKey) => {
+    if (key === "dark") {
+      toggleDarkMode();
+
+      console.log(
+        "[URRO][settings]",
+        JSON.stringify({
+          action: "toggle",
+          dark: !darkMode,
+        }),
+      );
+
+      return;
+    }
+
+    toggle(key);
   };
 
   return (
@@ -86,37 +110,44 @@ export function SettingsModal({
             </h3>
 
             <div className="mt-3 flex flex-col gap-4">
-              {section.items.map(({ key, label }) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-lg font-extrabold text-[#3D291F]">
-                    {label}
-                  </span>
+              {section.items.map(({ key, label }) => {
+                const enabled =
+                  key === "dark"
+                    ? darkMode
+                    : toggles[key];
 
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={toggles[key]}
-                    aria-label={label}
-                    onClick={() => toggle(key)}
-                    className={`relative h-9 w-[4.5rem] rounded-full border-[3px] border-[#3D291F] transition-colors ${
-                      toggles[key]
-                        ? "bg-[#A5CD50]"
-                        : "bg-transparent"
-                    }`}
+                return (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between"
                   >
-                    <span
-                      className={`absolute top-[3px] h-6 w-6 rounded-full border-[3px] border-[#3D291F] bg-white transition-all ${
-                        toggles[key]
-                          ? "left-[calc(100%-1.7rem)]"
-                          : "left-[3px]"
+                    <span className="text-lg font-extrabold text-[#3D291F]">
+                      {label}
+                    </span>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={enabled}
+                      aria-label={label}
+                      onClick={() => handleToggle(key)}
+                      className={`relative h-9 w-[4.5rem] rounded-full border-[3px] border-[#3D291F] transition-colors ${
+                        enabled
+                          ? "bg-[#A5CD50]"
+                          : "bg-transparent"
                       }`}
-                    />
-                  </button>
-                </div>
-              ))}
+                    >
+                      <span
+                        className={`absolute top-[3px] h-6 w-6 rounded-full border-[3px] border-[#3D291F] bg-white transition-all ${
+                          enabled
+                            ? "left-[calc(100%-1.7rem)]"
+                            : "left-[3px]"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </section>
         ))}
