@@ -12,6 +12,7 @@ import { WaitingRoomModal, WaitingPlayer } from "./WaitingRoomModal";
 import axios from "axios";
 import { useNavigate } from "@tanstack/react-router";
 import { resolveAvatar } from "../../shared/utils/avatar";
+import { SettingsModal } from "../../shared/components/SettingsModal";
 
 export function HomeScreen() {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export function HomeScreen() {
   const [createRoomOpen, setCreateRoomOpen] = useState(false);
   const [joinRoomOpen, setJoinRoomOpen] = useState(false);
   const [quickJoinLoading, setQuickJoinLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [waitingGame, setWaitingGame] = useState<{
     code: string;
@@ -30,62 +32,57 @@ export function HomeScreen() {
     gameId: string;
   } | null>(null);
 
-  const {
-    joinRoom,
-    leaveRoom,
-    setReady,
-    setNotReady,
-    startGame,getGameInfo 
-  } = useGameSocket({
-    onGameInfo: (game) => {
-      console.log(" GAME INFO RECEBIDO:", game);
+  const { joinRoom, leaveRoom, setReady, setNotReady, startGame, getGameInfo } =
+    useGameSocket({
+      onGameInfo: (game) => {
+        console.log(" GAME INFO RECEBIDO:", game);
 
-      /*
-       * Quando a partida começar, o backend altera o status
-       * da sala para "playing".
-       *
-       * Nesse momento, saímos da WaitingRoom e vamos para /game.
-       */
-      if (game.status === "active") {
-        sessionStorage.setItem("currentGameId", game.id);
-        navigate({
-          to: "/game",
+        /*
+         * Quando a partida começar, o backend altera o status
+         * da sala para "playing".
+         *
+         * Nesse momento, saímos da WaitingRoom e vamos para /game.
+         */
+        if (game.status === "active") {
+          sessionStorage.setItem("currentGameId", game.id);
+          navigate({
+            to: "/game",
+          });
+
+          return;
+        }
+
+        const me = user?.id;
+
+        const isHost = game.owner === me;
+
+        const players: WaitingPlayer[] = game.players.map((p) => ({
+          id: p.player,
+          name: p.username ?? "...",
+          level: 1,
+          ready: p.ready,
+          host: p.player === game.owner,
+          you: p.player === me,
+          picture: p.picture,
+          avatarKey: p.avatarKey,
+        }));
+
+        setWaitingGame({
+          code: game.code ?? "",
+          players,
+          role: isHost ? "host" : "guest",
+          ownerId: game.owner,
+          gameId: game.id,
         });
 
-        return;
-      }
+        setCreateRoomOpen(false);
+        setJoinRoomOpen(false);
+      },
 
-      const me = user?.id;
-
-      const isHost = game.owner === me;
-
-      const players: WaitingPlayer[] = game.players.map((p) => ({
-        id: p.player,
-        name: p.username ?? "...",
-        level: 1,
-        ready: p.ready,
-        host: p.player === game.owner,
-        you: p.player === me,
-        picture: p.picture,
-        avatarKey: p.avatarKey,
-      }));
-
-      setWaitingGame({
-        code: game.code ?? "",
-        players,
-        role: isHost ? "host" : "guest",
-        ownerId: game.owner,
-        gameId: game.id,
-      });
-
-      setCreateRoomOpen(false);
-      setJoinRoomOpen(false);
-    },
-
-    onError: (msg) => {
-      console.error(" Socket error:", msg);
-    },
-  });
+      onError: (msg) => {
+        console.error(" Socket error:", msg);
+      },
+    });
 
   /**
    * Cria uma sala através da API REST.
@@ -98,32 +95,31 @@ export function HomeScreen() {
    * Depois que a sala é criada, entramos nela através
    * do socket usando o gameId retornado pela API.
    */
- const handleCreateRoom = async (data: {
-  title: string;
-  capacity: number;
-  bots: boolean;
-  botCount: number;
-  password: string;
-}) => {
-  try {
-    console.log(" Criando sala via REST:", data);
+  const handleCreateRoom = async (data: {
+    title: string;
+    capacity: number;
+    bots: boolean;
+    botCount: number;
+    password: string;
+  }) => {
+    try {
+      console.log(" Criando sala via REST:", data);
 
-    const game = await homeService.createRoom(data);
+      const game = await homeService.createRoom(data);
 
-    console.log(" Sala criada com sucesso:", game);
+      console.log(" Sala criada com sucesso:", game);
 
-    // O dono já foi adicionado à sala pelo backend.
-    // Os bots também já foram adicionados pelo REST.
-    // Portanto, NÃO devemos chamar joinRoom().
-    //
-    // Apenas pedimos ao socket as informações atualizadas
-    // da sala para abrir a WaitingRoom.
-    joinRoom(game.gameId);
-
-  } catch (error) {
-    console.error(" Erro ao criar sala:", error);
-  }
-};
+      // O dono já foi adicionado à sala pelo backend.
+      // Os bots também já foram adicionados pelo REST.
+      // Portanto, NÃO devemos chamar joinRoom().
+      //
+      // Apenas pedimos ao socket as informações atualizadas
+      // da sala para abrir a WaitingRoom.
+      joinRoom(game.gameId);
+    } catch (error) {
+      console.error(" Erro ao criar sala:", error);
+    }
+  };
 
   /**
    * Entrada em uma sala usando o ID.
@@ -261,6 +257,7 @@ export function HomeScreen() {
         <button
           type="button"
           aria-label="Configurações"
+          onClick={() => setSettingsOpen(true)}
           className="flex h-14 w-14 items-center justify-center rounded-full border-[3px] border-[#4A3525] bg-[#A9C938] text-[#3D291F] shadow-[0_5px_0_#3D291F] transition active:translate-y-1 active:shadow-[0_2px_0_#3D291F]"
         >
           <Settings size={26} />
@@ -308,18 +305,12 @@ export function HomeScreen() {
 
       {/* FOOTER */}
       <footer className="relative flex items-center justify-between p-6">
-        <GummyButton
-          variant="red"
-          className="h-14 text-xl"
-        >
+        <GummyButton variant="red" className="h-14 text-xl">
           <Store size={24} />
           Loja
         </GummyButton>
 
-        <GummyButton
-          variant="brown"
-          className="h-14 text-xl"
-        >
+        <GummyButton variant="brown" className="h-14 text-xl">
           <Users size={24} />
           Amigos
         </GummyButton>
@@ -351,6 +342,17 @@ export function HomeScreen() {
           capacity={4}
           onLeave={handleLeave}
           onPrimary={handlePrimary}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          exitLabel="SAIR"
+          onExit={() => {
+            // Será conectado depois ao logout
+            setSettingsOpen(false);
+          }}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </main>
