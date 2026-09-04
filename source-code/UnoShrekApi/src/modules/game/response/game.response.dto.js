@@ -40,6 +40,7 @@ export default class GameResponseDto {
       title: game.title,
       owner: game.owner ? game.owner._id.toString() : null,
       status: game.status,
+      startedAt: game.startedAt ?? null,
       winner: game.winner
         ? (game.winner._id ?? game.winner).toString()
         : null,
