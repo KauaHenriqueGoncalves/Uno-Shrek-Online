@@ -426,3 +426,33 @@
       rotate(8deg);
   }
 }
+
+@keyframes card-fly-from-opponent {
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      scale(0.9)
+      rotate(var(--card-rotation));
+  }
+
+  20% {
+    opacity: 1;
+    transform:
+      translate3d(0, -12px, 0)
+      scale(1.04)
+      rotate(calc(var(--card-rotation) * 1.5));
+  }
+
+  100% {
+    opacity: 0.95;
+    transform:
+      translate3d(
+        var(--card-target-x),
+        var(--card-target-y),
+        0
+      )
+      scale(0.92)
+      rotate(calc(var(--card-rotation) * -1));
+  }
+}

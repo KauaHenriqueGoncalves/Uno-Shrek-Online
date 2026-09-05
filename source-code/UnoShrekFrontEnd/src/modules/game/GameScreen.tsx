@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Settings } from "lucide-react";
 
 import background from "../../../assets/game-bg.png";
@@ -54,10 +60,12 @@ function formatAction(h: HistoryItem): string {
 
   if (h.action === "play" && h.card) {
     const color = COLOR_LABEL[h.card.color] ?? h.card.color;
+
     const type =
       h.card.type === "number"
         ? String(h.card.value ?? "")
         : (TYPE_LABEL[h.card.type] ?? h.card.type);
+
     return `Jogou ${color} ${type}`.trim();
   }
 
@@ -77,17 +85,37 @@ export function GameScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [selectedWildCard, setSelectedWildCard] = useState<string | null>(null);
+  const [selectedWildCard, setSelectedWildCard] = useState<string | null>(
+    null,
+  );
   const [gameFinishedByInactivity, setGameFinishedByInactivity] =
     useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // ── Animações da mão ─────────────────────────────────────────────────────
 
   const previousHandIdsRef = useRef<Set<string>>(new Set());
 
   const [newCardIds, setNewCardIds] = useState<Set<string>>(new Set());
 
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const handSlotRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const previousHandRectsRef = useRef<
+    Record<
+      string,
+      {
+        x: number;
+        y: number;
+      }
+    >
+  >({});
+
+  // ── Carta voando para o descarte ─────────────────────────────────────────
 
   const [flyingCard, setFlyingCard] = useState<{
     card: GameCard;
@@ -101,19 +129,45 @@ export function GameScreen() {
     };
   } | null>(null);
 
+  // ── Carta do adversário voando ───────────────────────────────────────────
+
+  const [flyingOpponentCard, setFlyingOpponentCard] = useState<{
+    card: GameCard;
+    from: {
+      x: number;
+      y: number;
+    };
+    to: {
+      x: number;
+      y: number;
+    };
+    rotation: number;
+  } | null>(null);
+
+  const opponentSeatRefs = useRef<
+    Record<string, HTMLDivElement | null>
+  >({});
+
+  const previousOpponentCountsRef = useRef<Record<string, number>>({});
+
+  const lastHistoryIdRef = useRef<string | null>(null);
+
+  // ── Descarte ─────────────────────────────────────────────────────────────
+
   const [discardImpact, setDiscardImpact] = useState(false);
 
-  const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-
   const discardRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Detecta cartas novas ─────────────────────────────────────────────────
 
   const detectNewCards = (cards: GameCard[]) => {
     const currentIds = new Set(cards.map((card) => card.id));
 
     /*
-     * Primeira carga:
-     * não queremos que as cartas iniciais da partida
-     * sejam tratadas como "compradas".
+     * Primeira sincronização.
+     *
+     * As cartas iniciais da partida não são cartas "compradas",
+     * então não devem executar a animação de entrada.
      */
     if (previousHandIdsRef.current.size === 0) {
       previousHandIdsRef.current = currentIds;
@@ -149,7 +203,235 @@ export function GameScreen() {
     }, 500);
   };
 
+  // ── Captura posições da mão antes da atualização ─────────────────────────
+
+  const captureHandPositions = () => {
+    const positions: Record<
+      string,
+      {
+        x: number;
+        y: number;
+      }
+    > = {};
+
+    for (const [cardId, element] of Object.entries(handSlotRefs.current)) {
+      if (!element) continue;
+
+      const rect = element.getBoundingClientRect();
+
+      positions[cardId] = {
+        x: rect.left,
+        y: rect.top,
+      };
+    }
+
+    previousHandRectsRef.current = positions;
+  };
+
+  // ── FLIP da mão ──────────────────────────────────────────────────────────
+
+  useLayoutEffect(() => {
+    const previousPositions = previousHandRectsRef.current;
+
+    if (Object.keys(previousPositions).length === 0) {
+      return;
+    }
+
+    for (const [cardId, element] of Object.entries(handSlotRefs.current)) {
+      if (!element) continue;
+
+      const previous = previousPositions[cardId];
+
+      /*
+       * Se a carta não existia antes, ela é uma carta nova.
+       * A animação dela é controlada pelo `card-enter`.
+       */
+      if (!previous) {
+        continue;
+      }
+
+      const current = element.getBoundingClientRect();
+
+      const deltaX = previous.x - current.left;
+      const deltaY = previous.y - current.top;
+
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+        continue;
+      }
+
+      element.animate(
+        [
+          {
+            transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`,
+          },
+          {
+            transform: "translate3d(0, 0, 0)",
+          },
+        ],
+        {
+          duration: 280,
+          easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+          fill: "none",
+        },
+      );
+    }
+
+    previousHandRectsRef.current = {};
+  }, [game?.players]);
+
+  // ── Atualiza contagem dos adversários ────────────────────────────────────
+
+  const updateOpponentCounts = (gameData: GameInfo) => {
+    const counts: Record<string, number> = {};
+
+    for (const player of gameData.players) {
+      if (player.player === user?.id) {
+        continue;
+      }
+
+      counts[player.player] = player.hand.cards.length;
+    }
+
+    previousOpponentCountsRef.current = counts;
+  };
+
+  // ── Detecta jogada dos adversários ───────────────────────────────────────
+
+  const detectOpponentPlay = (gameData: GameInfo) => {
+    const histories = gameData.histories ?? [];
+
+    const latestHistory = histories[histories.length - 1];
+
+    if (!latestHistory) {
+      return;
+    }
+
+    /*
+     * Primeira sincronização:
+     * não reproduzimos as jogadas antigas.
+     */
+    if (lastHistoryIdRef.current === null) {
+      lastHistoryIdRef.current = latestHistory.id;
+      return;
+    }
+
+    /*
+     * A mesma jogada já foi processada.
+     */
+    if (lastHistoryIdRef.current === latestHistory.id) {
+      return;
+    }
+
+    lastHistoryIdRef.current = latestHistory.id;
+
+    /*
+     * Só queremos animar uma carta quando alguém joga.
+     */
+    if (
+      latestHistory.action !== "play" ||
+      !latestHistory.card ||
+      latestHistory.player === user?.id
+    ) {
+      return;
+    }
+
+    const opponent = gameData.players.find(
+      (player) => player.player === latestHistory.player,
+    );
+
+    if (!opponent) {
+      return;
+    }
+
+    const previousCount =
+      previousOpponentCountsRef.current[opponent.player];
+
+    const currentCount = opponent.hand.cards.length;
+
+    /*
+     * Se não temos uma quantidade anterior,
+     * não temos como confirmar que uma carta foi removida.
+     */
+    if (previousCount === undefined) {
+      return;
+    }
+
+    /*
+     * Se a quantidade não diminuiu, não é uma jogada normal
+     * que removeu uma carta da mão.
+     */
+    if (currentCount >= previousCount) {
+      return;
+    }
+
+    const source = opponentSeatRefs.current[opponent.player];
+    const target = discardRef.current;
+
+    if (!source || !target) {
+      return;
+    }
+
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+
+    const from = {
+      x: sourceRect.left + sourceRect.width / 2,
+      y: sourceRect.top + sourceRect.height / 2,
+    };
+
+    const to = {
+      x: targetRect.left + targetRect.width / 2,
+      y: targetRect.top + targetRect.height / 2,
+    };
+
+    /*
+     * A carta vem da direção do jogador.
+     *
+     * Isso dá uma pequena diferença visual entre:
+     * top / left / right.
+     */
+    const isTop = opponent.player === opponentPositions.top?.id;
+    const isLeft = opponent.player === opponentPositions.left?.id;
+    const isRight = opponent.player === opponentPositions.right?.id;
+
+    let rotation = 0;
+
+    if (isTop) {
+      rotation = -8;
+    } else if (isLeft) {
+      rotation = 8;
+    } else if (isRight) {
+      rotation = -8;
+    }
+
+    const card: GameCard = {
+      id: latestHistory.card.id,
+      type: latestHistory.card.type as GameCard["type"],
+      color: latestHistory.card.color as GameCard["color"],
+      value: latestHistory.card.value,
+    };
+
+    setFlyingOpponentCard({
+      card,
+      from,
+      to,
+      rotation,
+    });
+
+    window.setTimeout(() => {
+      setFlyingOpponentCard(null);
+
+      setDiscardImpact(true);
+
+      window.setTimeout(() => {
+        setDiscardImpact(false);
+      }, 350);
+    }, 420);
+  };
+
   const gameId = sessionStorage.getItem("currentGameId");
+
+  // ── Sair da partida ──────────────────────────────────────────────────────
 
   const handleLeaveGame = () => {
     leaveRoom();
@@ -161,6 +443,7 @@ export function GameScreen() {
   };
 
   // ── Socket: game::finished (inatividade) ─────────────────────────────────
+
   useEffect(() => {
     if (!socket) return;
 
@@ -169,38 +452,69 @@ export function GameScreen() {
     }
 
     socket.on("game::finished", handleFinished);
+
     return () => {
       socket.off("game::finished", handleFinished);
     };
   }, [socket]);
 
   // ── Game socket ───────────────────────────────────────────────────────────
-  const { getGameInfo, drawCard, playCard, sayUno, challengeUno, leaveRoom } =
-    useGameSocket({
-      onGameInfo: (gameData) => {
-        const player = user
-          ? gameData.players.find((p) => p.player === user.id)
-          : null;
 
-        if (player) {
-          detectNewCards(player.hand.cards);
-        }
+  const {
+    getGameInfo,
+    drawCard,
+    playCard,
+    sayUno,
+    challengeUno,
+    leaveRoom,
+  } = useGameSocket({
+    onGameInfo: (gameData) => {
+      /*
+       * IMPORTANTE:
+       *
+       * Capturamos a posição da mão antes de `setGame`.
+       * Assim o FLIP consegue comparar:
+       *
+       * posição antiga → posição nova.
+       */
+      captureHandPositions();
 
-        setGame(gameData);
-        setError(null);
-        setActionLoading(false);
-      },
-      onError: (message) => {
-        setError(message);
-        setActionLoading(false);
-      },
-    });
+      const player = user
+        ? gameData.players.find((p) => p.player === user.id)
+        : null;
+
+      if (player) {
+        detectNewCards(player.hand.cards);
+      }
+
+      /*
+       * Detectamos a jogada do adversário ANTES de atualizar
+       * os contadores anteriores.
+       */
+      detectOpponentPlay(gameData);
+
+      /*
+       * Depois de detectar, salvamos as novas quantidades.
+       */
+      updateOpponentCounts(gameData);
+
+      setGame(gameData);
+      setError(null);
+      setActionLoading(false);
+    },
+
+    onError: (message) => {
+      setError(message);
+      setActionLoading(false);
+    },
+  });
 
   useEffect(() => {
     if (!gameId) {
       setError("Partida não encontrada.");
       return;
     }
+
     getGameInfo(gameId);
   }, [gameId, getGameInfo]);
 
@@ -208,10 +522,16 @@ export function GameScreen() {
 
   const myPlayer = useMemo(() => {
     if (!game || !user) return null;
-    return game.players.find((p) => p.player === user.id) ?? null;
+
+    return (
+      game.players.find((p) => p.player === user.id) ?? null
+    );
   }, [game, user]);
 
-  const myAvatar = resolveAvatar(myPlayer?.picture, myPlayer?.avatarKey);
+  const myAvatar = resolveAvatar(
+    myPlayer?.picture,
+    myPlayer?.avatarKey,
+  );
 
   const winner = useMemo(
     () =>
@@ -220,6 +540,7 @@ export function GameScreen() {
             const winnerPlayer = game.players.find(
               (player) => player.player === game.winner,
             );
+
             return winnerPlayer
               ? {
                   username: winnerPlayer.username,
@@ -234,26 +555,49 @@ export function GameScreen() {
     [game],
   );
 
+  // ── Ordem relativa dos adversários ───────────────────────────────────────
+
   const relativeOpponents = useMemo(() => {
     if (!game || !myPlayer) return [];
 
-    const myIndex = game.players.findIndex((p) => p.player === myPlayer.player);
+    const myIndex = game.players.findIndex(
+      (p) => p.player === myPlayer.player,
+    );
+
     if (myIndex === -1) return [];
 
     const ordered: GamePlayer[] = [];
-    for (let offset = 1; offset < game.players.length; offset++) {
-      ordered.push(game.players[(myIndex + offset) % game.players.length]);
+
+    for (
+      let offset = 1;
+      offset < game.players.length;
+      offset++
+    ) {
+      ordered.push(
+        game.players[
+          (myIndex + offset) % game.players.length
+        ],
+      );
     }
+
     return ordered;
   }, [game, myPlayer]);
 
   const currentPlayer = useMemo(() => {
     if (!game) return null;
-    return game.players.find((p) => p.player === game.currentPlayer) ?? null;
+
+    return (
+      game.players.find(
+        (p) => p.player === game.currentPlayer,
+      ) ?? null
+    );
   }, [game]);
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const startedAtValue = game?.startedAt;
+
     if (!startedAtValue) {
       setElapsedSeconds(0);
       return;
@@ -261,74 +605,124 @@ export function GameScreen() {
 
     const updateElapsed = () => {
       const startedAt = Date.parse(startedAtValue);
+
       setElapsedSeconds(
         Number.isNaN(startedAt)
           ? 0
-          : Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+          : Math.max(
+              0,
+              Math.floor(
+                (Date.now() - startedAt) / 1000,
+              ),
+            ),
       );
     };
 
     updateElapsed();
-    const timer = window.setInterval(updateElapsed, 1000);
+
+    const timer = window.setInterval(
+      updateElapsed,
+      1000,
+    );
+
     return () => window.clearInterval(timer);
   }, [game?.startedAt]);
 
+  // ── Descarte ─────────────────────────────────────────────────────────────
+
   const discardCard = useMemo(() => {
     if (!game?.discard?.length) return null;
+
     return game.discard[game.discard.length - 1];
   }, [game]);
 
   // ── Histórico ─────────────────────────────────────────────────────────────
+
   const moves = useMemo<MoveLogItem[]>(() => {
     if (!game?.histories?.length) return [];
-    return [...game.histories].reverse().map((h) => ({
-      id: h.id,
-      player: h.username,
-      text: formatAction(h),
-    }));
+
+    return [...game.histories]
+      .reverse()
+      .map((h) => ({
+        id: h.id,
+        player: h.username,
+        text: formatAction(h),
+      }));
   }, [game?.histories]);
 
   // ── Flags ─────────────────────────────────────────────────────────────────
 
-  const isMyTurn = myPlayer?.player === game?.currentPlayer;
+  const isMyTurn =
+    myPlayer?.player === game?.currentPlayer;
+
   const canSayUno = Boolean(
     myPlayer &&
-    myPlayer.hand.cards.length === 1 &&
-    game?.unoChallengePlayer === myPlayer.player,
+      myPlayer.hand.cards.length === 1 &&
+      game?.unoChallengePlayer === myPlayer.player,
   );
+
   const canChallengeUno = Boolean(
     myPlayer &&
-    game?.unoChallengePlayer &&
-    game.unoChallengePlayer !== myPlayer.player,
+      game?.unoChallengePlayer &&
+      game.unoChallengePlayer !== myPlayer.player,
   );
+
   const clockwise = game?.direction !== -1;
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  const elapsedDisplay = `${String(elapsedMinutes).padStart(2, "0")}:${String(
+
+  const elapsedMinutes = Math.floor(
+    elapsedSeconds / 60,
+  );
+
+  const elapsedDisplay = `${String(
+    elapsedMinutes,
+  ).padStart(2, "0")}:${String(
     elapsedSeconds % 60,
   ).padStart(2, "0")}`;
 
   const activeColorConfig = {
-    red: { label: "VERMELHO", color: "#E23E3E" },
-    green: { label: "VERDE", color: "#91BE38" },
-    blue: { label: "AZUL", color: "#18A5D6" },
-    yellow: { label: "AMARELO", color: "#FFC107" },
+    red: {
+      label: "VERMELHO",
+      color: "#E23E3E",
+    },
+    green: {
+      label: "VERDE",
+      color: "#91BE38",
+    },
+    blue: {
+      label: "AZUL",
+      color: "#18A5D6",
+    },
+    yellow: {
+      label: "AMARELO",
+      color: "#FFC107",
+    },
   };
 
   const currentColor =
-    game?.activeColor && game.activeColor !== "wild"
-      ? activeColorConfig[game.activeColor as keyof typeof activeColorConfig]
+    game?.activeColor &&
+    game.activeColor !== "wild"
+      ? activeColorConfig[
+          game.activeColor as keyof typeof activeColorConfig
+        ]
       : null;
 
   // ── Posições dos adversários ──────────────────────────────────────────────
 
-  function convertOpponent(player?: GamePlayer): Opponent | null {
+  function convertOpponent(
+    player?: GamePlayer,
+  ): Opponent | null {
     if (!player) return null;
+
     return {
       id: player.player,
       name: player.username,
-      avatar: resolveAvatar(player.picture, player.avatarKey),
+      avatar: resolveAvatar(
+        player.picture,
+        player.avatarKey,
+      ),
       cards: player.hand.cards.length,
-      active: player.player === game?.currentPlayer,
+      active:
+        player.player === game?.currentPlayer,
     };
   }
 
@@ -338,18 +732,25 @@ export function GameScreen() {
       left: null as Opponent | null,
       right: null as Opponent | null,
     };
-    const converted = relativeOpponents.map((p) => convertOpponent(p));
 
-    if (converted.length === 1) positions.top = converted[0]; // 2 jogadores
+    const converted = relativeOpponents.map((p) =>
+      convertOpponent(p),
+    );
+
+    if (converted.length === 1) {
+      positions.top = converted[0];
+    }
+
     if (converted.length === 2) {
       positions.left = converted[0];
       positions.right = converted[1];
-    } // 3 jogadores
+    }
+
     if (converted.length === 3) {
       positions.top = converted[0];
       positions.left = converted[1];
       positions.right = converted[2];
-    } // 4 jogadores
+    }
 
     return positions;
   }, [relativeOpponents, game]);
@@ -364,11 +765,16 @@ export function GameScreen() {
 
   const handleDrawCard = () => {
     if (actionLoading || !isMyTurn) return;
+
     setActionLoading(true);
     drawCard();
   };
 
-  const animateCardToDiscard = (card: GameCard) => {
+  // ── Animação: sua carta → descarte ────────────────────────────────────────
+
+  const animateCardToDiscard = (
+    card: GameCard,
+  ) => {
     const source = cardRefs.current[card.id];
     const target = discardRef.current;
 
@@ -377,17 +783,28 @@ export function GameScreen() {
       return;
     }
 
-    const sourceRect = source.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
+    const sourceRect =
+      source.getBoundingClientRect();
+
+    const targetRect =
+      target.getBoundingClientRect();
 
     const sourceCenter = {
-      x: sourceRect.left + sourceRect.width / 2,
-      y: sourceRect.top + sourceRect.height / 2,
+      x:
+        sourceRect.left +
+        sourceRect.width / 2,
+      y:
+        sourceRect.top +
+        sourceRect.height / 2,
     };
 
     const targetCenter = {
-      x: targetRect.left + targetRect.width / 2,
-      y: targetRect.top + targetRect.height / 2,
+      x:
+        targetRect.left +
+        targetRect.width / 2,
+      y:
+        targetRect.top +
+        targetRect.height / 2,
     };
 
     setFlyingCard({
@@ -400,6 +817,7 @@ export function GameScreen() {
 
     window.setTimeout(() => {
       setFlyingCard(null);
+
       setDiscardImpact(true);
 
       window.setTimeout(() => {
@@ -408,17 +826,25 @@ export function GameScreen() {
     }, 420);
   };
 
-  const handleCardClick = (card: GameCard) => {
+  // ── Clique na carta ───────────────────────────────────────────────────────
+
+  const handleCardClick = (
+    card: GameCard,
+  ) => {
     if (actionLoading || !isMyTurn) return;
 
+    /*
+     * Primeiro mostramos a carta selecionada.
+     */
     setSelectedCardId(card.id);
 
     /*
-     * Coringas precisam esperar a escolha da cor.
-     * A animação de voo acontece somente quando
-     * a jogada realmente é enviada.
+     * Coringas precisam aguardar a escolha da cor.
      */
-    if (card.type === "wild" || card.type === "wild_draw_four") {
+    if (
+      card.type === "wild" ||
+      card.type === "wild_draw_four"
+    ) {
       setSelectedWildCard(card.id);
       setColorPickerOpen(true);
       return;
@@ -426,6 +852,10 @@ export function GameScreen() {
 
     setActionLoading(true);
 
+    /*
+     * Esperamos o próximo frame para que o estado
+     * de seleção seja renderizado antes do voo.
+     */
     requestAnimationFrame(() => {
       animateCardToDiscard(card);
     });
@@ -435,12 +865,19 @@ export function GameScreen() {
 
   const handleSayUno = () => {
     if (actionLoading || !canSayUno) return;
+
     setActionLoading(true);
     sayUno();
   };
 
   const handleChallengeUno = () => {
-    if (actionLoading || !canChallengeUno) return;
+    if (
+      actionLoading ||
+      !canChallengeUno
+    ) {
+      return;
+    }
+
     setActionLoading(true);
     challengeUno();
   };
@@ -460,10 +897,12 @@ export function GameScreen() {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20">
           <div className="flex flex-col items-center gap-4 rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] px-10 py-8 shadow-[0_8px_0_#3D291F]">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#91BE38] border-t-[#3D291F]" />
+
             <div className="text-center">
               <h2 className="font-display text-2xl text-[#3D291F]">
                 CARREGANDO PARTIDA
               </h2>
+
               <p className="mt-2 font-bold text-[#8A7A63]">
                 Aguarde enquanto preparamos a mesa...
               </p>
@@ -483,6 +922,7 @@ export function GameScreen() {
         alt=""
         className="absolute inset-0 h-full w-full object-cover"
       />
+
       <div className="absolute inset-0 bg-black/45" />
 
       {/* HEADER */}
@@ -494,12 +934,16 @@ export function GameScreen() {
         </div>
 
         <div className="mt-1 rounded-full border-[3px] border-[#3D291F] bg-[#FFF200] px-5 py-1.5 font-display text-base text-[#3D291F]">
-          {currentPlayer ? `Vez de ${currentPlayer.username}` : "Aguardando..."}
+          {currentPlayer
+            ? `Vez de ${currentPlayer.username}`
+            : "Aguardando..."}
         </div>
 
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() =>
+            setSettingsOpen(true)
+          }
           aria-label="Configurações"
           title="Configurações"
           className="flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-[#4A3525] bg-[#A9C938] text-[#3D291F] shadow-[0_4px_0_#3D291F] active:translate-y-1"
@@ -517,21 +961,41 @@ export function GameScreen() {
 
       {/* JOGADORES LATERAIS + MESA */}
       <div className="relative z-10 flex flex-1 items-center justify-between px-4">
+        {/* ESQUERDA */}
         <div
-          className={`w-[120px] transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}
+          className={`w-[120px] transition-all ${
+            game.players.length === 3
+              ? "-translate-y-16"
+              : ""
+          }`}
         >
-          {leftPlayer && <OpponentSeat player={leftPlayer} />}
+          {leftPlayer && (
+            <OpponentSeat
+              ref={(element) => {
+                opponentSeatRefs.current[
+                  leftPlayer.id
+                ] = element;
+              }}
+              player={leftPlayer}
+            />
+          )}
         </div>
 
+        {/* MESA */}
         <div className="relative flex items-center justify-center">
           <div
             className={`
-            absolute h-[320px] w-[320px] rounded-full border-[6px] border-dashed border-[#FAEFDD]/80
-            sm:h-[380px] sm:w-[380px]
-            ${clockwise ? "animate-[spin_18s_linear_infinite]" : "animate-[spin_18s_linear_infinite_reverse]"}
-          `}
+              absolute h-[320px] w-[320px] rounded-full border-[6px] border-dashed border-[#FAEFDD]/80
+              sm:h-[380px] sm:w-[380px]
+              ${
+                clockwise
+                  ? "animate-[spin_18s_linear_infinite]"
+                  : "animate-[spin_18s_linear_infinite_reverse]"
+              }
+            `}
           />
 
+          {/* COR ATUAL */}
           {currentColor && (
             <div className="absolute left-1/2 top-50 z-20 -translate-x-1/2">
               <div className="flex flex-col items-center">
@@ -540,11 +1004,16 @@ export function GameScreen() {
                     COR ATUAL
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2 rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-4 py-2 shadow-[0_4px_0_#3D291F]">
                   <div
                     className="h-6 w-6 rounded-full border-[2px] border-[#3D291F]"
-                    style={{ backgroundColor: currentColor.color }}
+                    style={{
+                      backgroundColor:
+                        currentColor.color,
+                    }}
                   />
+
                   <span className="font-display text-sm text-[#3D291F]">
                     {currentColor.label}
                   </span>
@@ -553,15 +1022,24 @@ export function GameScreen() {
             </div>
           )}
 
+          {/* MONTE + DESCARTE */}
           <div className="relative flex items-center gap-5">
             <CardBack
               onClick={handleDrawCard}
-              disabled={!isMyTurn || actionLoading}
+              disabled={
+                !isMyTurn ||
+                actionLoading
+              }
             />
+
             {discardCard && (
               <div
                 ref={discardRef}
-                className={discardImpact ? "card-discard-impact" : ""}
+                className={
+                  discardImpact
+                    ? "card-discard-impact"
+                    : ""
+                }
               >
                 <PlayingCard
                   card={discardCard}
@@ -573,28 +1051,56 @@ export function GameScreen() {
           </div>
         </div>
 
+        {/* DIREITA */}
         <div
-          className={`flex w-[120px] justify-end transition-all ${game.players.length === 3 ? "-translate-y-16" : ""}`}
+          className={`flex w-[120px] justify-end transition-all ${
+            game.players.length === 3
+              ? "-translate-y-16"
+              : ""
+          }`}
         >
-          {rightPlayer && <OpponentSeat player={rightPlayer} />}
+          {rightPlayer && (
+            <OpponentSeat
+              ref={(element) => {
+                opponentSeatRefs.current[
+                  rightPlayer.id
+                ] = element;
+              }}
+              player={rightPlayer}
+            />
+          )}
         </div>
       </div>
 
       {/* JOGADOR DO TOPO */}
       <div className="pointer-events-none absolute left-0 right-0 top-16 z-10 flex justify-center">
         <div className="pointer-events-auto">
-          {topPlayer && <OpponentSeat player={topPlayer} />}
+          {topPlayer && (
+            <OpponentSeat
+              ref={(element) => {
+                opponentSeatRefs.current[
+                  topPlayer.id
+                ] = element;
+              }}
+              player={topPlayer}
+            />
+          )}
         </div>
       </div>
 
-      {/* BOTÃO DE JOGADAS com badge */}
+      {/* BOTÃO DE JOGADAS */}
       <button
         type="button"
-        onClick={() => setMovesOpen(true)}
+        onClick={() =>
+          setMovesOpen(true)
+        }
         aria-label="Registro de jogadas"
         className="absolute right-0 top-1/2 z-20 flex h-16 w-10 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-l-2xl border-[3px] border-r-0 border-[#3D291F] bg-[#A9C938] text-[#3D291F]"
       >
-        <span className="text-xl font-bold">❯</span>
+        <span className="text-xl font-bold">
+          ❯
+        </span>
+
         {moves.length > 0 && (
           <span className="text-[9px] font-black leading-none">
             {moves.length}
@@ -604,22 +1110,34 @@ export function GameScreen() {
 
       {/* ÁREA INFERIOR */}
       <div className="relative z-20 flex items-end justify-between px-6 pb-4">
+        {/* JOGADOR */}
         <div className="flex items-end gap-3">
           <div className="flex flex-col items-center gap-1">
             <div
-              className={`h-14 w-14 overflow-hidden rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${isMyTurn ? "shadow-[0_0_18px_6px_#ED1C24]" : ""}`}
+              className={`h-14 w-14 overflow-hidden rounded-xl border-[3px] border-[#3D291F] bg-[#A9C938] ${
+                isMyTurn
+                  ? "shadow-[0_0_18px_6px_#ED1C24]"
+                  : ""
+              }`}
             >
               {myAvatar && (
                 <img
                   src={myAvatar}
-                  alt={myPlayer?.username ?? user?.username ?? "Você"}
+                  alt={
+                    myPlayer?.username ??
+                    user?.username ??
+                    "Você"
+                  }
                   referrerPolicy="no-referrer"
                   className="h-full w-full object-cover"
                 />
               )}
             </div>
+
             <span className="max-w-[140px] truncate rounded-full bg-[#4A3525] px-3 py-0.5 text-xs font-bold text-white">
-              {myPlayer?.username ?? user?.username ?? "Você"}
+              {myPlayer?.username ??
+                user?.username ??
+                "Você"}
             </span>
           </div>
 
@@ -637,11 +1155,15 @@ export function GameScreen() {
           </button>
         </div>
 
+        {/* CONTRA / URRO */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleChallengeUno}
-            disabled={!canChallengeUno || actionLoading}
+            disabled={
+              !canChallengeUno ||
+              actionLoading
+            }
             aria-label="Contra URRO"
             className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -656,12 +1178,31 @@ export function GameScreen() {
               aria-label="Contra"
             >
               <defs>
-                <linearGradient id="redBtn" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#F25C54" />
-                  <stop offset="100%" stopColor="#E23E3E" />
+                <linearGradient
+                  id="redBtn"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    stopColor="#F25C54"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="#E23E3E"
+                  />
                 </linearGradient>
               </defs>
-              <circle cx="80" cy="90" r="64" fill="#3D291F" />
+
+              <circle
+                cx="80"
+                cy="90"
+                r="64"
+                fill="#3D291F"
+              />
+
               <circle
                 cx="80"
                 cy="80"
@@ -670,6 +1211,7 @@ export function GameScreen() {
                 stroke="#3D291F"
                 strokeWidth="6"
               />
+
               <ellipse
                 cx="80"
                 cy="38"
@@ -678,6 +1220,7 @@ export function GameScreen() {
                 fill="#FFFFFF"
                 fillOpacity="0.3"
               />
+
               <text
                 x="80"
                 y="88"
@@ -696,106 +1239,231 @@ export function GameScreen() {
           <button
             type="button"
             onClick={handleSayUno}
-            disabled={!canSayUno || actionLoading}
+            disabled={
+              !canSayUno ||
+              actionLoading
+            }
             aria-label="Gritar URRO"
             className="transition active:translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <img src={urroButton} alt="URRO" className="h-[120px] w-[120px]" />
+            <img
+              src={urroButton}
+              alt="URRO"
+              className="h-[120px] w-[120px]"
+            />
           </button>
         </div>
       </div>
+
+      {/* =========================================================
+          CARTA DO JOGADOR VOANDO PARA O DESCARTE
+          ========================================================= */}
 
       {flyingCard && (
         <div
           className="pointer-events-none fixed z-[200]"
           style={{
-            left: flyingCard.from.x - 42,
-            top: flyingCard.from.y - 62,
+            left:
+              flyingCard.from.x - 42,
+            top:
+              flyingCard.from.y - 62,
             width: 84,
             height: 124,
+
+            ["--card-target-x" as string]:
+              `${
+                flyingCard.to.x -
+                flyingCard.from.x
+              }px`,
+
+            ["--card-target-y" as string]:
+              `${
+                flyingCard.to.y -
+                flyingCard.from.y
+              }px`,
+
             animation:
               "card-fly-to-discard 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
-            ["--card-target-x" as string]: `${flyingCard.to.x - flyingCard.from.x}px`,
-            ["--card-target-y" as string]: `${flyingCard.to.y - flyingCard.from.y}px`,
           }}
         >
           <img
-            src={getCardImage(flyingCard.card)}
+            src={getCardImage(
+              flyingCard.card,
+            )}
             alt=""
             draggable={false}
             className="h-full w-full object-contain"
           />
         </div>
       )}
-      {/* MÃO DO JOGADOR */}
+
+      {/* =========================================================
+          CARTA DO ADVERSÁRIO VOANDO PARA O DESCARTE
+          ========================================================= */}
+
+      {flyingOpponentCard && (
+        <div
+          className="pointer-events-none fixed z-[200]"
+          style={{
+            left:
+              flyingOpponentCard.from.x - 42,
+            top:
+              flyingOpponentCard.from.y - 62,
+            width: 84,
+            height: 124,
+
+            ["--card-target-x" as string]:
+              `${
+                flyingOpponentCard.to.x -
+                flyingOpponentCard.from.x
+              }px`,
+
+            ["--card-target-y" as string]:
+              `${
+                flyingOpponentCard.to.y -
+                flyingOpponentCard.from.y
+              }px`,
+
+            ["--card-rotation" as string]:
+              `${flyingOpponentCard.rotation}deg`,
+
+            animation:
+              "card-fly-from-opponent 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
+          }}
+        >
+          <img
+            src={getCardImage(
+              flyingOpponentCard.card,
+            )}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-contain"
+          />
+        </div>
+      )}
+
+      {/* =========================================================
+          MÃO DO JOGADOR
+          ========================================================= */}
+
       <footer className="pointer-events-none relative z-20 flex h-[110px] items-end justify-center">
         <div className="pointer-events-auto flex max-w-full items-end gap-2 overflow-x-auto px-4 pb-2 pt-6">
-          {myPlayer?.hand.cards.map((card) => (
-            <PlayingCard
-              key={card.id}
-              card={card}
-              onClick={() => handleCardClick(card)}
-              disabled={!isMyTurn || actionLoading}
-              selected={selectedCardId === card.id}
-              entering={newCardIds.has(card.id)}
-              ref={(element) => {
-                cardRefs.current[card.id] = element;
-              }}
-            />
-          ))}
+          {myPlayer?.hand.cards.map(
+            (card) => (
+              <div
+                key={card.id}
+                ref={(element) => {
+                  handSlotRefs.current[
+                    card.id
+                  ] = element;
+                }}
+                className="shrink-0"
+              >
+                <PlayingCard
+                  ref={(element) => {
+                    cardRefs.current[
+                      card.id
+                    ] = element;
+                  }}
+                  card={card}
+                  onClick={() =>
+                    handleCardClick(card)
+                  }
+                  disabled={
+                    !isMyTurn ||
+                    actionLoading
+                  }
+                  selected={
+                    selectedCardId ===
+                    card.id
+                  }
+                  entering={newCardIds.has(
+                    card.id,
+                  )}
+                />
+              </div>
+            ),
+          )}
         </div>
       </footer>
 
       {/* PAINEL DE JOGADAS */}
       {movesOpen && (
-        <MovesLogPanel onClose={() => setMovesOpen(false)} moves={moves} />
+        <MovesLogPanel
+          onClose={() =>
+            setMovesOpen(false)
+          }
+          moves={moves}
+        />
       )}
 
+      {/* CONFIGURAÇÕES */}
       {settingsOpen && (
         <SettingsModal
           exitLabel="SAIR DA PARTIDA"
           onExit={handleLeaveGame}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() =>
+            setSettingsOpen(false)
+          }
         />
       )}
 
       {/* MODAL DE COR */}
-      {colorPickerOpen && selectedWildCard && (
-        <ColorPickerModal
-          onSelect={(color) => {
-            if (!selectedWildCard || actionLoading) return;
+      {colorPickerOpen &&
+        selectedWildCard && (
+          <ColorPickerModal
+            onSelect={(color) => {
+              if (
+                !selectedWildCard ||
+                actionLoading
+              ) {
+                return;
+              }
 
-            const card = myPlayer?.hand.cards.find(
-              (item) => item.id === selectedWildCard,
-            );
+              const card =
+                myPlayer?.hand.cards.find(
+                  (item) =>
+                    item.id ===
+                    selectedWildCard,
+                );
 
-            if (!card) {
+              if (!card) {
+                setColorPickerOpen(false);
+                setSelectedWildCard(null);
+                setSelectedCardId(null);
+                return;
+              }
+
+              setActionLoading(true);
               setColorPickerOpen(false);
+
+              requestAnimationFrame(() => {
+                animateCardToDiscard(card);
+              });
+
+              playCard(
+                selectedWildCard,
+                color,
+              );
+
               setSelectedWildCard(null);
-              return;
-            }
+            }}
+          />
+        )}
 
-            setActionLoading(true);
-            setColorPickerOpen(false);
-
-            requestAnimationFrame(() => {
-              animateCardToDiscard(card);
-            });
-
-            playCard(selectedWildCard, color);
-
-            setSelectedWildCard(null);
-          }}
+      {/* RECONEXÃO */}
+      {reconnection.status ===
+        "reconnecting" && (
+        <ReconnectionBanner
+          secondsLeft={
+            reconnection.secondsLeft
+          }
         />
       )}
 
-      {/* BANNER DE RECONEXÃO — aparece quando perde conexão */}
-      {reconnection.status === "reconnecting" && (
-        <ReconnectionBanner secondsLeft={reconnection.secondsLeft} />
-      )}
-
-      {/* BANNER DE JOGO ENCERRADO — tempo esgotado ou servidor encerrou */}
-      {(reconnection.status === "failed" ||
+      {/* FIM DA PARTIDA */}
+      {(reconnection.status ===
+        "failed" ||
         gameFinishedByInactivity ||
         winner) && (
         <GameOverBanner
