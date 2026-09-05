@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 
 import background from "../../../assets/game-bg.png";
@@ -17,6 +17,8 @@ import { useReconnection } from "../../shared/hooks/useReconnection";
 import { useSocket } from "../../shared/context/SocketContext";
 import { useNavigate } from "@tanstack/react-router";
 import { resolveAvatar } from "../../shared/utils/avatar";
+
+import { getCardImage } from "./cardAssets";
 
 import {
   useGameSocket,
@@ -81,6 +83,72 @@ export function GameScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  const previousHandIdsRef = useRef<Set<string>>(new Set());
+
+  const [newCardIds, setNewCardIds] = useState<Set<string>>(new Set());
+
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  const [flyingCard, setFlyingCard] = useState<{
+    card: GameCard;
+    from: {
+      x: number;
+      y: number;
+    };
+    to: {
+      x: number;
+      y: number;
+    };
+  } | null>(null);
+
+  const [discardImpact, setDiscardImpact] = useState(false);
+
+  const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const discardRef = useRef<HTMLDivElement | null>(null);
+
+  const detectNewCards = (cards: GameCard[]) => {
+    const currentIds = new Set(cards.map((card) => card.id));
+
+    /*
+     * Primeira carga:
+     * não queremos que as cartas iniciais da partida
+     * sejam tratadas como "compradas".
+     */
+    if (previousHandIdsRef.current.size === 0) {
+      previousHandIdsRef.current = currentIds;
+      return;
+    }
+
+    const addedIds = new Set<string>();
+
+    for (const id of currentIds) {
+      if (!previousHandIdsRef.current.has(id)) {
+        addedIds.add(id);
+      }
+    }
+
+    previousHandIdsRef.current = currentIds;
+
+    if (addedIds.size === 0) {
+      return;
+    }
+
+    setNewCardIds(addedIds);
+
+    window.setTimeout(() => {
+      setNewCardIds((current) => {
+        const next = new Set(current);
+
+        for (const id of addedIds) {
+          next.delete(id);
+        }
+
+        return next;
+      });
+    }, 500);
+  };
+
   const gameId = sessionStorage.getItem("currentGameId");
 
   const handleLeaveGame = () => {
@@ -110,6 +178,14 @@ export function GameScreen() {
   const { getGameInfo, drawCard, playCard, sayUno, challengeUno, leaveRoom } =
     useGameSocket({
       onGameInfo: (gameData) => {
+        const player = user
+          ? gameData.players.find((p) => p.player === user.id)
+          : null;
+
+        if (player) {
+          detectNewCards(player.hand.cards);
+        }
+
         setGame(gameData);
         setError(null);
         setActionLoading(false);
@@ -292,14 +368,68 @@ export function GameScreen() {
     drawCard();
   };
 
+  const animateCardToDiscard = (card: GameCard) => {
+    const source = cardRefs.current[card.id];
+    const target = discardRef.current;
+
+    if (!source || !target) {
+      setSelectedCardId(null);
+      return;
+    }
+
+    const sourceRect = source.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+
+    const sourceCenter = {
+      x: sourceRect.left + sourceRect.width / 2,
+      y: sourceRect.top + sourceRect.height / 2,
+    };
+
+    const targetCenter = {
+      x: targetRect.left + targetRect.width / 2,
+      y: targetRect.top + targetRect.height / 2,
+    };
+
+    setFlyingCard({
+      card,
+      from: sourceCenter,
+      to: targetCenter,
+    });
+
+    setSelectedCardId(null);
+
+    window.setTimeout(() => {
+      setFlyingCard(null);
+      setDiscardImpact(true);
+
+      window.setTimeout(() => {
+        setDiscardImpact(false);
+      }, 350);
+    }, 420);
+  };
+
   const handleCardClick = (card: GameCard) => {
     if (actionLoading || !isMyTurn) return;
+
+    setSelectedCardId(card.id);
+
+    /*
+     * Coringas precisam esperar a escolha da cor.
+     * A animação de voo acontece somente quando
+     * a jogada realmente é enviada.
+     */
     if (card.type === "wild" || card.type === "wild_draw_four") {
       setSelectedWildCard(card.id);
       setColorPickerOpen(true);
       return;
     }
+
     setActionLoading(true);
+
+    requestAnimationFrame(() => {
+      animateCardToDiscard(card);
+    });
+
     playCard(card.id);
   };
 
@@ -429,11 +559,16 @@ export function GameScreen() {
               disabled={!isMyTurn || actionLoading}
             />
             {discardCard && (
-              <PlayingCard
-                card={discardCard}
-                className="rotate-6 hover:translate-y-0"
-                disabled
-              />
+              <div
+                ref={discardRef}
+                className={discardImpact ? "card-discard-impact" : ""}
+              >
+                <PlayingCard
+                  card={discardCard}
+                  className="rotate-6 hover:translate-y-0"
+                  disabled
+                />
+              </div>
             )}
           </div>
         </div>
@@ -535,7 +670,14 @@ export function GameScreen() {
                 stroke="#3D291F"
                 strokeWidth="6"
               />
-              <ellipse cx="80" cy="38" rx="40" ry="12" fill="#FFFFFF" fillOpacity="0.3" />
+              <ellipse
+                cx="80"
+                cy="38"
+                rx="40"
+                ry="12"
+                fill="#FFFFFF"
+                fillOpacity="0.3"
+              />
               <text
                 x="80"
                 y="88"
@@ -563,6 +705,28 @@ export function GameScreen() {
         </div>
       </div>
 
+      {flyingCard && (
+        <div
+          className="pointer-events-none fixed z-[200]"
+          style={{
+            left: flyingCard.from.x - 42,
+            top: flyingCard.from.y - 62,
+            width: 84,
+            height: 124,
+            animation:
+              "card-fly-to-discard 420ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards",
+            ["--card-target-x" as string]: `${flyingCard.to.x - flyingCard.from.x}px`,
+            ["--card-target-y" as string]: `${flyingCard.to.y - flyingCard.from.y}px`,
+          }}
+        >
+          <img
+            src={getCardImage(flyingCard.card)}
+            alt=""
+            draggable={false}
+            className="h-full w-full object-contain"
+          />
+        </div>
+      )}
       {/* MÃO DO JOGADOR */}
       <footer className="pointer-events-none relative z-20 flex h-[110px] items-end justify-center">
         <div className="pointer-events-auto flex max-w-full items-end gap-2 overflow-x-auto px-4 pb-2 pt-6">
@@ -572,6 +736,11 @@ export function GameScreen() {
               card={card}
               onClick={() => handleCardClick(card)}
               disabled={!isMyTurn || actionLoading}
+              selected={selectedCardId === card.id}
+              entering={newCardIds.has(card.id)}
+              ref={(element) => {
+                cardRefs.current[card.id] = element;
+              }}
             />
           ))}
         </div>
@@ -595,9 +764,26 @@ export function GameScreen() {
         <ColorPickerModal
           onSelect={(color) => {
             if (!selectedWildCard || actionLoading) return;
+
+            const card = myPlayer?.hand.cards.find(
+              (item) => item.id === selectedWildCard,
+            );
+
+            if (!card) {
+              setColorPickerOpen(false);
+              setSelectedWildCard(null);
+              return;
+            }
+
             setActionLoading(true);
-            playCard(selectedWildCard, color);
             setColorPickerOpen(false);
+
+            requestAnimationFrame(() => {
+              animateCardToDiscard(card);
+            });
+
+            playCard(selectedWildCard, color);
+
             setSelectedWildCard(null);
           }}
         />
@@ -609,7 +795,9 @@ export function GameScreen() {
       )}
 
       {/* BANNER DE JOGO ENCERRADO — tempo esgotado ou servidor encerrou */}
-      {(reconnection.status === "failed" || gameFinishedByInactivity || winner) && (
+      {(reconnection.status === "failed" ||
+        gameFinishedByInactivity ||
+        winner) && (
         <GameOverBanner
           winner={winner}
           onLeave={() =>
