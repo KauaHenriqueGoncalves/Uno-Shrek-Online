@@ -641,14 +641,34 @@ export function GameScreen() {
   const moves = useMemo<MoveLogItem[]>(() => {
     if (!game?.histories?.length) return [];
 
+    const startedAt = game.startedAt ? Date.parse(game.startedAt) : NaN;
+
+    const formatElapsedTime = (createdAt: string) => {
+      const actionAt = Date.parse(createdAt);
+      const elapsed = Number.isNaN(startedAt) || Number.isNaN(actionAt)
+        ? 0
+        : Math.max(0, Math.floor((actionAt - startedAt) / 1000));
+
+      return `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+    };
+
     return [...game.histories]
       .reverse()
-      .map((h) => ({
-        id: h.id,
-        player: h.username,
-        text: formatAction(h),
-      }));
-  }, [game?.histories]);
+      .map((h) => {
+        const player = game.players.find((gamePlayer) => gamePlayer.player === h.player);
+
+        return {
+          id: h.id,
+          player: h.username,
+          text: formatAction(h),
+          avatar: resolveAvatar(player?.picture, player?.avatarKey),
+          color: h.action === "play" && h.card && h.card.color !== "wild"
+            ? h.card.color as "red" | "blue" | "green" | "yellow"
+            : undefined,
+          elapsedTime: formatElapsedTime(h.createdAt),
+        };
+      });
+  }, [game?.histories, game?.players, game?.startedAt]);
 
   // ── Flags ─────────────────────────────────────────────────────────────────
 
