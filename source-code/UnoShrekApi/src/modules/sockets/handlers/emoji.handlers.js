@@ -1,11 +1,10 @@
 const emojiMap = new Map([
-  [1, "angry"],
-  [2, "king"],
-  [3, "laughing"],
-  [4, "kiss"],
-  [5, "king_thinking"],
-  [6, "sleeping"],
-  [7, "crying"],
+  [1, "shrekS"],
+  [2, "shrekPls"],
+  [3, "ShrekBabyDancing"],
+  [4, "RIZZ"],
+  [5, "please"],
+  [6, "Donkey"],
 ]);
 
 export function getEmojiByKey(key) {

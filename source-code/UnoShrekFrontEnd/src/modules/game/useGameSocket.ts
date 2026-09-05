@@ -25,6 +25,12 @@ const GAME_EVENTS = {
   },
 };
 
+const EMOTE_EVENTS = {
+  INPUT: "emoji::send",
+  OUTPUT: "emoji::sent",
+  ERROR: "emoji::error",
+} as const;
+
 export type CardColor = "red" | "green" | "blue" | "yellow" | "wild";
 
 export type CardType =
@@ -103,6 +109,8 @@ type UseGameSocketOptions = {
   onLeaved?: () => void;
 
   onError?: (message: string) => void;
+
+  onEmote?: (data: { key: number; emoji: string; playerId: string }) => void;
 };
 
 export function useGameSocket(options: UseGameSocketOptions = {}) {
@@ -143,6 +151,10 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
       optionsRef.current.onError?.(data.message);
     }
 
+    function handleEmote(data: { key: number; emoji: string; playerId: string }) {
+      optionsRef.current.onEmote?.(data);
+    }
+
     socket.on(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
 
     socket.on(GAME_EVENTS.OUTPUT.JOINED, handleJoined);
@@ -150,6 +162,8 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     socket.on(GAME_EVENTS.OUTPUT.LEAVED, handleLeaved);
 
     socket.on(GAME_EVENTS.OUTPUT.ERROR, handleError);
+
+    socket.on(EMOTE_EVENTS.OUTPUT, handleEmote);
 
     return () => {
       socket.off(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
@@ -159,6 +173,8 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
       socket.off(GAME_EVENTS.OUTPUT.LEAVED, handleLeaved);
 
       socket.off(GAME_EVENTS.OUTPUT.ERROR, handleError);
+
+      socket.off(EMOTE_EVENTS.OUTPUT, handleEmote);
     };
   }, [socket]);
 
@@ -225,6 +241,13 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     socket?.emit(GAME_EVENTS.INPUT.CHALLENGE_UNO);
   }, [socket]);
 
+  const sendEmote = useCallback(
+    (key: number) => {
+      socket?.emit(EMOTE_EVENTS.INPUT, { key });
+    },
+    [socket],
+  );
+
   return {
     createRoom,
     joinRoom,
@@ -242,5 +265,6 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
 
     sayUno,
     challengeUno,
+    sendEmote,
   };
 }

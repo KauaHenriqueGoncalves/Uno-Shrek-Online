@@ -10,6 +10,12 @@ import { Settings } from "lucide-react";
 import background from "../../../assets/game-bg.png";
 import emoteButton from "../../../assets/emote-button.svg";
 import urroButton from "../../../assets/urro-button.svg";
+import shrekS from "../../../assets/emotes/shrekS-4x.png";
+import shrekPls from "../../../assets/emotes/shrekPls-4x.gif";
+import shrekBabyDancing from "../../../assets/emotes/ShrekBabyDancing-4x.gif";
+import rizz from "../../../assets/emotes/RIZZ-4x.gif";
+import please from "../../../assets/emotes/please-4x.gif";
+import donkey from "../../../assets/emotes/Donkey-4x.png";
 
 import { CardBack, PlayingCard } from "./PlayingCard";
 import { OpponentSeat, type Opponent } from "./OpponentSeat";
@@ -54,6 +60,21 @@ const TYPE_LABEL: Record<string, string> = {
   wild_draw_four: "+4",
 };
 
+const EMOTES = [
+  { key: 1, name: "Shrek ", image: shrekS },
+  { key: 2, name: "Dança", image: shrekPls },
+  { key: 3, name: "Dancinha", image: shrekBabyDancing },
+  { key: 4, name: "Rizz", image: rizz },
+  { key: 5, name: "😭", image: please },
+  { key: 6, name: "Burro", image: donkey },
+] as const;
+
+type ActiveEmote = {
+  key: number;
+  playerId: string;
+  nonce: number;
+};
+
 function formatAction(h: HistoryItem): string {
   if (h.action === "draw") return "Comprou uma carta";
   if (h.action === "sayUno") return "Disse URRO! 🎉";
@@ -92,6 +113,8 @@ export function GameScreen() {
     useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [emoteMenuOpen, setEmoteMenuOpen] = useState(false);
+  const [activeEmotes, setActiveEmotes] = useState<ActiveEmote[]>([]);
 
   // ── Animações da mão ─────────────────────────────────────────────────────
 
@@ -467,6 +490,7 @@ export function GameScreen() {
     sayUno,
     challengeUno,
     leaveRoom,
+    sendEmote,
   } = useGameSocket({
     onGameInfo: (gameData) => {
       /*
@@ -507,7 +531,28 @@ export function GameScreen() {
       setError(message);
       setActionLoading(false);
     },
+    onEmote: ({ key, playerId }) => {
+      setActiveEmotes((current) => [
+        ...current.filter((emote) => emote.playerId !== playerId),
+        { key, playerId, nonce: Date.now() },
+      ]);
+
+      window.setTimeout(() => {
+        setActiveEmotes((current) =>
+          current.filter((emote) => emote.playerId !== playerId),
+        );
+      }, 3500);
+    },
   });
+
+  const getActiveEmote = (playerId?: string | null) =>
+    activeEmotes.find((emote) => emote.playerId === playerId);
+
+  const getEmoteImage = (key?: number) =>
+    EMOTES.find((emote) => emote.key === key)?.image;
+
+  const getEmoteName = (key?: number) =>
+    EMOTES.find((emote) => emote.key === key)?.name;
 
   useEffect(() => {
     if (!gameId) {
@@ -945,6 +990,35 @@ export function GameScreen() {
 
       <div className="absolute inset-0 bg-black/45" />
 
+      {/* EMOTES ATIVOS */}
+      {[
+        { playerId: leftPlayer?.id, position: "left-28 top-1/2 -translate-y-1/2" },
+        { playerId: rightPlayer?.id, position: "right-28 top-1/2 -translate-y-1/2" },
+        { playerId: topPlayer?.id, position: "left-1/2 top-20 -translate-x-1/2" },
+        { playerId: myPlayer?.player, position: "left-28 bottom-28" },
+      ].map(({ playerId, position }) => {
+        const emote = getActiveEmote(playerId);
+        const image = getEmoteImage(emote?.key);
+
+        if (!emote || !image) return null;
+
+        return (
+          <div
+            key={`${emote.playerId}-${emote.nonce}`}
+            className={`pointer-events-none absolute z-40 animate-[winner-modal-in_220ms_ease-out] ${position}`}
+          >
+            <div className="relative flex h-24 w-28 items-center justify-center rounded-[22px] border-[4px] border-[#3D291F] bg-[#FAEFDD] p-2 shadow-[0_7px_0_#3D291F] after:absolute after:-bottom-4 after:left-8 after:border-x-[12px] after:border-t-[18px] after:border-x-transparent after:border-t-[#3D291F]">
+              <div className="absolute -bottom-2 left-[35px] z-10 border-x-[8px] border-t-[12px] border-x-transparent border-t-[#FAEFDD]" />
+              <img
+                src={image}
+                alt={getEmoteName(emote.key)}
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+        );
+      })}
+
       {/* HEADER */}
       <header className="relative z-10 flex items-start justify-between p-4">
         <div className="rounded-full border-[3px] border-[#3D291F] bg-[#FAEFDD] px-5 py-2">
@@ -1161,18 +1235,49 @@ export function GameScreen() {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {}}
-            aria-label="Enviar emote"
-            className="transition active:translate-y-1"
-          >
-            <img
-              src={emoteButton}
-              alt="Enviar emote"
-              className="h-[62px] w-[62px]"
-            />
-          </button>
+          <div className="relative">
+            {emoteMenuOpen && (
+              <div className="absolute bottom-[76px] left-0 z-50 w-[270px] rounded-[24px] border-[4px] border-[#3D291F] bg-[#FAEFDD] p-3 shadow-[0_8px_0_#3D291F]">
+                <div className="mb-2 text-center font-display text-base tracking-wide text-[#3D291F]">
+                  EMOTES
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {EMOTES.map((emote) => (
+                    <button
+                      key={emote.key}
+                      type="button"
+                      onClick={() => {
+                        sendEmote(emote.key);
+                        setEmoteMenuOpen(false);
+                      }}
+                      title={emote.name}
+                      aria-label={`Enviar emote ${emote.name}`}
+                      className="flex h-[68px] flex-col items-center justify-center rounded-2xl border-[3px] border-[#A89279] bg-[#E8D9C5] p-1 transition hover:-translate-y-1 hover:border-[#3D291F] hover:bg-white active:translate-y-0"
+                    >
+                      <img src={emote.image} alt="" className="h-10 w-12 object-contain" />
+                      <span className="mt-0.5 max-w-full truncate text-[9px] font-black text-[#3D291F]">
+                        {emote.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setEmoteMenuOpen((open) => !open)}
+              aria-label="Abrir emotes"
+              aria-expanded={emoteMenuOpen}
+              className="transition active:translate-y-1"
+            >
+              <img
+                src={emoteButton}
+                alt="Abrir emotes"
+                className="h-[62px] w-[62px]"
+              />
+            </button>
+          </div>
         </div>
 
         {/* CONTRA / URRO */}
