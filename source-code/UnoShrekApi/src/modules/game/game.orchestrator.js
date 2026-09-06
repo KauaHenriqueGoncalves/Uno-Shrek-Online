@@ -339,7 +339,7 @@ export default class GameOrchestrator extends EventEmitter {
         );
         throw new BusinessError("Invalid play");
       }
-      const {
+      let {
         state: stateAfterPlay,
         drawnCards,
         effect,
@@ -606,7 +606,7 @@ export default class GameOrchestrator extends EventEmitter {
       if (!GameEngine.validatePlay(decision.card, topCard, state.activeColor)) {
         throw new BusinessError("Bot selected an invalid play");
       }
-      const {
+      let {
         state: stateAfterPlay,
         drawnCards,
         effect,
@@ -622,6 +622,9 @@ export default class GameOrchestrator extends EventEmitter {
       if (remainingCards === 1) {
         stateAfterPlay.unoChallenge = { player: stateAfterPlay.players[playerIndex].player };
         stateAfterPlay.players[playerIndex].saidUno = false;
+        if (decision.callUno) {
+          stateAfterPlay = GameEngine.sayUno(stateAfterPlay, playerIndex);
+        }
       }
 
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
@@ -637,8 +640,8 @@ export default class GameOrchestrator extends EventEmitter {
         }
 
       // Mantém o desafio pendente quando o bot termina com uma carta.
-      game.players[playerIndex].saidUno = false;
-      if (remainingCards === 1) {
+      game.players[playerIndex].saidUno = decision.callUno === true && remainingCards === 1;
+      if (remainingCards === 1 && !decision.callUno) {
         game.unoChallengePlayer = currentPlayerId;
         this.log.info(
           { gameId, playerId: currentPlayerId },
