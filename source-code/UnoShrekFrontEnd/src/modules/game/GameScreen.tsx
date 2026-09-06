@@ -38,6 +38,7 @@ import {
   type GameInfo,
   type GameCard,
   type HistoryItem,
+  type RoomMessage,
 } from "./useGameSocket";
 
 import { useAuth } from "../../shared/context/AuthContext";
@@ -128,6 +129,16 @@ function formatAction(h: HistoryItem): string {
   return h.action;
 }
 
+function formatGameElapsedTime(startedAt: string | null, createdAt: string) {
+  const started = startedAt ? Date.parse(startedAt) : NaN;
+  const created = Date.parse(createdAt);
+  const elapsed = Number.isNaN(started) || Number.isNaN(created)
+    ? 0
+    : Math.max(0, Math.floor((created - started) / 1000));
+
+  return `${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}`;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function GameScreen() {
@@ -138,6 +149,9 @@ export function GameScreen() {
   const reconnection = useReconnection();
 
   const [movesOpen, setMovesOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<RoomMessage[]>([]);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -588,6 +602,7 @@ export function GameScreen() {
     challengeUno,
     leaveRoom,
     sendEmote,
+    sendRoomMessage,
   } = useGameSocket({
     onGameInfo: (gameData) => {
       /*
@@ -648,7 +663,22 @@ export function GameScreen() {
         );
       }, 3500);
     },
+
+    onRoomMessage: (message: RoomMessage) => {
+      setChatMessages((current) => [...current.slice(-49), message]);
+    },
   });
+
+  const handleSendChatMessage = () => {
+    const message = chatInput.trim();
+
+    if (!message || message.length >= 500) {
+      return;
+    }
+
+    sendRoomMessage(message);
+    setChatInput("");
+  };
 
   const getActiveEmote = (playerId?: string | null) =>
     activeEmotes.find((emote) => emote.playerId === playerId);
@@ -1309,6 +1339,88 @@ export function GameScreen() {
           </span>
         )}
       </button>
+
+      <button
+        type="button"
+        onClick={() => setChatOpen((open) => !open)}
+        aria-label="Abrir bate-papo da sala"
+        aria-expanded={chatOpen}
+        className="absolute bottom-18 right-4 z-30 h-16 w-16 transition hover:-translate-y-1 active:translate-y-1"
+      >
+        <img src="/chat-button.svg" alt="Bate-papo" className="h-full w-full" />
+      </button>
+
+      {chatOpen && (
+        <section className="absolute bottom-48 right-4 z-40 flex h-[360px] w-[min(360px,calc(100vw-2rem))] flex-col rounded-3xl border-[4px] border-[#3D291F] bg-[#FAEFDD] p-4 shadow-[0_8px_0_#3D291F]">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl text-[#3D291F]">BATE-PAPO</h2>
+            <button
+              type="button"
+              onClick={() => setChatOpen(false)}
+              aria-label="Fechar bate-papo"
+              className="flex h-8 w-8 items-center justify-center rounded-full border-[3px] border-[#3D291F] bg-[#ED1C24] font-black text-white"
+            >
+              X
+            </button>
+          </div>
+
+          <div className="my-3 h-[2px] rounded-full bg-[#3D291F]/15" />
+
+          <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+            {chatMessages.length === 0 ? (
+              <p className="py-8 text-center text-sm font-bold text-[#8A7A63]">
+                Nenhuma mensagem ainda.
+              </p>
+            ) : (
+              chatMessages.map((item, index) => (
+                <div key={`${item.playerId}-${item.createdAt}-${index}`} className="flex gap-2 rounded-xl bg-white px-3 py-2">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border-[2px] border-[#3D291F] bg-[#A9C938]">
+                    {resolveAvatar(item.picture, item.avatarKey) && (
+                      <img
+                        src={resolveAvatar(item.picture, item.avatarKey) as string}
+                        alt={item.username}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-black text-[#3D291F]">{item.username}</p>
+                      <span className="shrink-0 text-[10px] font-black text-[#8A7A63]">
+                        {formatGameElapsedTime(game.startedAt, item.createdAt)}
+                      </span>
+                    </div>
+                    <p className="break-words text-sm font-bold text-[#4A3525]">{item.message}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <form
+            className="mt-3 flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSendChatMessage();
+            }}
+          >
+            <input
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value.slice(0, 499))}
+              placeholder="Digite uma mensagem..."
+              aria-label="Mensagem do bate-papo"
+              className="min-w-0 flex-1 rounded-xl border-[3px] border-[#3D291F] bg-white px-3 py-2 text-sm font-bold text-[#3D291F] outline-none focus:ring-2 focus:ring-[#4AD6F2]"
+            />
+            <button
+              type="submit"
+              disabled={!chatInput.trim()}
+              className="rounded-xl border-[3px] border-[#3D291F] bg-[#4AD6F2] px-3 font-display text-sm text-[#3D291F] disabled:opacity-50"
+            >
+              ENVIAR
+            </button>
+          </form>
+        </section>
+      )}
 
       {/* ÁREA INFERIOR */}
       <div className="relative z-20 flex items-end justify-between px-6 pb-4">
