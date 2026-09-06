@@ -31,6 +31,11 @@ const EMOTE_EVENTS = {
   ERROR: "emoji::error",
 } as const;
 
+const CHAT_EVENTS = {
+  INPUT: "player::messageRoom",
+  OUTPUT: "player::messageRoomOut",
+} as const;
+
 export type CardColor = "red" | "green" | "blue" | "yellow" | "wild";
 
 export type CardType =
@@ -69,6 +74,15 @@ export type HistoryItem = {
     color: string;
     value: string | null;
   } | null;
+  createdAt: string;
+};
+
+export type RoomMessage = {
+  playerId: string;
+  username: string;
+  picture?: string | null;
+  avatarKey?: string | null;
+  message: string;
   createdAt: string;
 };
 
@@ -111,6 +125,8 @@ type UseGameSocketOptions = {
   onError?: (message: string) => void;
 
   onEmote?: (data: { key: number; emoji: string; playerId: string }) => void;
+
+  onRoomMessage?: (data: RoomMessage) => void;
 };
 
 export function useGameSocket(options: UseGameSocketOptions = {}) {
@@ -155,6 +171,10 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
       optionsRef.current.onEmote?.(data);
     }
 
+    function handleRoomMessage(data: RoomMessage) {
+      optionsRef.current.onRoomMessage?.(data);
+    }
+
     socket.on(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
 
     socket.on(GAME_EVENTS.OUTPUT.JOINED, handleJoined);
@@ -164,6 +184,8 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     socket.on(GAME_EVENTS.OUTPUT.ERROR, handleError);
 
     socket.on(EMOTE_EVENTS.OUTPUT, handleEmote);
+
+    socket.on(CHAT_EVENTS.OUTPUT, handleRoomMessage);
 
     return () => {
       socket.off(GAME_EVENTS.OUTPUT.GAME_INFO, handleGameInfo);
@@ -175,6 +197,8 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
       socket.off(GAME_EVENTS.OUTPUT.ERROR, handleError);
 
       socket.off(EMOTE_EVENTS.OUTPUT, handleEmote);
+
+      socket.off(CHAT_EVENTS.OUTPUT, handleRoomMessage);
     };
   }, [socket]);
 
@@ -248,6 +272,13 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     [socket],
   );
 
+  const sendRoomMessage = useCallback(
+    (message: string) => {
+      socket?.emit(CHAT_EVENTS.INPUT, { message });
+    },
+    [socket],
+  );
+
   return {
     createRoom,
     joinRoom,
@@ -266,5 +297,6 @@ export function useGameSocket(options: UseGameSocketOptions = {}) {
     sayUno,
     challengeUno,
     sendEmote,
+    sendRoomMessage,
   };
 }
