@@ -161,6 +161,26 @@
   }
 }
 
+@keyframes wild-card-colors {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.wild-card-text {
+  background: linear-gradient(90deg, #ed1c24, #c28a00, #5d9213, #1677d2, #ed1c24);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: wild-card-colors 2.4s ease-in-out infinite;
+}
+
 /* Keep legacy utility classes in the same swamp palette while dark mode is on. */
 .dark [class~="bg-[#FAEFDD]"],
 .dark [class~="bg-[#FDF8E4]"],

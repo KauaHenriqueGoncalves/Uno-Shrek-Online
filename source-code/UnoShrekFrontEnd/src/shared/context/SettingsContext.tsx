@@ -11,6 +11,12 @@ type SettingsContextType = {
   darkMode: boolean;
   setDarkMode: (enabled: boolean) => void;
   toggleDarkMode: () => void;
+  effectsEnabled: boolean;
+  setEffectsEnabled: (enabled: boolean) => void;
+  toggleEffects: () => void;
+  musicEnabled: boolean;
+  setMusicEnabled: (enabled: boolean) => void;
+  toggleMusic: () => void;
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -32,13 +38,51 @@ export function SettingsProvider({
     return window.localStorage.getItem("urro-dark-mode") === "true";
   });
 
+  const [effectsEnabled, setEffectsEnabled] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    return window.localStorage.getItem("urro-effects-enabled") !== "false";
+  });
+
+  const [musicEnabled, setMusicEnabled] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    return window.localStorage.getItem("urro-music-enabled") !== "false";
+  });
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     window.localStorage.setItem("urro-dark-mode", String(darkMode));
   }, [darkMode]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      "urro-effects-enabled",
+      String(effectsEnabled),
+    );
+  }, [effectsEnabled]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      "urro-music-enabled",
+      String(musicEnabled),
+    );
+  }, [musicEnabled]);
+
   const toggleDarkMode = () => {
     setDarkMode((previous) => !previous);
+  };
+
+  const toggleEffects = () => {
+    setEffectsEnabled((previous) => !previous);
+  };
+
+  const toggleMusic = () => {
+    setMusicEnabled((previous) => !previous);
   };
 
   const value = useMemo(
@@ -46,8 +90,14 @@ export function SettingsProvider({
       darkMode,
       setDarkMode,
       toggleDarkMode,
+      effectsEnabled,
+      setEffectsEnabled,
+      toggleEffects,
+      musicEnabled,
+      setMusicEnabled,
+      toggleMusic,
     }),
-    [darkMode],
+    [darkMode, effectsEnabled, musicEnabled],
   );
 
   return (

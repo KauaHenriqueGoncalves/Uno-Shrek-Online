@@ -41,6 +41,7 @@ import {
 } from "./useGameSocket";
 
 import { useAuth } from "../../shared/context/AuthContext";
+import { useSettings } from "../../shared/context/SettingsContext";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,34 @@ const EMOTES = [
   { key: 6, name: "Burro", image: donkey },
 ] as const;
 
+const EMOTE_SOUNDS: Record<number, string> = {
+  1: "/audio/sfx/emotes/shrek-bizarro.mp3",
+  2: "/audio/sfx/emotes/apanhar.mp3",
+  3: "/audio/sfx/emotes/danca-gatinho.mp3",
+  4: "/audio/sfx/emotes/rizz-sound-effect.mp3",
+  5: "/audio/sfx/emotes/m-e-o-w.mp3",
+  6: "/audio/sfx/emotes/foiquandogyro.mp3",
+};
+
+const GAME_SOUNDS = {
+  oneCard: "/audio/sfx/game/faz-urro.mp3",
+  urro: "/audio/sfx/game/urro.mp3",
+  victory: "/audio/sfx/game/vitoria.mp3",
+} as const;
+
+function playSound(source: string) {
+  if (
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("urro-effects-enabled") === "false"
+  ) {
+    return;
+  }
+
+  const audio = new Audio(source);
+  audio.volume = 0.8;
+  void audio.play().catch(() => undefined);
+}
+
 type ActiveEmote = {
   key: number;
   playerId: string;
@@ -80,6 +109,12 @@ function formatAction(h: HistoryItem): string {
   if (h.action === "sayUno") return "Disse URRO! 🎉";
 
   if (h.action === "play" && h.card) {
+    if (h.card.color === "wild") {
+      return h.card.type === "wild_draw_four"
+        ? "Jogou Coringa +4"
+        : "Jogou Coringa";
+    }
+
     const color = COLOR_LABEL[h.card.color] ?? h.card.color;
 
     const type =
@@ -97,6 +132,7 @@ function formatAction(h: HistoryItem): string {
 
 export function GameScreen() {
   const { user } = useAuth();
+  const { musicEnabled } = useSettings();
   const { socket } = useSocket();
   const navigate = useNavigate();
   const reconnection = useReconnection();
@@ -115,6 +151,39 @@ export function GameScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [emoteMenuOpen, setEmoteMenuOpen] = useState(false);
   const [activeEmotes, setActiveEmotes] = useState<ActiveEmote[]>([]);
+
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const music = musicRef.current ?? new Audio("/audio/music/ost-shrek.mp3");
+    musicRef.current = music;
+    music.loop = true;
+    music.volume = 0.18;
+
+    if (musicEnabled) {
+      void music.play().catch(() => undefined);
+    } else {
+      music.pause();
+    }
+
+    const resumeMusic = () => {
+      if (musicEnabled) {
+        void music.play().catch(() => undefined);
+      }
+    };
+
+    document.addEventListener("pointerdown", resumeMusic, { once: true });
+    document.addEventListener("keydown", resumeMusic, { once: true });
+
+    return () => {
+      document.removeEventListener("pointerdown", resumeMusic);
+      document.removeEventListener("keydown", resumeMusic);
+      music.pause();
+    };
+  }, [musicEnabled]);
+
+  const previousHandCountsRef = useRef<Record<string, number> | null>(null);
+  const previousWinnerRef = useRef<string | null | undefined>(undefined);
 
   // ── Animações da mão ─────────────────────────────────────────────────────
 
@@ -318,6 +387,38 @@ export function GameScreen() {
     previousOpponentCountsRef.current = counts;
   };
 
+  const detectOneCard = (gameData: GameInfo) => {
+    const previousCounts = previousHandCountsRef.current;
+    const currentCounts: Record<string, number> = {};
+
+    for (const player of gameData.players) {
+      const currentCount = player.hand.cards.length;
+      currentCounts[player.player] = currentCount;
+
+      if (
+        previousCounts &&
+        previousCounts[player.player] > 1 &&
+        currentCount === 1
+      ) {
+        playSound(GAME_SOUNDS.oneCard);
+      }
+    }
+
+    previousHandCountsRef.current = currentCounts;
+  };
+
+  const detectVictory = (gameData: GameInfo) => {
+    if (
+      previousWinnerRef.current !== undefined &&
+      gameData.winner &&
+      previousWinnerRef.current !== gameData.winner
+    ) {
+      playSound(GAME_SOUNDS.victory);
+    }
+
+    previousWinnerRef.current = gameData.winner;
+  };
+
   // ── Detecta jogada dos adversários ───────────────────────────────────────
 
   const detectOpponentPlay = (gameData: GameInfo) => {
@@ -507,6 +608,9 @@ export function GameScreen() {
         detectNewCards(player.hand.cards);
       }
 
+      detectOneCard(gameData);
+      detectVictory(gameData);
+
       /*
        * Detectamos a jogada do adversário ANTES de atualizar
        * os contadores anteriores.
@@ -528,6 +632,11 @@ export function GameScreen() {
       setActionLoading(false);
     },
     onEmote: ({ key, playerId }) => {
+      const sound = EMOTE_SOUNDS[key];
+      if (sound) {
+        playSound(sound);
+      }
+
       setActiveEmotes((current) => [
         ...current.filter((emote) => emote.playerId !== playerId),
         { key, playerId, nonce: Date.now() },
@@ -703,8 +812,10 @@ export function GameScreen() {
           player: h.username,
           text: formatAction(h),
           avatar: resolveAvatar(player?.picture, player?.avatarKey),
-          color: h.action === "play" && h.card && h.card.color !== "wild"
-            ? h.card.color as "red" | "blue" | "green" | "yellow"
+          color: h.action === "play" && h.card
+            ? h.card.color === "wild"
+              ? "wild"
+              : h.card.color as "red" | "blue" | "green" | "yellow"
             : undefined,
           elapsedTime: formatElapsedTime(h.createdAt),
         };
@@ -928,6 +1039,7 @@ export function GameScreen() {
     if (actionLoading || !canSayUno) return;
 
     setActionLoading(true);
+    playSound(GAME_SOUNDS.urro);
     sayUno();
   };
 
@@ -991,7 +1103,7 @@ export function GameScreen() {
         { playerId: leftPlayer?.id, position: "left-28 top-1/2 -translate-y-1/2" },
         { playerId: rightPlayer?.id, position: "right-28 top-1/2 -translate-y-1/2" },
         { playerId: topPlayer?.id, position: "left-1/2 top-20 -translate-x-1/2" },
-        { playerId: myPlayer?.player, position: "left-28 bottom-28" },
+        { playerId: myPlayer?.player, position: "left-64 bottom-52" },
       ].map(({ playerId, position }) => {
         const emote = getActiveEmote(playerId);
         const image = getEmoteImage(emote?.key);
