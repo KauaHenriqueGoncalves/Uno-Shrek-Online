@@ -375,15 +375,11 @@ export function GameScreen() {
      * Se não temos uma quantidade anterior,
      * não temos como confirmar que uma carta foi removida.
      */
-    if (previousCount === undefined) {
-      return;
-    }
-
     /*
      * Se a quantidade não diminuiu, não é uma jogada normal
      * que removeu uma carta da mão.
      */
-    if (currentCount >= previousCount) {
+    if (previousCount !== undefined && currentCount >= previousCount) {
       return;
     }
 
@@ -803,17 +799,17 @@ export function GameScreen() {
     );
 
     if (converted.length === 1) {
-      positions.top = converted[0];
+      positions.left = converted[0];
     }
 
     if (converted.length === 2) {
       positions.left = converted[0];
-      positions.right = converted[1];
+      positions.top = converted[1];
     }
 
     if (converted.length === 3) {
-      positions.top = converted[0];
-      positions.left = converted[1];
+      positions.left = converted[0];
+      positions.top = converted[1];
       positions.right = converted[2];
     }
 

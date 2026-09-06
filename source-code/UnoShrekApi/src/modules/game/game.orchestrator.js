@@ -254,7 +254,7 @@ export default class GameOrchestrator extends EventEmitter {
         },
         "Card drawn from deck",
       );
-      const nextIndex = (playerIndex + 1) % stateAfterDraw.players.length;
+      const nextIndex = this.getNextPlayerIndex(stateAfterDraw, playerIndex);
       stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
       this.log.info(
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
