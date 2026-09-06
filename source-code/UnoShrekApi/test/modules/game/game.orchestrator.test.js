@@ -403,6 +403,41 @@ describe("GameOrchestrator", () => {
       expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
     });
 
+    it("passes the turn according to the current direction after drawing", async () => {
+      const game = setupActiveGame({
+        currentPlayer: { toString: () => "player2" },
+        players: [
+          { player: { toString: () => "player1" } },
+          { player: { toString: () => "player2" } },
+          { player: { toString: () => "player3" } },
+        ],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      const engineState = {
+        direction: -1,
+        players: [
+          { player: "player1" },
+          { player: "player2" },
+          { player: "player3" },
+        ],
+      };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      GameEngine.drawFromDeck.mockReturnValue({
+        state: { ...engineState, deck: [] },
+        drawn: [{ id: "c1" }],
+      });
+
+      await orchestrator.draw("player2", "game1");
+
+      expect(
+        orchestrator.gameStateMapper.applyEngineStateToGame,
+      ).toHaveBeenCalledWith(
+        game,
+        expect.objectContaining({ currentPlayer: "player1" }),
+      );
+    });
+
     it("throws NotFoundError when the game does not exist", async () => {
       orchestrator.gameRepository.getById.mockResolvedValue(null);
 
