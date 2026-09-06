@@ -5,7 +5,7 @@ export type MoveLogItem = {
   player: string;
   text: string;
   avatar?: string;
-  color?: "red" | "blue" | "green" | "yellow";
+  color?: "red" | "blue" | "green" | "yellow" | "wild";
   elapsedTime: string;
 };
 
@@ -14,6 +14,7 @@ const COLOR_TEXT_CLASS = {
   blue: "text-[#1677D2]",
   green: "text-[#5D9213]",
   yellow: "text-[#C28A00]",
+  wild: "wild-card-text",
 } as const;
 
 type Props = {
