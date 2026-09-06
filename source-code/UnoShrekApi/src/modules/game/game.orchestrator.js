@@ -576,6 +576,13 @@ export default class GameOrchestrator extends EventEmitter {
         const nextIndex = this.getNextPlayerIndex(stateAfterDraw, playerIndex);
         stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
         this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+        await this._registerHistory(
+          game,
+          currentPlayerId,
+          "draw",
+          drawn[0]?.id ?? null,
+          session,
+        );
         const updatedGame = await this.gameRepository.update(
           gameId,
           game,
@@ -640,6 +647,13 @@ export default class GameOrchestrator extends EventEmitter {
       } else {
         game.unoChallengePlayer = null;
       }
+      await this._registerHistory(
+        game,
+        currentPlayerId,
+        "play",
+        decision.card.id,
+        session,
+      );
       const updatedGame = await this.gameRepository.update(
         gameId,
         game,
