@@ -77,6 +77,7 @@ jest.mock("../../../src/modules/shared/logger/pino-global.logger.js", () => ({
 jest.mock("../../../src/modules/game/game.engine.js", () => ({
   drawFromDeck: jest.fn(),
   applyPlay: jest.fn(),
+  sayUno: jest.fn(),
   clearUnoChallenge: jest.fn(),
   validatePlay: jest.fn(),
   startGameState: jest.fn(),
@@ -842,7 +843,7 @@ describe("GameOrchestrator", () => {
       );
     });
 
-    it("keeps the UNO challenge pending when the bot ends its turn with exactly one card", async () => {
+    it("automatically says UNO when the bot ends its turn with exactly one card", async () => {
       const game = buildActiveGameWithBot();
       orchestrator.gameRepository.getById.mockResolvedValue(game);
       orchestrator.gameRepository.update.mockResolvedValue(game);
@@ -852,6 +853,7 @@ describe("GameOrchestrator", () => {
       orchestrator.bot.choosePlay.mockReturnValue({
         card: { id: "c1" },
         colorChoice: null,
+        callUno: true,
       });
       GameEngine.validatePlay.mockReturnValue(true);
       GameEngine.applyPlay.mockReturnValue({
@@ -862,11 +864,16 @@ describe("GameOrchestrator", () => {
         drawnCards: [],
         effect: "none",
       });
+      GameEngine.sayUno.mockReturnValue({
+        players: [{ player: "bot1", hand: { cards: [{ id: "onlyCard" }] }, saidUno: true }],
+        unoChallenge: null,
+      });
 
       await orchestrator.playBotTurn("game1");
 
-      expect(game.players[0].saidUno).toBe(false);
-      expect(game.unoChallengePlayer).toBe("bot1");
+      expect(GameEngine.sayUno).toHaveBeenCalled();
+      expect(game.players[0].saidUno).toBe(true);
+      expect(game.unoChallengePlayer).toBeNull();
     });
   });
 
