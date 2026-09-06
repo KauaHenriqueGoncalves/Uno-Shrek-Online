@@ -785,6 +785,10 @@ describe("GameOrchestrator", () => {
 
       expect(GameEngine.drawFromDeck).toHaveBeenCalled();
       expect(GameEngine.applyPlay).not.toHaveBeenCalled();
+      expect(mockHistoryRepository.create).toHaveBeenCalledWith(
+        { player: "bot1", action: "draw", card: "c1" },
+        "fake-session",
+      );
     });
 
     it("makes the bot play a valid card chosen by the bot strategy", async () => {
@@ -814,6 +818,10 @@ describe("GameOrchestrator", () => {
         0,
         decision.card,
         decision.colorChoice,
+      );
+      expect(mockHistoryRepository.create).toHaveBeenCalledWith(
+        { player: "bot1", action: "play", card: "c1" },
+        "fake-session",
       );
     });
 
