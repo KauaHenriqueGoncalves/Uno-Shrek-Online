@@ -133,9 +133,15 @@ describe("player.handlers.socket", () => {
 
     test("MESSAGE_ROOM broadcasts a chat message when a current game exists", async () => {
       socket.currentGameId = "game-1";
-      playerService.getById.mockResolvedValue({ username: "shrek" });
+      playerService.getById.mockResolvedValue({
+        _id: "player-1",
+        username: "shrek",
+        picture: null,
+        avatarKey: "shrek",
+      });
 
       registerPlayerHandlers(socket, io, { playerService, gameService });
+      io.emit.mockClear();
 
       await getHandler(PLAYER_EVENTS.INPUT.MESSAGE_ROOM)({ message: "hello" });
 
@@ -143,10 +149,14 @@ describe("player.handlers.socket", () => {
       expect(io.to).toHaveBeenCalledWith("game-1");
       expect(io.emit).toHaveBeenCalledWith(
         PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT,
-        {
+        expect.objectContaining({
+          playerId: "player-1",
           username: "shrek",
+          picture: null,
+          avatarKey: "shrek",
           message: "hello",
-        },
+          createdAt: expect.any(String),
+        }),
       );
     });
 
@@ -258,7 +268,12 @@ describe("player.handlers.socket", () => {
 
   describe("broadcastRoomMessage", () => {
     test("emits the trimmed message to the game room", async () => {
-      playerService.getById.mockResolvedValue({ username: "shrek" });
+      playerService.getById.mockResolvedValue({
+        _id: "player-1",
+        username: "shrek",
+        picture: null,
+        avatarKey: "shrek",
+      });
 
       await broadcastRoomMessage(
         io,
@@ -273,10 +288,14 @@ describe("player.handlers.socket", () => {
 
       expect(io.emit).toHaveBeenCalledWith(
         PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT,
-        {
+        expect.objectContaining({
+          playerId: "player-1",
           username: "shrek",
+          picture: null,
+          avatarKey: "shrek",
           message: "hi",
-        },
+          createdAt: expect.any(String),
+        }),
       );
     });
 
