@@ -1,162 +1,213 @@
-# UnoShrek API (DOCUMENTAION DEPRECATED)
+# UnoShrek API
 
-- [Link da documentação no Postman ](https://documenter.getpostman.com/view/57499632/2sBYAuSWok)
+- [Postman Documentation](https://documenter.getpostman.com/view/46440768/2sBY4Qreda)
 
-Versão digital do jogo de cartas **UNO**, desenvolvida em **Node.js**, que permite que múltiplos jogadores participem de uma sessão de jogo e joguem entre si seguindo as regras do UNO.
+A digital version of the **UNO** card game, developed in **Node.js**, allowing multiple players to join real-time game sessions and play against each other following UNO rules.
 
-O backend é construído em uma **arquitetura em três camadas** (apresentação, lógica de negócio e acesso a dados), utilizando **Express** para a camada HTTP e **MongoDB/Mongoose** como ORM/ODM de persistência.
+The backend follows a **modular monolith architecture**, organized by domain (`src/modules/`), using **Express** for the HTTP layer, **Socket.io** for real-time communication, and **MongoDB/Mongoose** for persistence (ORM/ODM).
 
-## Sumário
+## Table of Contents
 
-- [Sobre o projeto](#sobre-o-projeto)
-- [Arquitetura](#arquitetura)
-- [Tecnologias utilizadas](#tecnologias-utilizadas)
-- [Estrutura de pastas](#estrutura-de-pastas)
-- [Pré-requisitos](#pré-requisitos)
-- [Configuração do ambiente](#configuração-do-ambiente)
-- [Subindo o banco de dados (MongoDB)](#subindo-o-banco-de-dados-mongodb)
-- [Instalando dependências](#instalando-dependências)
-- [Executando o projeto](#executando-o-projeto)
-- [Endpoints da API](#endpoints-da-api)
-- [Tratamento de erros](#tratamento-de-erros)
-- [Autores](#autores)
+- [About the project](#about-the-project)
+- [Architecture](#architecture)
+- [Technologies used](#technologies-used)
+- [Folder structure](#Folder-structure-example)
+- [Prerequisites](#prerequisites)
+- [Environment setup](#environment-setup)
+- [Starting the database (MongoDB)](#starting-the-database-mongodb)
+- [Installing dependencies](#installing-dependencies)
+- [Running the project](#running-the-project)
+- [Tests](#tests)
+- [API Endpoints](#api-endpoints)
+- [Real-time communication (Socket.io)](#real-time-communication-socketio)
+- [Error handling](#error-handling)
+- [Authors](#authors)
 
-## Sobre o projeto
+## About the project
 
-O objetivo é oferecer uma API REST que sustente uma versão digital do UNO, permitindo:
+The goal is to provide a REST + real-time API that powers a digital version of UNO, enabling:
 
-1. Gerenciar **jogadores** (CRUD completo).
-2. Gerenciar **jogos/partidas** (CRUD completo).
-3. Gerenciar as **cartas** do baralho, que devem ser inicializadas/criadas automaticamente na primeira execução (CRUD completo).
-4. Gerenciar o **histórico de pontuações** dos jogadores (CRUD completo).
+1. Player **authentication** via JWT (HTTP-only cookies).
+2. **Player** management (full CRUD).
+3. **Game/match** management, including the UNO rules engine (starting a match, playing a card, drawing a card, etc.). 4. Manage the deck's **cards**.
+5. Manage **friendships** between players.
+6. Maintain a **history** of matches and **scores**.
+7. Synchronize game state across players in real-time via **Socket.io**.
 
-## Arquitetura
+## Architecture
 
-O projeto segue uma **arquitetura em três camadas**, mantendo cada responsabilidade isolada e modularizada:
+The project is organized as a **modular monolith**: each game domain resides in its own module within `src/modules/`, featuring its own internal layers:
 
-- **Apresentação (`controller/`)** - recebe as requisições HTTP, delega para a camada de serviço e devolve as respostas.
-- **Lógica de negócio (`service/`)** - validações, regras do jogo e orquestração entre as demais camadas.
-- **Acesso a dados (`repository/` e `schema/`)** - abstrai o acesso ao banco de dados através do ORM (Mongoose), com um `CrudRepository` genérico reaproveitado pelos repositórios específicos.
+- **Controller**: receives HTTP requests, delegates to the service layer, and returns responses.
+- **Service**: handles validations, business rules, and orchestration.
+- **Repository/Schema**: abstracts MongoDB access via Mongoose.
+- **DTOs**: request DTOs (validation using **Zod**) and response DTOs (output formatting/normalization).
 
-Camadas auxiliares:
+Architectural highlights:
 
-- **`dtos/`** - validação e formatação de entrada/saída usando **Zod** (request DTOs validam o payload recebido; response DTOs padronizam o retorno da API).
-- **`config/`** - configuração de banco de dados, logger, middlewares e exceções customizadas da aplicação.
+- **`GameOrchestrator`** coordinates game business transactions (start, draw, play), receiving repositories/schemas via dependency injection (`App.dependencies()`).
+- **"Two worlds" pattern**: the Mongoose document state and the raw state of the game engine are kept separate, with adapter methods (`_toEngineState` / `_applyEngineStateToGame`) bridging the two.
+- **`modules/sockets/`** mirrors HTTP layer patterns: handlers serve as lightweight entry points that call services, containing no business logic.
+- **`modules/shared/`** centralizes cross-cutting infrastructure: MongoDB connection, logger (Pino), middlewares (auth, cache, error handler), and custom exceptions.
 
-## Tecnologias utilizadas
+## Technologies used
 
-- [Node.js](https://nodejs.org/) (uso de módulos ES e `--env-file`)
-- [Express](https://expressjs.com/) - framework HTTP
-- [Mongoose](https://mongoosejs.com/) - ORM/ODM para MongoDB
-- [MongoDB](https://www.mongodb.com/) - banco de dados de documentos
-- [Zod](https://zod.dev/) - validação de schemas (DTOs)
-- [Morgan](https://github.com/expressjs/morgan) - logging de requisições HTTP
-- [Pino](https://getpino.io/) / Pino-Pretty - logging estruturado da aplicação
-- [Cors](https://getpino.io/)  - dependencia para configuração do cors
-- [Docker Compose](https://docs.docker.com/compose/) - orquestração do banco de dados em ambiente local
+- [Node.js](https://nodejs.org/) (ES modules and `--env-file`)
+- [Express](https://expressjs.com/) 5: HTTP framework
+- [Socket.io](https://socket.io/): real-time communication
+- [Mongoose](https://mongoosejs.com/): ORM/ODM for MongoDB
+- [MongoDB](https://www.mongodb.com/): document database
+- [Zod](https://zod.dev/): schema validation (DTOs)
+- [JWT](https://github.com/auth0/node-jsonwebtoken) + [bcryptjs](https://github.com/dcodeIO/bcrypt.js): authentication and password hashing
+- [Morgan](https://github.com/expressjs/morgan): HTTP request logging
+- [Pino](https://getpino.io/) / Pino-Pretty: structured application logging
+- [Cors](https://github.com/expressjs/cors): CORS configuration
+- [Jest](https://jestjs.io/) + [Babel](https://babeljs.io/) + [Supertest](https://github.com/ladjs/supertest): unit and E2E testing
+- [Docker Compose](https://docs.docker.com/compose/): local database orchestration
 
-## Estrutura de pastas
+## Folder structure example
 
 ```
 source-code/
-├── UnoShrekApi/              # API REST (backend)
-│   ├── app.js                 # Configuração principal da aplicação Express
-│   ├── server.js              # Ponto de entrada da aplicação
-│   ├── config/
-│   │   ├── database/          # Conexão com o MongoDB
-│   │   ├── exceptions/        # Exceções customizadas (AppError, NotFoundError, etc.)
-│   │   ├── logger/            # Configuração do Pino
-│   │   ├── middleware/        # Middlewares (ex: tratamento global de erros)
-│   │   └── utils/             # Utilitários (ex: parse/validação com Zod)
-│   ├── controller/            # Camada de apresentação (rotas Express)
-│   ├── service/                # Camada de regras de negócio
-│   ├── repository/            # Camada de acesso a dados (Mongoose)
-│   ├── schema/                # Modelos/Schemas do MongoDB
-│   ├── dtos/
-│   │   ├── request/            # DTOs de entrada (validação com Zod)
-│   │   └── response/           # DTOs de saída (formatação da resposta)
-│   ├── env.exemple             # Modelo de variáveis de ambiente
-│   └── package.json
-├── UnoShrekFrontEnd/          # Reservado para o frontend (ainda não implementado)
-└── docker-compose.yaml        # Sobe o MongoDB localmente via Docker
+├── UnoShrekApi/                 # REST API + Socket.io (backend)
+│   ├── app.js                   # Main Express application configuration
+│   ├── server.js                # Entry point (HTTP server + Socket.io)
+│   ├── jsconfig.json            # Type support via JSDoc
+│   ├── env.exemple              # Environment variable template
+│   ├── package.json
+│   └── src/
+│       └── modules/
+│           ├── auth/            # Login, JWT, and authentication
+│           ├── player/          # Player CRUD
+│           ├── game/            # Game sessions + UNO rules engine
+│
+``` ├── card/            # Deck and cards
+│           ├── score/           # Player scores
+│           ├── friendship/      # Friendship system
+│           ├── history/         # Match history
+│           ├── health/          # Health check
+│           ├── sockets/         # Socket.io handlers and events
+│           └── shared/          # Mongo, logger, middlewares, and exceptions
+├── UnoShrekFrontEnd/             # Frontend (React + Vite + TanStack Router)
+└── docker-compose.yaml          # Launches MongoDB locally via Docker
 ```
 
-## Pré-requisitos
+## Prerequisites
 
-- [Node.js](https://nodejs.org/) versão **20.6+** (necessária para o uso da flag `--env-file`)
-- [Docker](https://www.docker.com/) e Docker Compose (para subir o MongoDB localmente), **ou** uma instância de MongoDB já disponível (local ou remota)
+- [Node.js](https://nodejs.org/) version **20.6+** (required for the `--env-file` flag)
+- [Docker](https://www.docker.com/) and Docker Compose, **or** an existing MongoDB instance (local or remote)
 
-## Configuração do ambiente
+## Environment configuration
 
-O projeto carrega variáveis de ambiente a partir de um arquivo `.env`, usando o carregamento nativo do Node.js (`--env-file`). Um modelo está disponível em `UnoShrekApi/env.exemple`.
+The project loads environment variables from a `.env` file using Node.js's native loading mechanism (`--env-file`). A template is available at `UnoShrekApi/env.exemple`.
 
-Crie um arquivo `.env` dentro de `UnoShrekApi/` com o seguinte conteúdo, ajustando os valores conforme o seu ambiente:
+Create a `.env` file inside `UnoShrekApi/` with the following content, adjusting the values ​​to suit your environment:
 
 ```dotenv
 API_PORT=3000
 MONGODB_USER=admin
 MONGODB_PASSWORD=admin123
-MONGODB_HOST=localhost
+MONGODB_HOST=localhost (or container)
 MONGODB_PORT=27017
 MONGODB_NAME=UnoShrekDb
+JWT_SECRET=replace-with-a-strong-secret
+FRONTEND_URL=http://localhost:5173
 ```
 
-> `API_PORT` deve estar entre `3000` e `3099` (padrão: `3000`). `MONGODB_PORT` deve estar entre `27000` e `27090` (padrão: `27017`).
+> `API_PORT` must be between `3000` and `3099` (default: `3000`). `MONGODB_PORT` must be between `27000` and `27090` (default: `27017`).
 
-## Subindo o banco de dados (MongoDB)
+## Upgrading the database (MongoDB)
 
-O repositório já inclui um `docker-compose.yaml` na raiz de `source-code/` com um serviço MongoDB pré-configurado (usuário `admin`, senha `admin123`, banco `UnoShrekDb`).
+The repository includes a `docker-compose.yaml` in the root of `source-code/` with a pre-configured MongoDB service (user `admin`, password `admin123`, database `UnoShrekDb`).
 
-Na raiz `source-code/`, execute:
+In the `source-code/` root, run:
 
 ```bash
 docker compose up mongodb -d
 ```
 
-Isso sobe o MongoDB na porta `27017`, com volumes persistentes para os dados e configurações.
+This powers MongoDB on port `27017`, with persistent volumes for data and configurations.
 
-## Instalando dependências
+## Installing dependencies
 
-Dentro da pasta `UnoShrekApi/`, execute:
+Inside the `UnoShrekApi/` folder, run:
 
 ```bash
 cd UnoShrekApi
 npm install
 ```
 
-## Executando o projeto
+## Running the project
 
-Ainda dentro de `UnoShrekApi/`, com o `.env` configurado e o MongoDB em execução, inicie a aplicação com:
+Still inside `UnoShrekApi/`, with `.env` configured and MongoDB running:
 
 ```bash
+# simple production/execution
 npm run start
+
+# development, with automatic restart (nodemon)
+npm run start::watch
 ```
 
-A API ficará disponível em `http://localhost:{API_PORT}` (por padrão, `http://localhost:3000`).
+The API will be available at `http://localhost:{API_PORT}` (by default, `http://localhost:3000`).
 
-Para verificar se a API está no ar, use o endpoint de health check:
+To check if the API is live, use the health check endpoint:
 
 ```bash
 curl http://localhost:3000/api/health
 ```
 
-## Tratamento de erros
+## Tests
 
-A API centraliza o tratamento de erros em um middleware global (`config/middleware/errorHandler.js`), que padroniza as respostas de erro:
+The project uses **Jest** (with Babel to support `jest.mock()` in ESM) and **Supertest** for integration testing.
+
+```bash
+# unit tests of modules
+npm run test
+
+# end-to-end testing (auth, game sessions, gameplay, friendships, errors)
+npm run test::e2e
+
+# unit tests with coverage report
+npm run test::coverage
+```
+
+> On Windows, if the `test::e2e` script fails to find the Jest binary, it is already configured to point directly to `node_modules/jest/bin/jest.js`.
+
+## API endpoints
+
+Routes assembled in `app.js`, all under the `/api` prefix:
+
+| Prefix | Module | Responsibility |
+|-------------------|--------------|-----------------------------------------------------|
+| `/api/health` | health | Application health check |
+| `/api/auth` | auth | Login, logout and JWT token issuance/renewal |
+| `/api/players` | player | Player CRUD |
+| `/api/games` | game | Game sessions and match actions (play, buy…) |
+| `/api/cards` | card | Deck card consultation and management |
+| `/api/scores` | score | Player scores per match |
+| `/api/friends` | friendship | Sending, accepting and listing friends |
+| `/api/history` | history | History of games played |
+
+Details of each route, payloads and response examples are in [Postman documentation](https://documenter.getpostman.com/view/46440768/2sBY4Qreda).
+
+## Real-time communication (Socket.io)
+
+The HTTP server (`server.js`) initializes Socket.io sharing the same services as the REST layer (`modules/sockets/socket.js`). Socket handlers are responsible for:
+
+- Synchronize player entry/exit in a game room (`socket.join` + `currentGameId` control).
+- Propagate play events (card played, card draw, turn change) to all session participants.
+
+## Error handling
+
+The API centralizes error handling in a global middleware (`modules/shared/middleware/error-handler.middleware.js`), which standardizes error responses:
 
 ```json
-{
-  "status": "error",
-  "message": "Descrição do erro",
-  "timestamp": "2026-07-18T12:00:00.000Z"
+{ 
+"status": "error", 
+"message": "Error description", 
+"timestamp": "2026-07-18T12:00:00.000Z"
 }
 ```
 
-Erros de negócio (`NotFoundError`, `BusinessError`, `IlegalInputError`, `DatabaseConnectionError`, etc.) retornam o código HTTP apropriado; erros não mapeados retornam `500 Internal Server Error`.
-
-## Autores
-
-- Kauã
-- Rodrigo
-- Davi
-- Pedro
+Business errors (`NotFoundError`, `BusinessError`, `IlegalInputError`, `DatabaseConnectionError`, etc.) return the appropriate HTTP code; unmapped errors return `500 Internal Server Error`.
