@@ -1,5 +1,12 @@
 import HistoryResponseDto from "../../history/response/history.response.dto.js";
 
+/**
+ * DTO responsável por transformar um documento "Game" do MongoDB
+ * em objetos próprios para serem enviados como resposta ao cliente.
+ *
+ * A ideia é não enviar diretamente o documento Mongoose para o frontend.
+ * Cada método abaixo escolhe quais informações da partida devem ser expostas.
+ */
 export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();
@@ -11,10 +18,20 @@ export default class GameResponseDto {
     this.createdAt = game.createdAt;
   }
 
+  /**
+   * Método estático usado para criar uma resposta completa
+   * a partir de um documento do MongoDB.
+   */
   static fromDocument(game) {
     return new GameResponseDto(game);
   }
 
+  /**
+   * Cria uma versão SIMPLIFICADA da partida.
+   *
+   * Útil quando o sistema precisa apenas das informações
+   * necessárias para listar as salas disponíveis.
+   */
   static fromDocumentViewSimple(game) {
     return {
       id: game._id.toString(),
@@ -25,6 +42,11 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Retorna somente informações básicas de status da partida.
+   *
+   * É uma resposta ainda mais simples que fromDocumentViewSimple().
+   */
   static fromDocumentStatus(game) {
     return {
       id: game._id.toString(),
@@ -33,6 +55,13 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Cria a resposta completa de uma sala/partida.
+   *
+   * Esse é um dos métodos mais importantes deste arquivo,
+   * porque reúne praticamente todas as informações necessárias
+   * para o frontend representar uma partida em andamento.
+   */
   static fromDocumentRoom(game) {
     return {
       id: game._id.toString(),
@@ -73,6 +102,12 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Retorna somente a pontuação atual dos jogadores.
+   *
+   * Em vez de mandar toda a partida, envia apenas:
+   * ID da partida + jogadores + suas pontuações.
+   */
   static fromDocumentCurrentScore(game) {
     return {
       id: game._id.toString(),
@@ -84,6 +119,12 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Retorna somente os jogadores atualmente presentes na partida.
+   *
+   * É útil quando o frontend precisa atualizar apenas
+   * a lista de jogadores, sem receber todo o estado do jogo.
+   */
   static fromDocumentCurrentPlayers(game) {
     return {
       id: game._id.toString(),
@@ -96,6 +137,12 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Retorna somente quem é o jogador da vez.
+   *
+   * Isso permite enviar uma atualização pequena quando
+   * muda o turno.
+   */
   static fromDocumentCurrentPlayer(game) {
     return {
       id: game._id.toString(),
@@ -105,6 +152,7 @@ export default class GameResponseDto {
     };
   }
 
+  // Retorna somente a carta que está no topo do descarte.
   static fromDocumentTopCard(game) {
     return {
       id: game._id.toString(),
@@ -113,6 +161,13 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Converte um documento de carta do MongoDB
+   * em um objeto simples para ser enviado na resposta.
+   *
+   * Ele remove informações desnecessárias do documento Mongoose
+   * e mantém somente os dados relevantes da carta.
+   */
   static fromDocumentDeckOnHand(card) {
     return {
       id: card._id.toString(),
@@ -122,6 +177,22 @@ export default class GameResponseDto {
     };
   }
 
+  /**
+   * Recebe uma lista de partidas e transforma cada uma
+   * na versão simplificada usando fromDocumentViewSimple().
+   *
+   * Exemplo:
+   *
+   * [game1, game2, game3]
+   *
+   * vira:
+   *
+   * [
+   *   { id, title, owner, status, totalPlayers },
+   *   { id, title, owner, status, totalPlayers },
+   *   { id, title, owner, status, totalPlayers }
+   * ]
+   */
   static fromDocumentList(games) {
     return games.map((game) => this.fromDocumentViewSimple(game));
   }
