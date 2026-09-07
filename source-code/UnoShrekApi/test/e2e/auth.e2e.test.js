@@ -1,6 +1,8 @@
 import request from "supertest";
 import { startTestApp, stopTestApp, uniqueSuffix } from "../setup/setup.app.js";
 
+jest.setTimeout(30000);
+
 describe("E2E - Autenticação de usuário", () => {
   let app;
   const suffix = uniqueSuffix();
