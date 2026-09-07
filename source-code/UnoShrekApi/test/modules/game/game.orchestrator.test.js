@@ -77,6 +77,7 @@ jest.mock("../../../src/modules/shared/logger/pino-global.logger.js", () => ({
 jest.mock("../../../src/modules/game/game.engine.js", () => ({
   drawFromDeck: jest.fn(),
   applyPlay: jest.fn(),
+  sayUno: jest.fn(),
   clearUnoChallenge: jest.fn(),
   validatePlay: jest.fn(),
   startGameState: jest.fn(),
@@ -400,6 +401,41 @@ describe("GameOrchestrator", () => {
         orchestrator.gameStateMapper.applyEngineStateToGame,
       ).toHaveBeenCalled();
       expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+    });
+
+    it("passes the turn according to the current direction after drawing", async () => {
+      const game = setupActiveGame({
+        currentPlayer: { toString: () => "player2" },
+        players: [
+          { player: { toString: () => "player1" } },
+          { player: { toString: () => "player2" } },
+          { player: { toString: () => "player3" } },
+        ],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      const engineState = {
+        direction: -1,
+        players: [
+          { player: "player1" },
+          { player: "player2" },
+          { player: "player3" },
+        ],
+      };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      GameEngine.drawFromDeck.mockReturnValue({
+        state: { ...engineState, deck: [] },
+        drawn: [{ id: "c1" }],
+      });
+
+      await orchestrator.draw("player2", "game1");
+
+      expect(
+        orchestrator.gameStateMapper.applyEngineStateToGame,
+      ).toHaveBeenCalledWith(
+        game,
+        expect.objectContaining({ currentPlayer: "player1" }),
+      );
     });
 
     it("throws NotFoundError when the game does not exist", async () => {
@@ -785,6 +821,10 @@ describe("GameOrchestrator", () => {
 
       expect(GameEngine.drawFromDeck).toHaveBeenCalled();
       expect(GameEngine.applyPlay).not.toHaveBeenCalled();
+      expect(mockHistoryRepository.create).toHaveBeenCalledWith(
+        { player: "bot1", action: "draw", card: "c1" },
+        "fake-session",
+      );
     });
 
     it("makes the bot play a valid card chosen by the bot strategy", async () => {
@@ -815,6 +855,10 @@ describe("GameOrchestrator", () => {
         decision.card,
         decision.colorChoice,
       );
+      expect(mockHistoryRepository.create).toHaveBeenCalledWith(
+        { player: "bot1", action: "play", card: "c1" },
+        "fake-session",
+      );
     });
 
     it("throws BusinessError when the bot's chosen play is invalid", async () => {
@@ -834,7 +878,7 @@ describe("GameOrchestrator", () => {
       );
     });
 
-    it("keeps the UNO challenge pending when the bot ends its turn with exactly one card", async () => {
+    it("automatically says UNO when the bot ends its turn with exactly one card", async () => {
       const game = buildActiveGameWithBot();
       orchestrator.gameRepository.getById.mockResolvedValue(game);
       orchestrator.gameRepository.update.mockResolvedValue(game);
@@ -844,6 +888,7 @@ describe("GameOrchestrator", () => {
       orchestrator.bot.choosePlay.mockReturnValue({
         card: { id: "c1" },
         colorChoice: null,
+        callUno: true,
       });
       GameEngine.validatePlay.mockReturnValue(true);
       GameEngine.applyPlay.mockReturnValue({
@@ -854,11 +899,16 @@ describe("GameOrchestrator", () => {
         drawnCards: [],
         effect: "none",
       });
+      GameEngine.sayUno.mockReturnValue({
+        players: [{ player: "bot1", hand: { cards: [{ id: "onlyCard" }] }, saidUno: true }],
+        unoChallenge: null,
+      });
 
       await orchestrator.playBotTurn("game1");
 
-      expect(game.players[0].saidUno).toBe(false);
-      expect(game.unoChallengePlayer).toBe("bot1");
+      expect(GameEngine.sayUno).toHaveBeenCalled();
+      expect(game.players[0].saidUno).toBe(true);
+      expect(game.unoChallengePlayer).toBeNull();
     });
   });
 

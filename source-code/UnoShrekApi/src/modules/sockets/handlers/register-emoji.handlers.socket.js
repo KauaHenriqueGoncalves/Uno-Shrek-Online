@@ -22,7 +22,11 @@ export function registerEmojiHandlers(socket, io) {
       log.info(
         `Emoji with key ${key} is ${emoji}. Broadcasting to other clients.`,
       );
-      io.to(gameId).emit(EMOJI_EVENTS.OUTPUT.EMOJI_SENT, { key, emoji });
+      io.to(gameId).emit(EMOJI_EVENTS.OUTPUT.EMOJI_SENT, {
+        key,
+        emoji,
+        playerId: userId,
+      });
     } catch (err) {
       log.warn({ err }, "socket failed");
       socket.emit(EMOJI_EVENTS.OUTPUT.EMOJI_ERROR, { message: err.message });
