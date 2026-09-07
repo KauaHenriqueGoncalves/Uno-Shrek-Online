@@ -13,7 +13,7 @@ A real-time multiplayer UNO game with theme shrek developed as a capstone projec
 
 ## Collaborators
 
-| Avatar | Nome | GitHub |
+| Avatar | Name | GitHub |
 |---|---|---|
 | <img src="https://github.com/KauaHenriqueGoncalves.png?size=80" width="80"> | Kauã Henrique Gonçalves | [@redict](https://github.com/KauaHenriqueGoncalves) |
 | <img src="https://github.com/RodrigoArraes07.png?size=80" width="80"> | Rodrigo Costa Albuquerque | [@redict](https://github.com/RodrigoArraes07) |
