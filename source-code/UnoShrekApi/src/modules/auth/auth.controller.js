@@ -19,6 +19,7 @@ export default class AuthController {
     this.routers.post("/login", asyncHandler(this.login.bind(this)));
     this.routers.post("/register", asyncHandler(this.register.bind(this)));
     this.routers.post("/logout", asyncHandler(this.logout.bind(this)));
+    this.routers.post("/google", asyncHandler(this.googleAuth.bind(this)));
   }
 
   async login(req, res) {
@@ -26,7 +27,7 @@ export default class AuthController {
     res.cookie("accessToken", token, {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-      sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+      sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ access_token: token });
   }
@@ -52,7 +53,7 @@ export default class AuthController {
     res.clearCookie("accessToken", {
       httpOnly: true,
       secure: process.env.PROFILE === "prod",
-      sameSite: process.env.PROFILE === "prod" ? "strict" : "none",
+      sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
     });
     res.status(200).json({ message: "Logout successful" });
   }
@@ -70,5 +71,19 @@ export default class AuthController {
       }
       throw err;
     }
+  }
+
+  async googleAuth(req, res) {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ error: "accessToken is required" });
+    }
+    const token = await this.service.googleAuth(accessToken);
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: process.env.PROFILE === "prod",
+    sameSite: process.env.PROFILE === "prod" ? "strict" : "lax",
+    });
+    res.status(200).json({ access_token: token });
   }
 }

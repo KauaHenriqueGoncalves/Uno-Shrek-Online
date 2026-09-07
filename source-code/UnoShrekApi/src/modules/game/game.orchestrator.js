@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import { EventEmitter } from "events";
 import GameRepository from "./game.repository.js";
 import GameEngine from "./game.engine.js";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
@@ -7,144 +7,49 @@ import { NotFoundError } from "../shared/errors/not-found.error.js";
 import { GAME_STATUS } from "./game.schema.js";
 import ScorePlayerRepository from "../score/score-player.repository.js";
 import PlayerRepository from "../player/player.repository.js";
+import { assignDefaultAvatar } from "../player/player.schema.js";
 import CardRepository from "../card/card.repository.js";
-import { createDeck } from "./deck.js";
+import HistoryRepository from "../history/history.repository.js";
+import { createDeck } from "./util/deck.js";
+import TransactionRunner from "../shared/mongoose/transaction-runner.js";
+import GameStateMapper from "./mapper/game-state.mapper.js";
+import UnoBot from "./bot/uno.bot.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
-export default class GameOrchestrator {
-  constructor(gameSchema, scoreSchema, playerSchema, cardSchema) {
+export default class GameOrchestrator extends EventEmitter {
+  constructor(
+    gameSchema,
+    scoreSchema,
+    playerSchema,
+    cardSchema,
+    historySchema,
+    botThinkingDelayMs = 2500,
+  ) {
+    super();
     this.gameRepository = new GameRepository(gameSchema);
     this.scoreRepository = new ScorePlayerRepository(scoreSchema);
     this.playerRepository = new PlayerRepository(playerSchema);
     this.cardRepository = new CardRepository(cardSchema);
+    this.historyRepository = new HistoryRepository(historySchema);
+    this.gameStateMapper = new GameStateMapper(cardSchema);
+    this.transaction = new TransactionRunner();
     this.log = PinoGlobal.getInstance();
+    this.bot = new UnoBot();
+    this.botThinkingDelayMs = botThinkingDelayMs;
   }
 
-  /**
-   * OBS: comentário adicionando em metodos que convertem estado do jogo entre o GameOrchestrator e
-   * o GameEngine com o objetivo de simplificar o entendimento, já que é uma camada mais "chata" de entender.
-   * O GameEngine trabalha com um estado "puro" (pure state), enquanto o GameOrchestrator trabalha com
-   * o estado persistido no banco de dados (Mongoose). Esses métodos são responsáveis por converter entre
-   * esses dois formatos de estado.
-   */
-
-  /**
-   *  OBS: NO MOMENTO, O MOTODO _runTransactionOrFallback NÃO ESTÁ SENDO SUPORTADO PELO MONGOOSE.
-   *  NÃO IMPACTA O FUNCIONAMENTO DO SISTEMA, MAS É MOSTRADO NO LOG DE ERROS.
-   */
-  async _runTransactionOrFallback(operationFn) {
-    let session = null;
-    try {
-      session = await mongoose.startSession();
-      let result = null;
-      await session.withTransaction(async () => {
-        result = await operationFn(session);
-      });
-      return result;
-    } catch (err) {
-      if (
-        err &&
-        (err.code === 20 ||
-          (err.message &&
-            err.message.includes("Transaction numbers are only allowed")))
-      ) {
-        this.log.warn(
-          { err: err.message },
-          "Transactions not supported; running operation without transaction/session",
-        );
-        try {
-          return await operationFn(null);
-        } catch (innerErr) {
-          throw innerErr;
-        }
-      }
-      throw err;
-    } finally {
-      if (session) session.endSession();
-    }
+  wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /**
-   * Coleta, sem duplicar, todos os ids de carta usados pelo jogo (deck, descarte e mãos).
-   */
-  _collectCardIds(game) {
-    const deckIds = game.deck;
-    const discardIds = game.discard;
-    const handIds = game.players.flatMap((p) => p.hand?.cards ?? []);
-    const allIds = [...deckIds, ...discardIds, ...handIds].map((id) =>
-      id.toString(),
+  async _registerHistory(game, playerId, action, cardId = null, session = null) {
+    const history = await this.historyRepository.create(
+      { player: playerId, action, card: cardId },
+      session,
     );
-    return [...new Set(allIds)];
-  }
-
-  /**
-   * Busca as cartas no banco e monta um mapa id -> carta, para consulta rápida.
-   */
-  async _loadCardMap(cardIds) {
-    if (cardIds.length === 0) {
-      return new Map();
-    }
-    const cardDocs = await this.cardRepository.getAllByIds(cardIds);
-    return new Map(cardDocs.map((c) => [c._id.toString(), c]));
-  }
-
-  /**
-   * Transforma um id de carta no objeto simples que o engine entende.
-   */
-  _hydrateCard(cardMap, id) {
-    const card = cardMap.get(id.toString());
-    if (!card) {
-      throw new NotFoundError(`Card not found. [cardId=${id}]`);
-    }
-    return {
-      id: card._id.toString(),
-      color: card.color,
-      type: card.type,
-      value: card.value,
-    };
-  }
-
-  /**
-   * Busca no banco as cartas referenciadas pelo jogo (deck, descarte e mãos) e monta o estado "puro" que
-   * o engine entende. Mongoose -> pure state
-   */
-  async _toEngineState(game) {
-    const cardIds = this._collectCardIds(game);
-    const cardMap = await this._loadCardMap(cardIds);
-    const hydrate = (id) => this._hydrateCard(cardMap, id);
-    const players = game.players.map((p) => ({
-      player: p.player,
-      hand: { cards: (p.hand?.cards ?? []).map(hydrate) },
-    }));
-    return {
-      deck: game.deck.map(hydrate),
-      discard: game.discard.map(hydrate),
-      players,
-      currentPlayer: game.currentPlayer,
-      direction: game.direction ?? 1,
-      activeColor: game.activeColor ?? null,
-    };
-  }
-
-  /**
-   * State conversion methods between GameOrchestrator and GameEngine. pure state -> Mongoose
-   */
-  _applyEngineStateToGame(game, state) {
-    const dehydrate = (card) => card.id;
-    game.deck = state.deck.map(dehydrate);
-    game.discard = state.discard.map(dehydrate);
-    game.currentPlayer = state.currentPlayer;
-    game.direction = state.direction;
-    game.activeColor = state.activeColor;
-    game.players = game.players.map((p) => {
-      const ep = state.players.find(
-        (sp) => sp.player.toString() === p.player.toString(),
-      );
-      return {
-        ...p,
-        hand: ep ? { cards: ep.hand.cards.map(dehydrate) } : { cards: [] },
-      };
-    });
-    return game;
+    game.histories.push(history._id);
+    return history;
   }
 
   async getFullGame(gameId, session = null) {
@@ -226,8 +131,80 @@ export default class GameOrchestrator {
     return updatedScore;
   }
 
+  /**
+   * Cria um Player de sistema para representar o bot na partida.
+   * O bot precisa ser um documento Player real porque o schema do Game
+   * referencia ObjectId de Player.
+   *
+   * @param {string} gameId - usado só para log
+   * @param {object} [session] - sessão mongoose opcional
+   * @returns {Promise<import("mongoose").Document>} O documento Player do bot criado
+   */
+  async createBotPlayer(gameId, session = null) {
+    const username = `ShrekBot_${crypto.randomUUID().slice(0, 8)}`;
+    const email = `${username}@urro.local`;
+    const password = await bcrypt.hash(crypto.randomUUID(), 10);
+    const botPlayer = await this.playerRepository.create(
+      { username, age: 18, email, password, ...assignDefaultAvatar(null) },
+      session,
+    );
+    this.log.info(
+      { gameId, botId: botPlayer._id.toString(), username },
+      "Bot player created",
+    );
+    return botPlayer;
+  }
+
+  /**
+   * Adiciona um bot à partida pendente.
+   * Cria um Player de sistema, insere na lista de jogadores com isBot=true e
+   * já cria o ScorePlayer vinculado — tudo dentro de uma transação.
+   *
+   * @param {string} gameId
+   * @returns {Promise<import("mongoose").Document>} O jogo atualizado
+   */
+  async addBotToGame(gameId) {
+    return await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+      if (!game) {
+        this.log.warn(`Game not found for addBot. [gameId=${gameId}]`);
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.PENDING) {
+        this.log.warn(
+          `Cannot add bot to non-pending game. [gameId=${gameId}] [status=${game.status}]`,
+        );
+        throw new BusinessError("Cannot add bot to an active or finished game");
+      }
+      if (game.players.length >= game.maxPlayers) {
+        this.log.warn(
+          `Game is full, cannot add bot. [gameId=${gameId}] [players=${game.players.length}] [max=${game.maxPlayers}]`,
+        );
+        throw new BusinessError("Game is full");
+      }
+      const bot = await this.createBotPlayer(gameId, session);
+      game.players.push({
+        player: bot._id,
+        ready: true,
+        isBot: true,
+        saidUno: false,
+      });
+      const updatedGame = await this.gameRepository.update(
+        gameId,
+        game,
+        session,
+      );
+      await this.createScorePlayerFor(bot._id, gameId, session);
+      this.log.info(
+        { gameId, botId: bot._id.toString(), username: bot.username },
+        "Bot added to game",
+      );
+      return updatedGame;
+    });
+  }
+
   async draw(userId, gameId) {
-    return await this._runTransactionOrFallback(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       this.log.info(
         `Player wants to draw a card. [playerId=${userId}] [gameId=${gameId}]`,
       );
@@ -260,11 +237,11 @@ export default class GameOrchestrator {
         );
         throw new BusinessError("It's not your turn");
       }
+      const state = await this.gameStateMapper.toEngineState(game);
+      const stateWithoutChallenge = GameEngine.clearUnoChallenge(state);
 
-      // Buying a card from the deck
-      const state = await this._toEngineState(game);
       const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
-        state,
+        stateWithoutChallenge,
         playerIndex,
         1,
       );
@@ -277,26 +254,32 @@ export default class GameOrchestrator {
         },
         "Card drawn from deck",
       );
-
-      // Comprar carta consome o turno: passa a vez pro próximo jogador.
       const nextIndex = (playerIndex + 1) % stateAfterDraw.players.length;
       stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
       this.log.info(
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
       );
-      this._applyEngineStateToGame(game, stateAfterDraw);
-      const updatedGame = await this.gameRepository.update(
-        gameId,
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+      await this._registerHistory(
         game,
+        userId,
+        "draw",
+        drawn[0]?.id ?? null,
         session,
       );
+      const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Draw completed. [playerId=${userId}] [gameId=${gameId}]`);
-      return updatedGame;
+      return updated;
     });
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async play(userId, gameId, cardId, colorChoice = null) {
-    return await this._runTransactionOrFallback(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       this.log.info(
         `Player wants to play a card. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}]`,
       );
@@ -329,9 +312,7 @@ export default class GameOrchestrator {
         );
         throw new BusinessError("It's not your turn");
       }
-
-      const state = await this._toEngineState(game);
-
+      const state = await this.gameStateMapper.toEngineState(game);
       const playedCard = state.players[playerIndex].hand.cards.find(
         (c) => c.id === cardId,
       );
@@ -341,12 +322,10 @@ export default class GameOrchestrator {
         );
         throw new BusinessError("Card not found in your hand");
       }
-
       const topCard =
         state.discard.length > 0
           ? state.discard[state.discard.length - 1]
           : null;
-
       if (!GameEngine.validatePlay(playedCard, topCard, state.activeColor)) {
         this.log.warn(
           {
@@ -360,13 +339,11 @@ export default class GameOrchestrator {
         );
         throw new BusinessError("Invalid play");
       }
-
       const {
         state: stateAfterPlay,
         drawnCards,
         effect,
       } = GameEngine.applyPlay(state, playerIndex, playedCard, colorChoice);
-
       this.log.debug(
         {
           gameId,
@@ -379,28 +356,111 @@ export default class GameOrchestrator {
       this.log.info(
         `Turn passed after play. [gameId=${gameId}] [from=${userId}] [to=${stateAfterPlay.currentPlayer}]`,
       );
-
-      this._applyEngineStateToGame(game, stateAfterPlay);
-      const updatedGame = await this.gameRepository.update(
-        gameId,
-        game,
-        session,
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
+      const winnerId = GameEngine.checkWinner(stateAfterPlay);
+      if (winnerId) {
+        this.log.info({ gameId, winnerId }, "Player won the game");
+        game.status = GAME_STATUS.FINISHED;
+        game.winner = winnerId;
+      }
+      await this._registerHistory(
+        game, 
+        userId, 
+        "play", 
+        playedCard.id, 
+        session
       );
+      const updated = await this.gameRepository.update(gameId, game, session);
       this.log.info(`Play completed. [playerId=${userId}] [gameId=${gameId}]`);
-      return updatedGame;
+      return updated;
     });
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
+  }
+
+  async sayUno(userId, gameId) {
+    const updatedGame = await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+
+      if (!game) {
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        throw new BusinessError("Cannot say UNO in a non-active game");
+      }
+
+      const playerIndex = game.players.findIndex(
+        (player) => player.player.toString() === userId.toString(),
+      );
+      if (playerIndex === -1) {
+        throw new BusinessError("Player is not present this game");
+      }
+
+      const state = await this.gameStateMapper.toEngineState(game);
+      const stateAfterUno = GameEngine.sayUno(state, playerIndex);
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterUno);
+
+      return await this.gameRepository.update(gameId, game, session);
+    });
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
+  }
+
+  async challengeUno(userId, gameId) {
+    const updatedGame = await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+
+      if (!game) {
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        throw new BusinessError("Cannot challenge UNO in a non-active game");
+      }
+
+      const challengerIndex = game.players.findIndex(
+        (player) => player.player.toString() === userId.toString(),
+      );
+      if (challengerIndex === -1) {
+        throw new BusinessError("Player is not present this game");
+      }
+
+      const state = await this.gameStateMapper.toEngineState(game);
+      const targetId = state.unoChallenge?.player;
+      const targetIndex = state.players.findIndex(
+        (player) => player.player.toString() === targetId?.toString(),
+      );
+      const { state: stateAfterChallenge } = GameEngine.challengeUno(
+        state,
+        challengerIndex,
+      );
+
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterChallenge);
+      if (targetIndex !== -1) {
+        game.players[targetIndex].saidUno = false;
+      }
+
+      return await this.gameRepository.update(gameId, game, session);
+    });
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
   }
 
   async start(ownerId, gameId) {
-    return await this._runTransactionOrFallback(async (session) => {
+    const updatedGame = await this.transaction.run(async (session) => {
       const game = await this.gameRepository.getById(gameId, session);
       this.log.info(
         `owner want to start the game. [ownerId=${ownerId}] [gameId=${gameId}]`,
       );
       if (!game) {
-        this.log.warn(
-          `To start game just owner. [ownerId=${ownerId}] [gameId=${gameId}]`,
-        );
         throw new NotFoundError("Game not found");
       }
       if (game.owner.toString() !== ownerId.toString()) {
@@ -434,15 +494,13 @@ export default class GameOrchestrator {
       const HAND_SIZE = 7;
       const playerIds = game.players.map((p) => p.player);
       const rawDeck = createDeck();
-      const cardsToPersist = rawDeck.map((c) => {
-        return {
-          gameId: game._id,
-          color: c.color,
-          type: c.type,
-          value:
-            c.value === null || c.value === undefined ? null : String(c.value),
-        };
-      });
+      const cardsToPersist = rawDeck.map((c) => ({
+        gameId: game._id,
+        color: c.color,
+        type: c.type,
+        value:
+          c.value === null || c.value === undefined ? null : String(c.value),
+      }));
       const persistedCards = await this.cardRepository.createMany(
         cardsToPersist,
         session,
@@ -451,20 +509,20 @@ export default class GameOrchestrator {
         { gameId, cardsCreated: persistedCards.length },
         "Cards persisted for game",
       );
-
-      // Anexa o id real do Mongo a cada carta, preservando a ordem embaralhada.
       const deckWithIds = rawDeck.map((c, index) => ({
         ...c,
         id: persistedCards[index]._id.toString(),
       }));
-
       const engineState = GameEngine.startGameState(
         playerIds,
         HAND_SIZE,
         deckWithIds,
       );
-      this._applyEngineStateToGame(game, engineState);
+      this.gameStateMapper.applyEngineStateToGame(game, engineState);
       game.status = GAME_STATUS.ACTIVE;
+      if (!game.startedAt) {
+        game.startedAt = new Date();
+      }
       this.log.info(
         {
           ownerId,
@@ -475,13 +533,176 @@ export default class GameOrchestrator {
         },
         "Game status transition",
       );
-      const resultGame = await this.gameRepository.update(
+      const updated = await this.gameRepository.update(gameId, game, session);
+      this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
+      return updated;
+    });
+
+    this.runBotTurnIfNeeded(gameId).catch((err) => {
+      this.log.warn({ err, gameId }, "Bot turn processing failed");
+    });
+    return updatedGame;
+  }
+
+  async playBotTurn(gameId) {
+    return await this.transaction.run(async (session) => {
+      const game = await this.gameRepository.getById(gameId, session);
+      if (!game) {
+        throw new NotFoundError("Game not found");
+      }
+      if (game.status !== GAME_STATUS.ACTIVE) {
+        return game;
+      }
+      const currentPlayerId = game.currentPlayer?.toString();
+      const playerIndex = game.players.findIndex(
+        (player) => player.player.toString() === currentPlayerId,
+      );
+      if (playerIndex === -1) {
+        throw new BusinessError("Current player is not present in game");
+      }
+      const player = game.players[playerIndex];
+      if (player.isBot !== true) {
+        return game;
+      }
+      const state = await this.gameStateMapper.toEngineState(game);
+      const decision = this.bot.choosePlay(state, playerIndex);
+      // Nenhuma carta jogável — bot compra uma carta
+      if (!decision) {
+        const { state: stateAfterDraw, drawn } = GameEngine.drawFromDeck(
+          state,
+          playerIndex,
+          1,
+        );
+        const nextIndex = this.getNextPlayerIndex(stateAfterDraw, playerIndex);
+        stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
+        this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+        const updatedGame = await this.gameRepository.update(
+          gameId,
+          game,
+          session,
+        );
+        this.log.info(
+          {
+            gameId,
+            playerId: currentPlayerId,
+            drawnCards: drawn.length,
+            nextPlayer: stateAfterDraw.currentPlayer,
+          },
+          "Bot drew a card",
+        );
+        return updatedGame;
+      }
+      const topCard =
+        state.discard.length > 0
+          ? state.discard[state.discard.length - 1]
+          : null;
+      if (!GameEngine.validatePlay(decision.card, topCard, state.activeColor)) {
+        throw new BusinessError("Bot selected an invalid play");
+      }
+      const {
+        state: stateAfterPlay,
+        drawnCards,
+        effect,
+      } = GameEngine.applyPlay(
+        state,
+        playerIndex,
+        decision.card,
+        decision.colorChoice,
+      );
+
+      const remainingCards = stateAfterPlay.players[playerIndex].hand.cards.length;
+
+      if (remainingCards === 1) {
+        stateAfterPlay.unoChallenge = { player: stateAfterPlay.players[playerIndex].player };
+        stateAfterPlay.players[playerIndex].saidUno = false;
+      }
+
+      this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
+
+      const winnerId = GameEngine.checkWinner(stateAfterPlay);
+      if (winnerId) {
+          this.log.info(
+          { gameId, winnerId: winnerId.toString() },
+          "Bot won the game",
+          );
+          game.status = GAME_STATUS.FINISHED;
+          game.winner = winnerId;
+        }
+
+      // Mantém o desafio pendente quando o bot termina com uma carta.
+      game.players[playerIndex].saidUno = false;
+      if (remainingCards === 1) {
+        game.unoChallengePlayer = currentPlayerId;
+        this.log.info(
+          { gameId, playerId: currentPlayerId },
+          "BOT HAS ONE CARD LEFT - UNO challenge is pending",
+        );
+      } else {
+        game.unoChallengePlayer = null;
+      }
+      const updatedGame = await this.gameRepository.update(
         gameId,
         game,
         session,
       );
-      this.log.info(`Game started. [ownerId=${ownerId}] [gameId=${gameId}]`);
-      return resultGame;
+      this.log.info(
+        {
+          gameId,
+          playerId: currentPlayerId,
+          card: decision.card,
+          colorChoice: decision.colorChoice,
+          effect,
+          drawnCards: drawnCards.length,
+          remainingCards,
+        },
+        "Bot played a card",
+      );
+      return updatedGame;
     });
+  }
+
+  getNextPlayerIndex(state, playerIndex) {
+    const direction = state.direction === -1 ? -1 : 1;
+    return (
+      (playerIndex + direction + state.players.length) % state.players.length
+    );
+  }
+
+  async runBotTurnIfNeeded(gameId) {
+    let game = await this.gameRepository.getById(gameId);
+    if (!game) {
+      throw new NotFoundError("Game not found");
+    }
+    let botTurns = 0;
+    const MAX_BOT_TURNS = 20;
+    while (game.status === GAME_STATUS.ACTIVE && botTurns < MAX_BOT_TURNS) {
+      const currentPlayerId = game.currentPlayer?.toString();
+      const currentPlayer = game.players.find(
+        (player) => player.player.toString() === currentPlayerId,
+      );
+      if (!currentPlayer?.isBot) {
+        break;
+      }
+
+      if (game.unoChallengePlayer) {
+        break;
+      }
+
+      this.log.info(
+        { gameId, playerId: currentPlayerId, turn: botTurns + 1 },
+        "Starting bot turn",
+      );
+      await this.wait(this.botThinkingDelayMs);
+      game = await this.playBotTurn(gameId);
+      botTurns++;
+      this.emit("botTurn", game);
+    }
+    if (botTurns >= MAX_BOT_TURNS) {
+      this.log.warn(
+        { gameId, botTurns },
+        "Maximum consecutive bot turns reached",
+      );
+    }
+    return game;
   }
 }

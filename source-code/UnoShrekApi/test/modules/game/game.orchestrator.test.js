@@ -1,529 +1,914 @@
-import mongoose from "mongoose";
 import GameOrchestrator from "../../../src/modules/game/game.orchestrator.js";
-import PinoGlobal from "../../../src/modules/shared/logger/pino-global.logger.js";
+import GameEngine from "../../../src/modules/game/game.engine.js";
+import { GAME_STATUS } from "../../../src/modules/game/game.schema.js";
+import { AVATAR_KEYS } from "../../../src/modules/player/player.schema.js";
 import { BusinessError } from "../../../src/modules/shared/errors/business.error.js";
 import { NotFoundError } from "../../../src/modules/shared/errors/not-found.error.js";
-import { GAME_STATUS } from "../../../src/modules/game/game.schema.js";
-import GameEngine from "../../../src/modules/game/game.engine.js";
-import { createDeck } from "../../../src/modules/game/deck.js";
+import { createDeck } from "../../../src/modules/game/util/deck.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
-jest.mock("../../../src/modules/game/game.repository.js");
-jest.mock("../../../src/modules/score/score-player.repository.js");
-jest.mock("../../../src/modules/player/player.repository.js");
-jest.mock("../../../src/modules/card/card.repository.js");
-jest.mock("../../../src/modules/shared/logger/pino-global.logger.js");
-jest.mock("../../../src/modules/game/game.engine.js");
-jest.mock("../../../src/modules/game/deck.js");
+jest.mock("../../../src/modules/game/game.repository.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    getByIdPopulated: jest.fn(),
+    getById: jest.fn(),
+    update: jest.fn(),
+  }));
+});
+
+jest.mock("../../../src/modules/score/score-player.repository.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    create: jest.fn(),
+    update: jest.fn(),
+  }));
+});
+
+jest.mock("../../../src/modules/player/player.repository.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    create: jest.fn(),
+  }));
+});
+
+const mockHistoryRepository = {
+  create: jest.fn(),
+};
+
+jest.mock("../../../src/modules/history/history.repository.js", () => {
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => mockHistoryRepository),
+  };
+});
+
+jest.mock("../../../src/modules/card/card.repository.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    createMany: jest.fn(),
+  }));
+});
+
+jest.mock("../../../src/modules/game/mapper/game-state.mapper.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    toEngineState: jest.fn(),
+    applyEngineStateToGame: jest.fn(),
+  }));
+});
+
+jest.mock("../../../src/modules/shared/mongoose/transaction-runner.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    run: jest.fn((cb) => cb("fake-session")),
+  }));
+});
+
+jest.mock("../../../src/modules/game/bot/uno.bot.js", () => {
+  return jest.fn().mockImplementation(() => ({
+    choosePlay: jest.fn(),
+  }));
+});
+
+jest.mock("../../../src/modules/shared/logger/pino-global.logger.js", () => ({
+  getInstance: jest.fn(() => ({
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
+  })),
+}));
+
+jest.mock("../../../src/modules/game/game.engine.js", () => ({
+  drawFromDeck: jest.fn(),
+  applyPlay: jest.fn(),
+  clearUnoChallenge: jest.fn(),
+  validatePlay: jest.fn(),
+  startGameState: jest.fn(),
+  checkWinner: jest.fn()
+}));
+
+jest.mock("../../../src/modules/game/util/deck.js", () => ({
+  createDeck: jest.fn(),
+}));
+
+jest.mock("bcryptjs", () => ({
+  hash: jest.fn(),
+}));
+
+jest.mock("crypto", () => ({
+  randomUUID: jest.fn(),
+}));
 
 describe("GameOrchestrator", () => {
   let orchestrator;
-  let gameRepositoryMock;
-  let cardRepositoryMock;
-  let scoreRepositoryMock;
+
+  const buildGame = (over = {}) => ({
+    _id: "game1",
+    owner: "owner1",
+    status: GAME_STATUS.PENDING,
+    maxPlayers: 4,
+    password: "",
+    players: [],
+    currentPlayer: null,
+    winner: null,
+    histories: [],
+    ...over,
+  });
 
   beforeEach(() => {
-    PinoGlobal.getInstance.mockReturnValue({
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    });
-    jest.spyOn(mongoose, "startSession").mockResolvedValue({
-      withTransaction: async (fn) => {
-        await fn();
-      },
-      endSession: jest.fn(),
-    });
-
-    orchestrator = new GameOrchestrator({}, {}, {}, {});
-    gameRepositoryMock = orchestrator.gameRepository;
-    cardRepositoryMock = orchestrator.cardRepository;
-    scoreRepositoryMock = orchestrator.scoreRepository;
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  describe("start", () => {
-    const ownerId = "owner1";
-    const gameId = "game1";
-
-    function buildGame(overrides = {}) {
-      return {
-        _id: gameId,
-        owner: { toString: () => ownerId },
-        status: GAME_STATUS.PENDING,
-        players: [
-          { player: { toString: () => ownerId }, ready: true },
-          { player: { toString: () => "player2" }, ready: true },
-        ],
-        ...overrides,
-      };
-    }
-
-    it("should start the game and deal hands to the players", async () => {
-      const game = buildGame();
-      const startedGame = { ...game, status: GAME_STATUS.ACTIVE };
-
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      createDeck.mockReturnValue([{ color: "red", type: "number", value: "1" }]);
-      cardRepositoryMock.createMany.mockResolvedValue([{ _id: "card1" }]);
-      GameEngine.startGameState.mockReturnValue({
-        deck: [],
-        discard: [],
-        players: [
-          { player: ownerId, hand: { cards: [] } },
-          { player: "player2", hand: { cards: [] } },
-        ],
-        currentPlayer: ownerId,
-        direction: 1,
-        activeColor: null,
-      });
-      gameRepositoryMock.update.mockResolvedValue(startedGame);
-
-      const result = await orchestrator.start(ownerId, gameId);
-
-      expect(cardRepositoryMock.createMany).toHaveBeenCalled();
-      expect(GameEngine.startGameState).toHaveBeenCalled();
-      expect(gameRepositoryMock.update).toHaveBeenCalled();
-      expect(game.status).toBe(GAME_STATUS.ACTIVE);
-      expect(result).toEqual(startedGame);
-    });
-
-    it("should throw BusinessError when caller is not the owner", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.start("intruder", gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when game is not PENDING", async () => {
-      const game = buildGame({ status: GAME_STATUS.ACTIVE });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.start(ownerId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when there are less than 2 players", async () => {
-      const game = buildGame({
-        players: [{ player: { toString: () => ownerId }, ready: true }],
-      });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.start(ownerId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when not all players are ready", async () => {
-      const game = buildGame({
-        players: [
-          { player: { toString: () => ownerId }, ready: true },
-          { player: { toString: () => "player2" }, ready: false },
-        ],
-      });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.start(ownerId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("draw", () => {
-    const userId = "owner1";
-    const gameId = "game1";
-
-    function buildGame(overrides = {}) {
-      return {
-        _id: gameId,
-        status: GAME_STATUS.ACTIVE,
-        currentPlayer: userId,
-        deck: ["deckCard1"],
-        discard: ["discardCard1"],
-        players: [
-          { player: { toString: () => userId }, hand: { cards: ["handCard1"] } },
-          { player: { toString: () => "player2" }, hand: { cards: [] } },
-        ],
-        ...overrides,
-      };
-    }
-
-    function mockCardDocs() {
-      cardRepositoryMock.getAllByIds.mockResolvedValue([
-        { _id: "deckCard1", color: "red", type: "number", value: "1" },
-        { _id: "discardCard1", color: "blue", type: "number", value: "2" },
-        { _id: "handCard1", color: "green", type: "number", value: "3" },
-      ]);
-    }
-
-    it("should draw a card and pass the turn to the next player", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      mockCardDocs();
-      GameEngine.drawFromDeck.mockReturnValue({
-        state: {
-          deck: [],
-          discard: [{ id: "discardCard1", color: "blue", type: "number", value: "2" }],
-          players: [
-            { player: userId, hand: { cards: [{ id: "handCard1", color: "green", type: "number", value: "3" }] } },
-            { player: "player2", hand: { cards: [] } },
-          ],
-          currentPlayer: userId,
-          direction: 1,
-          activeColor: null,
-        },
-        drawn: [{ id: "deckCard1", color: "red", type: "number", value: "1" }],
-      });
-      gameRepositoryMock.update.mockResolvedValue(game);
-
-      await orchestrator.draw(userId, gameId);
-
-      expect(GameEngine.drawFromDeck).toHaveBeenCalledWith(
-        expect.anything(),
-        0,
-        1,
-      );
-      expect(gameRepositoryMock.update).toHaveBeenCalled();
-      expect(game.currentPlayer).toBe("player2");
-    });
-
-    it("should throw NotFoundError when the game does not exist", async () => {
-      gameRepositoryMock.getById.mockResolvedValue(null);
-
-      await expect(orchestrator.draw(userId, gameId)).rejects.toThrow(
-        NotFoundError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when the game is not ACTIVE", async () => {
-      const game = buildGame({ status: GAME_STATUS.PENDING });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.draw(userId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when the player is not present in the game", async () => {
-      const game = buildGame({
-        players: [
-          { player: { toString: () => "someoneElse" }, hand: { cards: [] } },
-        ],
-      });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.draw(userId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when it's not the player's turn", async () => {
-      const game = buildGame({ currentPlayer: "player2" });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(orchestrator.draw(userId, gameId)).rejects.toThrow(
-        BusinessError,
-      );
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("play", () => {
-    const userId = "owner1";
-    const gameId = "game1";
-    const cardId = "handCard1";
-
-    function buildGame(overrides = {}) {
-      return {
-        _id: gameId,
-        status: GAME_STATUS.ACTIVE,
-        currentPlayer: userId,
-        deck: [],
-        discard: ["discardCard1"],
-        players: [
-          { player: { toString: () => userId }, hand: { cards: [cardId] } },
-          { player: { toString: () => "player2" }, hand: { cards: [] } },
-        ],
-        ...overrides,
-      };
-    }
-
-    function mockCardDocs() {
-      cardRepositoryMock.getAllByIds.mockResolvedValue([
-        { _id: "discardCard1", color: "blue", type: "number", value: "2" },
-        { _id: cardId, color: "blue", type: "number", value: "5" },
-      ]);
-    }
-
-    it("should play a valid card and update the game", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      mockCardDocs();
-      GameEngine.validatePlay.mockReturnValue(true);
-      GameEngine.applyPlay.mockReturnValue({
-        state: {
-          deck: [],
-          discard: [{ id: cardId, color: "blue", type: "number", value: "5" }],
-          players: [
-            { player: userId, hand: { cards: [] } },
-            { player: "player2", hand: { cards: [] } },
-          ],
-          currentPlayer: "player2",
-          direction: 1,
-          activeColor: null,
-        },
-        drawnCards: [],
-        effect: null,
-      });
-      gameRepositoryMock.update.mockResolvedValue(game);
-
-      await orchestrator.play(userId, gameId, cardId);
-
-      expect(GameEngine.validatePlay).toHaveBeenCalled();
-      expect(GameEngine.applyPlay).toHaveBeenCalled();
-      expect(gameRepositoryMock.update).toHaveBeenCalled();
-      expect(game.currentPlayer).toBe("player2");
-    });
-
-    it("should throw BusinessError when the card is not in the player's hand", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      mockCardDocs();
-
-      await expect(
-        orchestrator.play(userId, gameId, "cardNotInHand"),
-      ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when the play is invalid", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      mockCardDocs();
-      GameEngine.validatePlay.mockReturnValue(false);
-
-      await expect(
-        orchestrator.play(userId, gameId, cardId),
-      ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when it's not the player's turn", async () => {
-      const game = buildGame({ currentPlayer: "player2" });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(
-        orchestrator.play(userId, gameId, cardId),
-      ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw NotFoundError when the game does not exist", async () => {
-      gameRepositoryMock.getById.mockResolvedValue(null);
-
-      await expect(
-        orchestrator.play(userId, gameId, cardId),
-      ).rejects.toThrow(NotFoundError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when the game is not ACTIVE", async () => {
-      const game = buildGame({ status: GAME_STATUS.PENDING });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(
-        orchestrator.play(userId, gameId, cardId),
-      ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
-    });
-
-    it("should throw BusinessError when the player is not present in the game", async () => {
-      const game = buildGame({
-        players: [
-          { player: { toString: () => "someoneElse" }, hand: { cards: [] } },
-        ],
-      });
-      gameRepositoryMock.getById.mockResolvedValue(game);
-
-      await expect(
-        orchestrator.play(userId, gameId, cardId),
-      ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
+    jest.clearAllMocks();
+    orchestrator = new GameOrchestrator({}, {}, {}, {}, {});
+    mockHistoryRepository.create.mockResolvedValue({
+      _id: "hist123",
+      player: "player123",
+      action: "DRAW_CARD",
+      card: null,
     });
   });
 
   describe("getFullGame", () => {
-    const gameId = "game1";
-
-    it("should return the full populated game", async () => {
-      const game = { _id: gameId, status: GAME_STATUS.ACTIVE };
-      gameRepositoryMock.getByIdPopulated.mockResolvedValue(game);
-
-      const result = await orchestrator.getFullGame(gameId);
-
-      expect(gameRepositoryMock.getByIdPopulated).toHaveBeenCalledWith(
-        gameId,
+    it("returns the populated game when found", async () => {
+      const game = buildGame();
+      orchestrator.gameRepository.getByIdPopulated.mockResolvedValue(game);
+      const result = await orchestrator.getFullGame("game1");
+      expect(result).toBe(game);
+      expect(orchestrator.gameRepository.getByIdPopulated).toHaveBeenCalledWith(
+        "game1",
         null,
       );
-      expect(result).toEqual(game);
     });
 
-    it("should throw NotFoundError when the game does not exist", async () => {
-      gameRepositoryMock.getByIdPopulated.mockResolvedValue(null);
-
-      await expect(orchestrator.getFullGame(gameId)).rejects.toThrow(
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getByIdPopulated.mockResolvedValue(null);
+      await expect(orchestrator.getFullGame("game1")).rejects.toThrow(
         NotFoundError,
       );
     });
   });
 
   describe("createScorePlayerFor", () => {
-    const playerId = "player1";
-    const gameId = "game1";
-
-    it("should create the score player and bind it to the player's entry", async () => {
+    it("creates a score player and links it to the matching player entry", async () => {
       const scorePlayer = { _id: "score1" };
-      const game = {
-        _id: gameId,
-        players: [{ player: { toString: () => playerId } }],
-      };
-      const updatedGame = { ...game };
+      orchestrator.scoreRepository.create.mockResolvedValue(scorePlayer);
 
-      scoreRepositoryMock.create.mockResolvedValue(scorePlayer);
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      gameRepositoryMock.update.mockResolvedValue(updatedGame);
+      const game = buildGame({
+        players: [{ player: { toString: () => "player1" } }],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
 
       const result = await orchestrator.createScorePlayerFor(
-        playerId,
-        gameId,
+        "player1",
+        "game1",
       );
 
-      expect(scoreRepositoryMock.create).toHaveBeenCalledWith(
-        { playerId, gameId, score: 0 },
-        null,
-      );
-      expect(game.players[0].scorePlayer).toBe(scorePlayer._id);
-      expect(gameRepositoryMock.update).toHaveBeenCalledWith(
-        gameId,
+      expect(game.players[0].scorePlayer).toBe("score1");
+      expect(orchestrator.gameRepository.update).toHaveBeenCalledWith(
+        "game1",
         game,
         null,
       );
-      expect(result).toEqual({ game: updatedGame, scorePlayer });
+      expect(result).toEqual({ game, scorePlayer });
     });
 
-    it("should throw NotFoundError when the game does not exist", async () => {
-      scoreRepositoryMock.create.mockResolvedValue({ _id: "score1" });
-      gameRepositoryMock.getById.mockResolvedValue(null);
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.scoreRepository.create.mockResolvedValue({ _id: "s1" });
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
 
       await expect(
-        orchestrator.createScorePlayerFor(playerId, gameId),
+        orchestrator.createScorePlayerFor("player1", "game1"),
       ).rejects.toThrow(NotFoundError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
     });
 
-    it("should throw BusinessError when the player is not present in the game", async () => {
-      scoreRepositoryMock.create.mockResolvedValue({ _id: "score1" });
-      gameRepositoryMock.getById.mockResolvedValue({
-        _id: gameId,
-        players: [{ player: { toString: () => "someoneElse" } }],
-      });
+    it("throws BusinessError when the player is not present in the game", async () => {
+      orchestrator.scoreRepository.create.mockResolvedValue({ _id: "s1" });
+      const game = buildGame({ players: [] });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
 
       await expect(
-        orchestrator.createScorePlayerFor(playerId, gameId),
+        orchestrator.createScorePlayerFor("player1", "game1"),
       ).rejects.toThrow(BusinessError);
-      expect(gameRepositoryMock.update).not.toHaveBeenCalled();
     });
   });
 
   describe("updateScore", () => {
-    const playerId = "player1";
-    const gameId = "game1";
-
-    function buildGame(overrides = {}) {
-      return {
-        _id: gameId,
+    const buildGameWithScorePlayer = (scorePlayer = "score1") =>
+      buildGame({
         players: [
           {
-            player: { toString: () => playerId },
-            scorePlayer: { toString: () => "score1" },
+            player: { toString: () => "player1" },
+            scorePlayer,
           },
         ],
-        ...overrides,
-      };
-    }
+      });
 
-    it("should update the player's score", async () => {
-      const game = buildGame();
-      const updatedScore = { _id: "score1", score: 15 };
-      gameRepositoryMock.getById.mockResolvedValue(game);
-      scoreRepositoryMock.update.mockResolvedValue(updatedScore);
+    it("updates the score for a player with a valid scorePlayer binding", async () => {
+      const game = buildGameWithScorePlayer();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.scoreRepository.update.mockResolvedValue({ score: 10 });
 
-      const result = await orchestrator.updateScore(playerId, gameId, 15);
+      const result = await orchestrator.updateScore("player1", "game1", 10);
 
-      expect(scoreRepositoryMock.update).toHaveBeenCalledWith(
+      expect(orchestrator.scoreRepository.update).toHaveBeenCalledWith(
         "score1",
-        { score: 15 },
+        { score: 10 },
         null,
       );
-      expect(result).toEqual(updatedScore);
+      expect(result).toEqual({ score: 10 });
     });
 
-    it("should throw NotFoundError when the game does not exist", async () => {
-      gameRepositoryMock.getById.mockResolvedValue(null);
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
 
       await expect(
-        orchestrator.updateScore(playerId, gameId, 15),
+        orchestrator.updateScore("player1", "game1", 10),
       ).rejects.toThrow(NotFoundError);
-      expect(scoreRepositoryMock.update).not.toHaveBeenCalled();
     });
 
-    it("should throw BusinessError when the player is not present in the game", async () => {
+    it("throws BusinessError when the player is not present in the game", async () => {
+      const game = buildGame({ players: [] });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.updateScore("player1", "game1", 10),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when the player has no scorePlayer bound", async () => {
+      const game = buildGameWithScorePlayer(null);
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.updateScore("player1", "game1", 10),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when score is negative", async () => {
+      const game = buildGameWithScorePlayer();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.updateScore("player1", "game1", -5),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when score is not a number", async () => {
+      const game = buildGameWithScorePlayer();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.updateScore("player1", "game1", "10"),
+      ).rejects.toThrow(BusinessError);
+    });
+  });
+
+  describe("createBotPlayer", () => {
+    it("creates a new Player document with generated username, email and hashed password", async () => {
+      crypto.randomUUID.mockReturnValue("abcdefgh-1234");
+      bcrypt.hash.mockResolvedValue("hashed-pass");
+      const createdPlayer = { _id: "bot1", username: "ShrekBot_abcdefgh" };
+      orchestrator.playerRepository.create.mockResolvedValue(createdPlayer);
+
+      const result = await orchestrator.createBotPlayer("game1");
+
+      expect(bcrypt.hash).toHaveBeenCalled();
+      expect(orchestrator.playerRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          age: 18,
+          password: "hashed-pass",
+        }),
+        null,
+      );
+      expect(result).toBe(createdPlayer);
+    });
+
+    it("assigns a random default avatarKey and no picture", async () => {
+      crypto.randomUUID.mockReturnValue("abcdefgh-1234");
+      bcrypt.hash.mockResolvedValue("hashed-pass");
+      orchestrator.playerRepository.create.mockResolvedValue({
+        _id: "bot1",
+        username: "ShrekBot_abcdefgh",
+      });
+
+      await orchestrator.createBotPlayer("game1");
+
+      const createdData = orchestrator.playerRepository.create.mock.calls[0][0];
+      expect(createdData.picture).toBeNull();
+      expect(AVATAR_KEYS).toContain(createdData.avatarKey);
+    });
+  });
+
+  describe("addBotToGame", () => {
+    const setupBotCreation = () => {
+      const bot = { _id: "bot1", username: "ShrekBot_x" };
+      orchestrator.createBotPlayer = jest.fn().mockResolvedValue(bot);
+      orchestrator.createScorePlayerFor = jest.fn().mockResolvedValue({});
+      return bot;
+    };
+
+    it("adds a bot player to a pending game and marks it ready and isBot=true", async () => {
+      const bot = setupBotCreation();
+      const game = buildGame({ players: [], maxPlayers: 4 });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      await orchestrator.addBotToGame("game1");
+
+      expect(game.players[0]).toEqual(
+        expect.objectContaining({
+          player: bot._id,
+          ready: true,
+          isBot: true,
+          saidUno: false,
+        }),
+      );
+    });
+
+    it("creates a linked ScorePlayer for the added bot", async () => {
+      const bot = setupBotCreation();
+      const game = buildGame({ players: [] });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      await orchestrator.addBotToGame("game1");
+
+      expect(orchestrator.createScorePlayerFor).toHaveBeenCalledWith(
+        bot._id,
+        "game1",
+        "fake-session",
+      );
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(orchestrator.addBotToGame("game1")).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("throws BusinessError when the game is not in PENDING status", async () => {
+      const game = buildGame({ status: GAME_STATUS.ACTIVE });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.addBotToGame("game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("throws BusinessError when the game is already full", async () => {
       const game = buildGame({
+        players: [{}, {}, {}, {}],
+        maxPlayers: 4,
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.addBotToGame("game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+  });
+
+  describe("draw", () => {
+    const setupActiveGame = (over = {}) =>
+      buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "player1" },
+        players: [
+          { player: { toString: () => "player1" } },
+          { player: { toString: () => "player2" } },
+        ],
+        ...over,
+      });
+
+    it("draws a card for the current player and passes the turn to the next player", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      const engineState = {
+        players: [{ player: "player1" }, { player: "player2" }],
+      };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      GameEngine.drawFromDeck.mockReturnValue({
+        state: { ...engineState, deck: [] },
+        drawn: [{ id: "c1" }],
+      });
+
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockResolvedValue(game);
+
+      await orchestrator.draw("player1", "game1");
+
+      expect(GameEngine.drawFromDeck).toHaveBeenCalled();
+      expect(
+        orchestrator.gameStateMapper.applyEngineStateToGame,
+      ).toHaveBeenCalled();
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(orchestrator.draw("player1", "game1")).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("throws BusinessError when the game is not active", async () => {
+      const game = setupActiveGame({ status: GAME_STATUS.PENDING });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.draw("player1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("throws BusinessError when the player is not present in the game", async () => {
+      const game = setupActiveGame({
         players: [{ player: { toString: () => "someoneElse" } }],
       });
-      gameRepositoryMock.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
 
-      await expect(
-        orchestrator.updateScore(playerId, gameId, 15),
-      ).rejects.toThrow(BusinessError);
-      expect(scoreRepositoryMock.update).not.toHaveBeenCalled();
+      await expect(orchestrator.draw("player1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
     });
 
-    it("should throw BusinessError when the player has no scorePlayer bound to the game", async () => {
-      const game = buildGame({
+    it("throws BusinessError when it is not the player's turn", async () => {
+      const game = setupActiveGame({
+        currentPlayer: { toString: () => "player2" },
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.draw("player1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+  });
+
+  describe("play", () => {
+    const setupActiveGame = (over = {}) =>
+      buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "player1" },
         players: [
-          { player: { toString: () => playerId }, scorePlayer: null },
+          { player: { toString: () => "player1" } },
+          { player: { toString: () => "player2" } },
+        ],
+        ...over,
+      });
+
+    const setupEngineState = (over = {}) => ({
+      players: [
+        { hand: { cards: [{ id: "card1" }] } },
+        { hand: { cards: [] } },
+      ],
+      discard: [],
+      activeColor: "red",
+      ...over,
+    });
+
+    it("plays a valid card and updates the game state", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockResolvedValue(game);
+
+      await orchestrator.play("player1", "game1", "card1");
+
+      expect(GameEngine.applyPlay).toHaveBeenCalled();
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+    });
+
+    it("resolves with the human's own move before bot turn processing settles", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      let resolveBotTurn;
+      const botTurnPromise = new Promise((resolve) => {
+        resolveBotTurn = resolve;
+      });
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockReturnValue(botTurnPromise);
+
+      const result = await orchestrator.play("player1", "game1", "card1");
+
+      expect(result).toEqual(game);
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+
+      resolveBotTurn(game);
+      await botTurnPromise;
+    });
+
+    it("does not reject the human's move when bot turn processing fails", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { currentPlayer: "player2" },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      const botError = new Error("bot exploded");
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockRejectedValue(botError);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).resolves.toEqual(game);
+
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(orchestrator.log.warn).toHaveBeenCalledWith(
+        { err: botError, gameId: "game1" },
+        "Bot turn processing failed",
+      );
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("throws BusinessError when the game is not active", async () => {
+      const game = setupActiveGame({ status: GAME_STATUS.FINISHED });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when the player is not present in the game", async () => {
+      const game = setupActiveGame({
+        players: [{ player: { toString: () => "someoneElse" } }],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when it is not the player's turn", async () => {
+      const game = setupActiveGame({
+        currentPlayer: { toString: () => "player2" },
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when the card is not found in the player's hand", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState({
+          players: [{ hand: { cards: [] } }, { hand: { cards: [] } }],
+        }),
+      );
+
+      await expect(
+        orchestrator.play("player1", "game1", "card-not-exists"),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("throws BusinessError when the play is invalid according to the engine", async () => {
+      const game = setupActiveGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(
+        setupEngineState(),
+      );
+      GameEngine.validatePlay.mockReturnValue(false);
+
+      await expect(
+        orchestrator.play("player1", "game1", "card1"),
+      ).rejects.toThrow(BusinessError);
+    });
+  });
+
+  describe("start", () => {
+    const setupPendingGame = (over = {}) =>
+      buildGame({
+        status: GAME_STATUS.PENDING,
+        owner: { toString: () => "owner1" },
+        players: [
+          { player: "p1", ready: true },
+          { player: "p2", ready: true },
+        ],
+        ...over,
+      });
+
+    beforeEach(() => {
+      createDeck.mockReturnValue([{ color: "red", type: "number", value: 5 }]);
+      orchestrator.cardRepository.createMany.mockResolvedValue([
+        { _id: "cardDbId1" },
+      ]);
+      GameEngine.startGameState.mockReturnValue({
+        currentPlayer: "p1",
+        players: [],
+      });
+    });
+
+    it("starts the game, persists cards and initial engine state", async () => {
+      const game = setupPendingGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockResolvedValue(game);
+
+      await orchestrator.start("owner1", "game1");
+
+      expect(orchestrator.cardRepository.createMany).toHaveBeenCalled();
+      expect(GameEngine.startGameState).toHaveBeenCalled();
+      expect(
+        orchestrator.gameStateMapper.applyEngineStateToGame,
+      ).toHaveBeenCalled();
+    });
+
+    it("sets game status to ACTIVE and triggers bot turn resolution", async () => {
+      const game = setupPendingGame();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+      orchestrator.runBotTurnIfNeeded = jest.fn().mockResolvedValue(game);
+
+      await orchestrator.start("owner1", "game1");
+
+      expect(game.status).toBe(GAME_STATUS.ACTIVE);
+      expect(orchestrator.runBotTurnIfNeeded).toHaveBeenCalledWith("game1");
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(orchestrator.start("owner1", "game1")).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("throws BusinessError when the requester is not the game owner", async () => {
+      const game = setupPendingGame({
+        owner: { toString: () => "someoneElse" },
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.start("owner1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("throws BusinessError when the game is not in PENDING status", async () => {
+      const game = setupPendingGame({ status: GAME_STATUS.ACTIVE });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.start("owner1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("throws BusinessError when there are fewer than 2 players", async () => {
+      const game = setupPendingGame({
+        players: [{ player: "p1", ready: true }],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.start("owner1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("throws BusinessError when not all players are ready", async () => {
+      const game = setupPendingGame({
+        players: [
+          { player: "p1", ready: true },
+          { player: "p2", ready: false },
         ],
       });
-      gameRepositoryMock.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
 
-      await expect(
-        orchestrator.updateScore(playerId, gameId, 15),
-      ).rejects.toThrow(BusinessError);
-      expect(scoreRepositoryMock.update).not.toHaveBeenCalled();
+      await expect(orchestrator.start("owner1", "game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+  });
+
+  describe("playBotTurn", () => {
+    const buildActiveGameWithBot = (over = {}) =>
+      buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [
+          { player: { toString: () => "bot1" }, isBot: true, saidUno: false },
+        ],
+        ...over,
+      });
+
+    it("returns the game unchanged when the game is not active", async () => {
+      const game = buildGame({ status: GAME_STATUS.PENDING });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      const result = await orchestrator.playBotTurn("game1");
+
+      expect(result).toBe(game);
+      expect(orchestrator.gameRepository.update).not.toHaveBeenCalled();
     });
 
-    it("should throw BusinessError when the score is negative", async () => {
-      const game = buildGame();
-      gameRepositoryMock.getById.mockResolvedValue(game);
+    it("returns the game unchanged when the current player is not a bot", async () => {
+      const game = buildActiveGameWithBot({
+        players: [{ player: { toString: () => "bot1" }, isBot: false }],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
 
-      await expect(
-        orchestrator.updateScore(playerId, gameId, -1),
-      ).rejects.toThrow(BusinessError);
-      expect(scoreRepositoryMock.update).not.toHaveBeenCalled();
+      const result = await orchestrator.playBotTurn("game1");
+
+      expect(result).toBe(game);
+      expect(orchestrator.gameRepository.update).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(orchestrator.playBotTurn("game1")).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("throws BusinessError when the current player is not present in the game", async () => {
+      const game = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "ghost" },
+        players: [],
+      });
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      await expect(orchestrator.playBotTurn("game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("makes the bot draw a card and pass the turn when no play is available", async () => {
+      const game = buildActiveGameWithBot();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      const engineState = { players: [{ player: "bot1" }], discard: [] };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      orchestrator.bot.choosePlay.mockReturnValue(null);
+      GameEngine.drawFromDeck.mockReturnValue({
+        state: { players: [{ player: "bot1" }] },
+        drawn: [{ id: "c1" }],
+      });
+
+      await orchestrator.playBotTurn("game1");
+
+      expect(GameEngine.drawFromDeck).toHaveBeenCalled();
+      expect(GameEngine.applyPlay).not.toHaveBeenCalled();
+    });
+
+    it("makes the bot play a valid card chosen by the bot strategy", async () => {
+      const game = buildActiveGameWithBot();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      const engineState = {
+        players: [{ player: "bot1" }],
+        discard: [],
+        activeColor: "red",
+      };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      const decision = { card: { id: "c1" }, colorChoice: null };
+      orchestrator.bot.choosePlay.mockReturnValue(decision);
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: { players: [{ hand: { cards: [] } }] },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      await orchestrator.playBotTurn("game1");
+
+      expect(GameEngine.applyPlay).toHaveBeenCalledWith(
+        engineState,
+        0,
+        decision.card,
+        decision.colorChoice,
+      );
+    });
+
+    it("throws BusinessError when the bot's chosen play is invalid", async () => {
+      const game = buildActiveGameWithBot();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+
+      const engineState = { players: [{ player: "bot1" }], discard: [] };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      orchestrator.bot.choosePlay.mockReturnValue({
+        card: { id: "c1" },
+        colorChoice: null,
+      });
+      GameEngine.validatePlay.mockReturnValue(false);
+
+      await expect(orchestrator.playBotTurn("game1")).rejects.toThrow(
+        BusinessError,
+      );
+    });
+
+    it("keeps the UNO challenge pending when the bot ends its turn with exactly one card", async () => {
+      const game = buildActiveGameWithBot();
+      orchestrator.gameRepository.getById.mockResolvedValue(game);
+      orchestrator.gameRepository.update.mockResolvedValue(game);
+
+      const engineState = { players: [{ player: "bot1" }], discard: [] };
+      orchestrator.gameStateMapper.toEngineState.mockResolvedValue(engineState);
+      orchestrator.bot.choosePlay.mockReturnValue({
+        card: { id: "c1" },
+        colorChoice: null,
+      });
+      GameEngine.validatePlay.mockReturnValue(true);
+      GameEngine.applyPlay.mockReturnValue({
+        state: {
+          players: [{ player: "bot1", hand: { cards: [{ id: "onlyCard" }] }, saidUno: false }],
+          unoChallenge: { player: "bot1" },
+        },
+        drawnCards: [],
+        effect: "none",
+      });
+
+      await orchestrator.playBotTurn("game1");
+
+      expect(game.players[0].saidUno).toBe(false);
+      expect(game.unoChallengePlayer).toBe("bot1");
+    });
+  });
+
+  describe("getNextPlayerIndex", () => {
+    it("returns the next index moving forward when direction is 1", () => {
+      const state = { players: [1, 2, 3], direction: 1 };
+      expect(orchestrator.getNextPlayerIndex(state, 0)).toBe(1);
+    });
+
+    it("returns the next index moving backward (wrapping) when direction is -1", () => {
+      const state = { players: [1, 2, 3], direction: -1 };
+      expect(orchestrator.getNextPlayerIndex(state, 0)).toBe(2);
+    });
+  });
+
+  describe("wait", () => {
+    it("resolves after the given delay", async () => {
+      const freshOrchestrator = new GameOrchestrator({}, {}, {}, {}, 0);
+      await expect(freshOrchestrator.wait(0)).resolves.toBeUndefined();
+    });
+  });
+
+  describe("runBotTurnIfNeeded", () => {
+    it("resolves consecutive bot turns until a human player's turn or the game is no longer active", async () => {
+      const humanGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "human1" },
+        players: [{ player: { toString: () => "human1" }, isBot: false }],
+      });
+      const botGame = buildGame({
+        status: GAME_STATUS.ACTIVE,
+        currentPlayer: { toString: () => "bot1" },
+        players: [{ player: { toString: () => "bot1" }, isBot: true }],
+      });
+
+      orchestrator.gameRepository.getById.mockResolvedValue(botGame);
+      orchestrator.playBotTurn = jest.fn().mockResolvedValue(humanGame);
+
+      const result = await orchestrator.runBotTurnIfNeeded("game1");
+
+      expect(orchestrator.playBotTurn).toHaveBeenCalledTimes(1);
+      expect(result).toBe(humanGame);
+    });
+
+    it("throws NotFoundError when the game does not exist", async () => {
+      orchestrator.gameRepository.getById.mockResolvedValue(null);
+
+      await expect(orchestrator.runBotTurnIfNeeded("game1")).rejects.toThrow(
+        NotFoundError,
+      );
     });
   });
 });

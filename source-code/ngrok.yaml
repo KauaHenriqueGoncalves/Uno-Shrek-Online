@@ -1,0 +1,5 @@
+version: "2"
+tunnels:
+  frontend:
+    proto: http
+    addr: front-end:5173

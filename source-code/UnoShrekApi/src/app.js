@@ -4,7 +4,7 @@ import morgan from "morgan";
 import cors from "cors";
 import PinoGlobal from "./modules/shared/logger/pino-global.logger.js";
 import HealthController from "./modules/health/health.controller.js";
-import MongoDb from "./modules/shared/database/mongo-db.js";
+import MongoDb from "./modules/shared/mongoose/mongo-db.js";
 import errorHandler from "./modules/shared/middleware/error-handler.middleware.js";
 import PlayerService from "./modules/player/player.service.js";
 import Player from "./modules/player/player.schema.js";
@@ -22,6 +22,12 @@ import LoginService from "./modules/auth/login.service.js";
 import AuthController from "./modules/auth/auth.controller.js";
 import TokenService from "./modules/auth/token.service.js";
 import GameOrchestrator from "./modules/game/game.orchestrator.js";
+import Friendship from "./modules/friendship/friendship.schema.js";
+import FriendshipService from "./modules/friendship/friendship.service.js";
+import FriendshipController from "./modules/friendship/friendship.controller.js";
+import HistoryService from "./modules/history/history.service.js";
+import HistoryController from "./modules/history/history.controller.js";
+import History from "./modules/history/history.schema.js";
 
 export default class App {
   constructor() {
@@ -75,10 +81,16 @@ export default class App {
     try {
       this.healthController = new HealthController();
 
-      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card);
+      const gameOrchestrator = new GameOrchestrator(Game, ScorePlayer, Player, Card, History);
 
       const playerService = new PlayerService(Player);
       this.playerController = new PlayerController(playerService);
+
+      const friendshipService = new FriendshipService(Friendship, playerService);
+      this.friendshipController = new FriendshipController(friendshipService);
+
+      const historyService = new HistoryService(History, playerService);
+      this.historyController = new HistoryController(historyService);
 
       const gameService = new GameService(Game, gameOrchestrator);
       this.gameController = new GameController(gameService);
@@ -106,6 +118,8 @@ export default class App {
         scorePlayerService,
         loginService,
         tokenService,
+        friendshipService,
+        historyService
       };
     } catch (error) {
       this.log.error(
@@ -123,6 +137,8 @@ export default class App {
       this.express.use("/api/scores", this.scorePlayerController.routers);
       this.express.use("/api/cards", this.cardController.routers);
       this.express.use("/api/auth", this.authController.routers);
+      this.express.use("/api/friends", this.friendshipController.routers);
+      this.express.use("/api/histories", this.historyController.routers);
       this.log.info("Established routes");
     } catch (error) {
       this.log.error(
