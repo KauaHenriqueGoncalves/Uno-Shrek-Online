@@ -2,10 +2,10 @@ import GameRepository from "./game.repository.js";
 import PinoGlobal from "../shared/logger/pino-global.logger.js";
 import { NotFoundError } from "../shared/errors/not-found.error.js";
 import { BusinessError } from "../shared/errors/business.error.js";
+import { UnauthorizedError } from "../shared/errors/unauthorized.error.js";
 import { CreateGameRequestDto } from "./dto/create-game.request.dto.js";
 import { UpdateGameRequestDto } from "./dto/update-game.request.dto.js";
 import { GAME_STATUS } from "./game.schema.js";
-import { shuffle } from "./deck.js";
 import { GameStatusDto } from "./dto/game-status.request.dto.js";
 import { parseOrThrow } from "../shared/utils/validate.js";
 
@@ -45,6 +45,54 @@ export default class GameService {
     return { game };
   }
 
+  /**
+   * Busca um jogo pelo código curto (ex: "URRO-5X9Q").
+   *
+   * @param {string} code
+   * @returns {Promise<import("mongoose").Document>}
+   * @throws {NotFoundError} Se nenhum jogo for encontrado com o código.
+   */
+  async getByCode(code) {
+    this.log.info(`Getting game by code. [code=${code}]`);
+    const game = await this.gameRepository.getByCode(code.toUpperCase());
+    if (!game) {
+      this.log.warn({ code }, "Game not found by code");
+      throw new NotFoundError("Game not found");
+    }
+    return game;
+  }
+
+  /**
+   * Partida rápida: busca a primeira sala pendente com vaga e entra nela.
+   * Se não houver nenhuma, cria uma sala pública nova automaticamente.
+   *
+   * @param {string} userId
+   * @returns {Promise<import("mongoose").Document>} O jogo que o jogador entrou ou criou.
+   */
+  async quickJoin(userId) {
+    this.log.info(`Quick join requested. [userId=${userId}]`);
+
+    const available = await this.gameRepository.findFirstAvailable(userId);
+
+    if (available) {
+      this.log.info(
+        `Found available game for quick join. [gameId=${available._id}] [userId=${userId}]`,
+      );
+      // sala pública não tem senha — passa string vazia
+      return await this.joinInGame(userId, available._id.toString(), "");
+    }
+
+    this.log.info(
+      `No available game found, creating new one. [userId=${userId}]`,
+    );
+
+    return await this.create(userId, {
+      title: "Partida Rápida",
+      maxPlayers: 4,
+      password: "",
+    });
+  }
+
   async create(userId, data) {
     const validData = parseOrThrow(CreateGameRequestDto, data);
     this.log.info(
@@ -64,22 +112,21 @@ export default class GameService {
     const dataSave = {
       ...validData,
       owner: ownerId,
-      players: [{ player: ownerId, ready: false, score: 0 }],
+      players: [{ player: ownerId, ready: true, score: 0 }],
     };
     const game = await this.gameRepository.create(dataSave);
     this.log.info(
-      `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}]`,
+      `Game created. [gameId=${game._id.toString()}] [ownerId=${ownerId}] [code=${game.code}]`,
     );
     const { game: gameWithScore } =
       await this.orchestrator.createScorePlayerFor(
         ownerId,
         game._id.toString(),
       );
-    this.log.info({ gameId: game._id.toString() }, "Game created");
     return gameWithScore;
   }
 
-  async joinInGame(userId, gameId) {
+  async joinInGame(userId, gameId, password) {
     const playerId = userId;
     this.log.info(
       `Player want to join in game. [playerId=${playerId}] [gameId=${gameId}]`,
@@ -103,6 +150,15 @@ export default class GameService {
       );
       throw new BusinessError("Player already joined this game");
     }
+
+    // Salas com senha vazia são públicas — não valida senha
+    if (game.password && game.password !== password) {
+      this.log.warn(
+        `Invalid password in game. [userId=${userId}] [gameId=${gameId}]`,
+      );
+      throw new UnauthorizedError("Invalid credentials to game");
+    }
+
     game.players.push({ player: playerId, ready: false });
     await this.gameRepository.update(gameId, game);
     const { game: gameUpdate } = await this.orchestrator.createScorePlayerFor(
@@ -217,8 +273,7 @@ export default class GameService {
     this.log.info(
       `Delegating start to orchestrator. [ownerId=${userId}] [gameId=${gameId}]`,
     );
-    const updated = await this.orchestrator.start(userId, gameId);
-    return updated;
+    return await this.orchestrator.start(userId, gameId);
   }
 
   async draw(userId, gameId) {
@@ -233,6 +288,14 @@ export default class GameService {
       `Delegating play to orchestrator. [playerId=${userId}] [gameId=${gameId}] [cardId=${cardId}] [colorChoice=${colorChoice}]`,
     );
     return await this.orchestrator.play(userId, gameId, cardId, colorChoice);
+  }
+
+  async sayUno(userId, gameId) {
+    return await this.orchestrator.sayUno(userId, gameId);
+  }
+
+  async challengeUno(userId, gameId) {
+    return await this.orchestrator.challengeUno(userId, gameId);
   }
 
   async finishedGame(userId, gameId) {
@@ -258,6 +321,26 @@ export default class GameService {
     game.status = GAME_STATUS.FINISHED;
     const gameUpdated = await this.gameRepository.update(gameId, game);
     this.log.info(`Game finished. [ownerId=${ownerId}] [gameId=${gameId}]`);
+    return gameUpdated;
+  }
+
+  async finishGameByInactivity(gameId) {
+    this.log.info(`Finishing game due to inactivity. [gameId=${gameId}]`);
+
+    const game = await this.getById(gameId);
+
+    if (game.status === GAME_STATUS.FINISHED) {
+      this.log.info(`Game already finished. [gameId=${gameId}]`);
+
+      return game;
+    }
+
+    game.status = GAME_STATUS.FINISHED;
+
+    const gameUpdated = await this.gameRepository.update(gameId, game);
+
+    this.log.info(`Game finished due to inactivity. [gameId=${gameId}]`);
+
     return gameUpdated;
   }
 
@@ -295,5 +378,9 @@ export default class GameService {
     const deleted = await this.gameRepository.deleteById(id);
     this.log.info({ gameId: id }, "Game deleted");
     return deleted;
+  }
+
+  async addBot(gameId) {
+    return await this.orchestrator.addBotToGame(gameId);
   }
 }

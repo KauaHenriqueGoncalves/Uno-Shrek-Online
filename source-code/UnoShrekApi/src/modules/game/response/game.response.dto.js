@@ -1,3 +1,5 @@
+import HistoryResponseDto from "../../history/response/history.response.dto.js";
+
 export default class GameResponseDto {
   constructor(game) {
     this.id = game._id.toString();
@@ -34,9 +36,14 @@ export default class GameResponseDto {
   static fromDocumentRoom(game) {
     return {
       id: game._id.toString(),
+      code: game.code,
       title: game.title,
       owner: game.owner ? game.owner._id.toString() : null,
       status: game.status,
+      startedAt: game.startedAt ?? null,
+      winner: game.winner
+        ? (game.winner._id ?? game.winner).toString()
+        : null,
       currentPlayer: game.currentPlayer
         ? game.currentPlayer._id.toString()
         : null,
@@ -44,7 +51,11 @@ export default class GameResponseDto {
       players: game.players.map((p) => ({
         player: p.player._id.toString(),
         username: p.player.username,
+        picture: p.player.picture ?? null,
+        avatarKey: p.player.avatarKey ?? null,
         ready: p.ready,
+        isBot: Boolean(p.isBot),
+        saidUno: Boolean(p.saidUno),
         score: p.scorePlayer ? p.scorePlayer.score : 0,
         hand: {
           cards: p.hand.cards.map((c) => this.fromDocumentDeckOnHand(c)),
@@ -54,6 +65,10 @@ export default class GameResponseDto {
       discard: game.discard.map((c) => this.fromDocumentDeckOnHand(c)),
       direction: game.direction,
       activeColor: game.activeColor,
+      histories: HistoryResponseDto.fromDocumentListDetails(game.histories),
+      unoChallengePlayer: game.unoChallengePlayer
+        ? (game.unoChallengePlayer._id ?? game.unoChallengePlayer).toString()
+        : null,
       createdAt: game.createdAt,
     };
   }

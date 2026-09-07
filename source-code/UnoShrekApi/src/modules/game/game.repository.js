@@ -39,11 +39,32 @@ export default class GameRepository extends CrudRepository {
       .findOne({ _id: id })
       .populate("owner")
       .populate("currentPlayer")
+      .populate("unoChallengePlayer")
+      .populate("winner")
       .populate("players.player")
       .populate("players.hand.cards")
       .populate("players.scorePlayer")
+      .populate({
+        path: "histories",
+        populate: [{ path: "player" }, { path: "card" }],
+      })
       .populate("deck")
       .populate("discard")
+      .session(session);
+  }
+
+  async getByCode(code, session = null) {
+    return await this.schema.findOne({ code }).session(session);
+  }
+
+  // busca a primeira sala pending com vaga que o jogador ainda não está
+  async findFirstAvailable(userId, session = null) {
+    return await this.schema
+      .findOne({
+        status: "pending",
+        $expr: { $lt: [{ $size: "$players" }, "$maxPlayers"] },
+        "players.player": { $ne: userId },
+      })
       .session(session);
   }
 }

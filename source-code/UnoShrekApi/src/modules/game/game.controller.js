@@ -63,6 +63,16 @@ export default class GameController {
       asyncHandler(this.getCurrentScoreById.bind(this)),
     );
     this.routers.get(
+      "/quick-join",
+      authMiddleware,
+      asyncHandler(this.quickJoin.bind(this))
+    );
+    this.routers.get(
+      "/code/:code",
+      authMiddleware, 
+      asyncHandler(this.getByCode.bind(this))
+    );
+    this.routers.get(
       "/:id",
       authMiddleware,
       asyncHandler(this.getById.bind(this)),
@@ -93,6 +103,16 @@ export default class GameController {
       asyncHandler(this.play.bind(this)),
     );
     this.routers.put(
+      "/:id/say-uno",
+      authMiddleware,
+      asyncHandler(this.sayUno.bind(this)),
+    );
+    this.routers.put(
+      "/:id/challenge-uno",
+      authMiddleware,
+      asyncHandler(this.challengeUno.bind(this)),
+    );
+    this.routers.put(
       "/:id/score",
       authMiddleware,
       asyncHandler(this.updatePlayerScore.bind(this)),
@@ -106,6 +126,11 @@ export default class GameController {
       "/:id",
       authMiddleware,
       asyncHandler(this.delete.bind(this)),
+    );
+    this.routers.put(
+      "/:id/add-bot", 
+      authMiddleware, 
+      asyncHandler(this.addBot.bind(this))
     );
   }
 
@@ -168,7 +193,8 @@ export default class GameController {
   async joinInGame(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
-    const game = await this.service.joinInGame(userId, gameId);
+    const password = req.body.password;
+    const game = await this.service.joinInGame(userId, gameId, password);
     const response = { message: "User joined the game successfully" };
     return res.status(200).json(response);
   }
@@ -240,6 +266,18 @@ export default class GameController {
     return res.status(200).json({ message: "Card played", gameId: game._id });
   }
 
+  async sayUno(req, res) {
+    const userId = req.user && req.user.id;
+    const game = await this.service.sayUno(userId, req.params.id);
+    return res.status(200).json({ message: "UNO declared", gameId: game._id });
+  }
+
+  async challengeUno(req, res) {
+    const userId = req.user && req.user.id;
+    const game = await this.service.challengeUno(userId, req.params.id);
+    return res.status(200).json({ message: "UNO challenged", gameId: game._id });
+  }
+
   async finishedGame(req, res) {
     const userId = req.user && req.user.id;
     const gameId = req.body.gameId;
@@ -258,4 +296,30 @@ export default class GameController {
     await this.service.deleteById(req.params.id);
     return res.status(204).json();
   }
+
+  async addBot(req, res) {
+    const game = await this.service.addBot(req.params.id);
+    return res.status(200).json({ message: "Bot added successfully", gameId: game._id });
+  }
+  
+  async quickJoin(req, res) {
+  const game = await this.service.quickJoin(req.user.id);
+  return res.status(200).json({
+    gameId: game._id,
+    code: game.code,
+    title: game.title,
+  });
+}
+
+async getByCode(req, res) {
+  const game = await this.service.getByCode(req.params.code);
+  return res.status(200).json({
+    gameId: game._id,
+    code: game.code,
+    title: game.title,
+    players: game.players.length,
+    maxPlayers: game.maxPlayers,
+    status: game.status,
+  });
+}
 }
