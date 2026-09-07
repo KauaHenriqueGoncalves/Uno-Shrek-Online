@@ -1,6 +1,6 @@
-# UnoShrek API
+# UnoShrek API (DOCUMENTAION DEPRECATED)
 
-- [Link da documentação no Postman ](https://documenter.getpostman.com/view/46440768/2sBY4Qreda)
+- [Link da documentação no Postman ](https://documenter.getpostman.com/view/57499632/2sBYAuSWok)
 
 Versão digital do jogo de cartas **UNO**, desenvolvida em **Node.js**, que permite que múltiplos jogadores participem de uma sessão de jogo e joguem entre si seguindo as regras do UNO.
 

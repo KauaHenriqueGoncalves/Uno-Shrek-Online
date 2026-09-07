@@ -12,6 +12,51 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
+    mem_limit: 512m
+    cpus: 0.5
+
+  api:
+    build: ./UnoShrekApi
+    container_name: uno-shrek-api
+    restart: unless-stopped
+    env_file: ./UnoShrekApi/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    mem_limit: 1g
+    cpus: 1.5
+
+  front-end:
+    build: ./UnoShrekFrontEnd
+    container_name: uno-shrek-front-end
+    restart: unless-stopped
+    env_file: ./UnoShrekFrontEnd/.env
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    mem_limit: 256m
+    cpus: 0.3
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: proxy-ngrok
+    restart: unless-stopped
+    command: start --all --config /etc/ngrok.yml
+    mem_limit: 128mb
+    cpus: 0.2
+    environment:
+    - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./ngrok.yaml:/etc/ngrok.yml
+    ports:
+      - "4040:4040"
+    depends_on:
+      - api
+      - front-end
 
 volumes:
   mongodb_data:
