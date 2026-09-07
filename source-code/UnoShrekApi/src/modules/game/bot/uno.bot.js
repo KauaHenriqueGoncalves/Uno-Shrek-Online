@@ -18,17 +18,21 @@ export default class UnoBot {
   choosePlay(state, playerIndex) {
     const player = state.players[playerIndex];
 
+    // Verifica se o jogador é um bot e se possui cartas na mão
     if (!player?.hand?.cards?.length) {
       return null;
     }
 
+    // Representa a mão do bot
     const hand = player.hand.cards;
 
+    // Filtra as cartas jogáveis com base na carta do topo do descarte e na cor ativa
     const topCard =
       state.discard?.length > 0
         ? state.discard[state.discard.length - 1]
         : null;
 
+    // Filtra as cartas jogáveis com base na carta do topo do descarte e na cor ativa
     const playableCards = hand.filter((card) =>
       isValidPlay(card, topCard, state.activeColor),
     );
@@ -38,13 +42,14 @@ export default class UnoBot {
       return null;
     }
 
+    // Determina o próximo jogador na ordem de jogo
     const nextPlayerIndex = this.getNextPlayerIndex(
       state,
       playerIndex,
     );
 
     const nextPlayer = state.players[nextPlayerIndex];
-
+ 
     const nextPlayerCards =
       nextPlayer?.hand?.cards?.length ?? Infinity;
 
@@ -57,7 +62,6 @@ export default class UnoBot {
         return this.createDecision(specialCard, hand);
       }
     }
-
     
      //  Evita gastar coringas enquanto houver outras cartas jogáveis
     const nonWildCards = playableCards.filter(
@@ -82,14 +86,18 @@ export default class UnoBot {
   
   // Prioridade das cartas especiais: = 2 > Skip > Reverse
   chooseSpecialCard(cards) {
+
+    // Aqui escolhe a carta especial com maior prioridade, caso haja mais de uma jogável.
     const specialCards = cards.filter((card) =>
       SPECIAL_CARDS.includes(card.type),
     );
 
+    // Se não houver cartas especiais jogáveis, retorna null.
     if (specialCards.length === 0) {
       return null;
     }
 
+    // Prioridade das cartas especiais: Draw Two > Skip > Reverse
     const drawTwo = specialCards.find(
       (card) => card.type === "draw_two",
     );
@@ -98,6 +106,7 @@ export default class UnoBot {
       return drawTwo;
     }
 
+    // Se não houver Draw Two, procura por Skip
     const skip = specialCards.find(
       (card) => card.type === "skip",
     );
@@ -106,6 +115,7 @@ export default class UnoBot {
       return skip;
     }
 
+    // Se não houver Skip, procura por Reverse
     return specialCards.find(
       (card) => card.type === "reverse",
     );
@@ -115,8 +125,11 @@ export default class UnoBot {
   // Para manter o bot no nível intermediário, não fazemos uma análise extremamente complexa.
   // Preferimos cartas que aparecem mais vezes na mão, ajudando o bot a manter opções para os próximos turnos.
   chooseNormalCard(cards) {
+
+    // Contagem de cores na mão do bot
     const colorCount = {};
 
+    // Contabiliza a quantidade de cartas de cada cor na mão do bot
     for (const card of cards) {
       if (COLORS.includes(card.color)) {
         colorCount[card.color] =
@@ -124,17 +137,19 @@ export default class UnoBot {
       }
     }
 
+    // Cria um array de objetos contendo a carta e sua pontuação com base na contagem de cores
     const scoredCards = cards.map((card) => ({
       card,
       score: colorCount[card.color] || 0,
     }));
 
+    // Ordena as cartas com base na pontuação 
     scoredCards.sort((a, b) => {
       if (b.score !== a.score) {
         return b.score - a.score;
       }
 
-      return Math.random() - 0.5;
+      return Math.random() - 0.5; // empate, então escolhe aleatoriamente entre as cartas com a mesma pontuação
     });
 
     return scoredCards[0].card;
@@ -146,18 +161,22 @@ export default class UnoBot {
       (card) => card.type === "wild",
     );
 
-    return wild || cards[0];
+    return wild || cards[0]; // Se não houver coringa simples, retorna o primeiro coringa disponível 
   }
 
  
   // Cria a decisão final do bot.
   createDecision(card, hand) {
+
+    // Cria a mão que sobraria depois que o bot jogar aquela carta
     const remainingCards = hand.filter(
       (handCard) => handCard.id !== card.id,
     );
 
+    
     let colorChoice = null;
 
+    // Se a carta jogada for um coringa, escolhe a cor que aparece mais vezes na mão do bot.
     if (WILD_CARDS.includes(card.type)) {
       colorChoice = this.chooseBestColor(remainingCards);
     }
@@ -195,7 +214,7 @@ export default class UnoBot {
       .map(([color]) => color)[0];
   }
 
-  // Obtem o inddex do prox jogador, respeitando a direção atual da partida.
+  // Obtem o index do prox jogador, respeitando a direção atual da partida.
   getNextPlayerIndex(state, playerIndex) {
     const direction =
       state.direction === -1 ? -1 : 1;
