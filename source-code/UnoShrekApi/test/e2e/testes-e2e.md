@@ -10,11 +10,14 @@ de ponta a ponta: da autenticação até o encerramento de uma partida.
 
 1. Suba a infraestrutura local (MongoDB) via Docker Compose:
    ```
-   docker compose up -d mongo
+   docker compose up -d mongodb
    ```
 2. Garanta que o `.env` da API aponta para esse Mongo (`MONGODB_HOST`,
    `MONGODB_USER`, etc.).
-3. Rode os testes E2E:
+
+3. Modifique o valor do campo `MONGODB_HOST` para `localhost` e o coloque o valor do campo de `PROFILE` para `dev`, ambas alterações no `.env` da API.
+
+4. Rode os testes E2E:
    ```
    node --env-file=.env node_modules/jest/bin/jest.js test/e2e --runInBand
    ```
