@@ -254,7 +254,7 @@ export default class GameOrchestrator extends EventEmitter {
         },
         "Card drawn from deck",
       );
-      const nextIndex = (playerIndex + 1) % stateAfterDraw.players.length;
+      const nextIndex = this.getNextPlayerIndex(stateAfterDraw, playerIndex);
       stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
       this.log.info(
         `Turn passed after draw. [gameId=${gameId}] [from=${userId}] [to=${stateAfterDraw.currentPlayer}]`,
@@ -339,7 +339,7 @@ export default class GameOrchestrator extends EventEmitter {
         );
         throw new BusinessError("Invalid play");
       }
-      const {
+      let {
         state: stateAfterPlay,
         drawnCards,
         effect,
@@ -576,6 +576,13 @@ export default class GameOrchestrator extends EventEmitter {
         const nextIndex = this.getNextPlayerIndex(stateAfterDraw, playerIndex);
         stateAfterDraw.currentPlayer = stateAfterDraw.players[nextIndex].player;
         this.gameStateMapper.applyEngineStateToGame(game, stateAfterDraw);
+        await this._registerHistory(
+          game,
+          currentPlayerId,
+          "draw",
+          drawn[0]?.id ?? null,
+          session,
+        );
         const updatedGame = await this.gameRepository.update(
           gameId,
           game,
@@ -599,7 +606,7 @@ export default class GameOrchestrator extends EventEmitter {
       if (!GameEngine.validatePlay(decision.card, topCard, state.activeColor)) {
         throw new BusinessError("Bot selected an invalid play");
       }
-      const {
+      let {
         state: stateAfterPlay,
         drawnCards,
         effect,
@@ -615,6 +622,9 @@ export default class GameOrchestrator extends EventEmitter {
       if (remainingCards === 1) {
         stateAfterPlay.unoChallenge = { player: stateAfterPlay.players[playerIndex].player };
         stateAfterPlay.players[playerIndex].saidUno = false;
+        if (decision.callUno) {
+          stateAfterPlay = GameEngine.sayUno(stateAfterPlay, playerIndex);
+        }
       }
 
       this.gameStateMapper.applyEngineStateToGame(game, stateAfterPlay);
@@ -630,8 +640,8 @@ export default class GameOrchestrator extends EventEmitter {
         }
 
       // Mantém o desafio pendente quando o bot termina com uma carta.
-      game.players[playerIndex].saidUno = false;
-      if (remainingCards === 1) {
+      game.players[playerIndex].saidUno = decision.callUno === true && remainingCards === 1;
+      if (remainingCards === 1 && !decision.callUno) {
         game.unoChallengePlayer = currentPlayerId;
         this.log.info(
           { gameId, playerId: currentPlayerId },
@@ -640,6 +650,13 @@ export default class GameOrchestrator extends EventEmitter {
       } else {
         game.unoChallengePlayer = null;
       }
+      await this._registerHistory(
+        game,
+        currentPlayerId,
+        "play",
+        decision.card.id,
+        session,
+      );
       const updatedGame = await this.gameRepository.update(
         gameId,
         game,

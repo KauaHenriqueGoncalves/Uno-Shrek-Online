@@ -134,8 +134,12 @@ export async function broadcastRoomMessage(io, socket, playerService, playerId, 
     );
 
     io.to(gameId).emit(PLAYER_EVENTS.OUTPUT.MESSAGE_ROOM_OUT, {
+      playerId: player._id.toString(),
       username: player.username,
+      picture: player.picture ?? null,
+      avatarKey: player.avatarKey ?? null,
       message,
+      createdAt: new Date().toISOString(),
     });
   } catch (err) {
     log.warn({ err }, "socket failed");

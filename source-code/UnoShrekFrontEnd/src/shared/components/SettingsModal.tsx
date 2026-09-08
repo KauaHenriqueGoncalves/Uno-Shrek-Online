@@ -38,19 +38,24 @@ export function SettingsModal({
   onExit,
   onClose,
 }: Props) {
-  const { darkMode, toggleDarkMode } = useSettings();
+  const {
+    darkMode,
+    toggleDarkMode,
+    effectsEnabled,
+    toggleEffects,
+    musicEnabled,
+    toggleMusic,
+  } = useSettings();
 
   const [toggles, setToggles] = useState<
-    Record<Exclude<ToggleKey, "dark">, boolean>
+    Record<Exclude<ToggleKey, "dark" | "effects" | "music">, boolean>
   >({
-    effects: true,
-    music: true,
     colorblind: false,
     reduceMotion: false,
   });
 
   const toggle = (
-    key: Exclude<ToggleKey, "dark">,
+    key: Exclude<ToggleKey, "dark" | "effects" | "music">,
   ) => {
     setToggles((prev) => {
       const next = {
@@ -85,6 +90,16 @@ export function SettingsModal({
       return;
     }
 
+    if (key === "effects") {
+      toggleEffects();
+      return;
+    }
+
+    if (key === "music") {
+      toggleMusic();
+      return;
+    }
+
     toggle(key);
   };
 
@@ -114,7 +129,11 @@ export function SettingsModal({
                 const enabled =
                   key === "dark"
                     ? darkMode
-                    : toggles[key];
+                    : key === "effects"
+                      ? effectsEnabled
+                      : key === "music"
+                        ? musicEnabled
+                        : toggles[key];
 
                 return (
                   <div
