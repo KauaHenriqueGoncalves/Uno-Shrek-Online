@@ -161,6 +161,26 @@
   }
 }
 
+@keyframes wild-card-colors {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.wild-card-text {
+  background: linear-gradient(90deg, #ed1c24, #c28a00, #5d9213, #1677d2, #ed1c24);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: wild-card-colors 2.4s ease-in-out infinite;
+}
+
 /* Keep legacy utility classes in the same swamp palette while dark mode is on. */
 .dark [class~="bg-[#FAEFDD]"],
 .dark [class~="bg-[#FDF8E4]"],
@@ -298,5 +318,161 @@
   .winner-burst-left,
   .winner-burst-right {
     animation: none;
+  }
+}
+
+/* =========================================================
+   GAME CARDS
+   ========================================================= */
+
+.playing-card {
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 150ms ease,
+    opacity 150ms ease;
+}
+
+.playing-card:hover:not(:disabled) {
+  transform: translateY(-12px) scale(1.03);
+  filter: brightness(1.05);
+  z-index: 20;
+}
+
+.playing-card:active:not(:disabled) {
+  transform: translateY(-6px) scale(0.97);
+}
+
+/* Carta selecionada */
+.card-selected {
+  animation: card-selected 260ms cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+  z-index: 30;
+}
+
+/* Carta nova entrando na mão */
+.card-enter {
+  animation: card-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Impacto visual quando uma carta chega ao descarte */
+.card-discard-impact {
+  animation: card-discard-impact 320ms cubic-bezier(0.2, 0.9, 0.25, 1.2);
+}
+
+@keyframes card-selected {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: translateY(-18px) scale(1.07) rotate(-1deg);
+  }
+
+  100% {
+    transform: translateY(-12px) scale(1.03);
+  }
+}
+
+@keyframes card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.82) rotate(4deg);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.02) rotate(-1deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes card-discard-impact {
+  0% {
+    transform: rotate(6deg) scale(1);
+  }
+
+  35% {
+    transform: rotate(6deg) scale(1.08);
+  }
+
+  65% {
+    transform: rotate(5deg) scale(0.97);
+  }
+
+  100% {
+    transform: rotate(6deg) scale(1);
+  }
+}
+
+/* Monte de cartas */
+.card-back {
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 150ms ease;
+}
+
+/* Acessibilidade / usuários que preferem menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  .playing-card,
+  .card-back {
+    transition: none;
+  }
+
+  .card-selected,
+  .card-enter,
+  .card-discard-impact {
+    animation: none;
+  }
+}
+
+@keyframes card-fly-to-discard {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+
+  20% {
+    transform: translate3d(0, -24px, 0) scale(1.08) rotate(-4deg);
+  }
+
+  100% {
+    opacity: 0.95;
+    transform:
+      translate3d(var(--card-target-x), var(--card-target-y), 0)
+      scale(0.92)
+      rotate(8deg);
+  }
+}
+
+@keyframes card-fly-from-opponent {
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(0, 0, 0)
+      scale(0.9)
+      rotate(var(--card-rotation));
+  }
+
+  20% {
+    opacity: 1;
+    transform:
+      translate3d(0, -12px, 0)
+      scale(1.04)
+      rotate(calc(var(--card-rotation) * 1.5));
+  }
+
+  100% {
+    opacity: 0.95;
+    transform:
+      translate3d(
+        var(--card-target-x),
+        var(--card-target-y),
+        0
+      )
+      scale(0.92)
+      rotate(calc(var(--card-rotation) * -1));
   }
 }

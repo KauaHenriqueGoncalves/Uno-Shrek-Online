@@ -1,4 +1,5 @@
 import miniCards from "../../../assets/cards/specials/urro-back.png";
+import { forwardRef } from "react";
 
 export type Opponent = {
   id: string;
@@ -8,11 +9,14 @@ export type Opponent = {
   active?: boolean;
 };
 
-export function OpponentSeat({
-  player,
-}: {
-  player: Opponent;
-}) {
+export const OpponentSeat = forwardRef<
+  HTMLDivElement,
+  {
+    player: Opponent;
+  }
+>(({ player }, ref) => {
+  const visibleCards = Math.min(player.cards, 6);
+
   return (
     <div className="flex flex-col items-center gap-1">
       <div
@@ -47,15 +51,20 @@ export function OpponentSeat({
 
       <div className="flex items-center">
         {Array.from({
-          length: Math.min(player.cards, 6),
-        }).map((_, index) => (
-          <img
-            key={index}
-            src={miniCards}
-            alt=""
-            className="-ml-2 h-7 w-[19px] object-contain first:ml-0"
-          />
-        ))}
+          length: visibleCards,
+        }).map((_, index) => {
+          const isLastCard = index === visibleCards - 1;
+
+          return (
+            <img
+              key={index}
+              ref={isLastCard ? ref : undefined}
+              src={miniCards}
+              alt=""
+              className="-ml-2 h-7 w-[19px] object-contain first:ml-0"
+            />
+          );
+        })}
 
         <span className="ml-1 text-[10px] font-bold text-white drop-shadow-[0_1px_0_#3D291F]">
           {player.cards}
@@ -63,4 +72,6 @@ export function OpponentSeat({
       </div>
     </div>
   );
-}
+});
+
+OpponentSeat.displayName = "OpponentSeat";
