@@ -1,0 +1,28 @@
+name: test
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    container: node:22.16.0-alpine
+    defaults:
+      run:
+        working-directory: source-code/UnoShrekApi
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: source-code/UnoShrekApi/.npm-cache
+          key: npm-${{ hashFiles('source-code/UnoShrekApi/package-lock.json') }}
+
+      - run: npm ci
+        env:
+          npm_config_cache: .npm-cache
+
+      - run: npm run test
+        env:
+          npm_config_cache: .npm-cache
