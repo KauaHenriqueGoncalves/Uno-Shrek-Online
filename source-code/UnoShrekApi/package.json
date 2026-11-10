@@ -61,7 +61,7 @@
     "express": "^5.2.1",
     "google-auth-library": "^11.0.2",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.7.4",
+    "mongoose": "^9.11.4",
     "morgan": "^1.11.0",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
